@@ -94,7 +94,7 @@ void mock_server_thread(std::atomic<std::uint16_t> *port_out, std::atomic<bool> 
 		ok->store(false);
 		return;
 	}
-	int alen = sizeof(a);
+	socklen_t alen = sizeof(a);
 	if (::getsockname(ls, reinterpret_cast<sockaddr *>(&a), &alen) != 0) {
 		close_sock(ls);
 		ok->store(false);
@@ -107,7 +107,7 @@ void mock_server_thread(std::atomic<std::uint16_t> *port_out, std::atomic<bool> 
 	}
 	port_out->store(ntohs(a.sin_port), std::memory_order_relaxed);
 	sockaddr_in peer{};
-	int plen = sizeof(peer);
+	socklen_t plen = sizeof(peer);
 	sock_t c = ::accept(ls, reinterpret_cast<sockaddr *>(&peer), &plen);
 	close_sock(ls);
 	if (bad_sock(c)) {
