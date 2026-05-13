@@ -30,6 +30,10 @@ The emulator is for:
 - **Integration teams** wiring a host product (call accounting, table downloads, smart-card validation, software upgrades) to a faithfully emulated terminal over a network transport.
 - **Curious engineers** studying a complete Z180-based embedded system — CPU, devices, peripherals, NVRAM, modem, audio, and HMI — in one tree.
 
+## Companion project
+
+- **[CoinLine Payphone Management Platform](https://github.com/andrew867/CoinLine)** — the **server-side** counterpart for the same payphone family. Provisioning, table distribution, call rating, cards/account administration, technician craft workflows, firmware orchestration, DLOG/NCC inspection, and audit, on .NET 9 + React + PostgreSQL. The emulator is useful for bringing up and validating that host platform end-to-end without physical terminals.
+
 ## Project status — honest version
 
 The project is **a working bring-up**, not a finished product. It has reached the point where help from other engineers, preservation hackers, or MAME contributors would unlock the next milestone faster than working on it alone.
