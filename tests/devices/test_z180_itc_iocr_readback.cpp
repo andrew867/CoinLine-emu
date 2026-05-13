@@ -43,8 +43,10 @@ int main()
 
 	std::string const report = read_text(root() / "build/generated/z180-internal-readback-regression.json");
 	if (report.empty()) {
-		std::cerr << "missing generated readback report\n";
-		return 1;
+		// Evidence is produced by a MAME-backed run; skip when running the
+		// CMake-only suite without a MAME binary.
+		std::cerr << "skipping: Z180 readback regression report not generated\n";
+		return 77;
 	}
 	for (char const *needle : { "\"0x0034\"", "\"z180_itc\"", "\"0x38\": 3045", "\"0x003F\"", "\"z180_iocr\"" }) {
 		if (!contains(report, needle)) {
