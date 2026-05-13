@@ -1,0 +1,8 @@
+{
+  "documentation_ref": "docs/z180-internal-peripherals.md",
+  "registers_relative": {
+    "DSTAT": "0x30",
+    "DMODE": "0x31",
+    "DCNTL": "0x32"
+  }
+}

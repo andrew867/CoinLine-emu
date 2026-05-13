@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0",
+  "scope": "boot_critical_only",
+  "audit_date": "2026-05-05",
+  "reference_baseline_run": "build/runs/20260504T135115-post-mmu-boot-gate",
+  "firmware_sha256": "b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34",
+  "measured_highest_milestone_start": "M5",
+  "boot_tranche_b1": {
+    "interrupt_trace_itc_il": true,
+    "timer_trace_prt1_cntr": true,
+    "reset_trace_machine_reset_line": true,
+    "interrupt_events_auto_with_interrupt_trace": true
+  },
+  "items": [
+    {
+      "id": "HW-INT-001",
+      "name": "Interrupt ITC/IL / IFF / IM",
+      "boot_critical": true,
+      "status_category": "partial",
+      "commit_after_completion": null,
+      "notes": "interrupt-trace + interrupt-events when COINLINE_TRACE_INTERRUPTS=1 (auto sidecars B1)"
+    },
+    {
+      "id": "HW-TMR-001",
+      "name": "PRT timers",
+      "boot_critical": true,
+      "status_category": "partial",
+      "commit_after_completion": null,
+      "notes": "timer-trace.jsonl includes PRT0+PRT1 registers after B1"
+    },
+    {
+      "id": "HW-RES-001",
+      "name": "Reset / watchdog",
+      "boot_critical": true,
+      "status_category": "unknown",
+      "commit_after_completion": null,
+      "notes": "machine_reset line in reset-trace.jsonl when enabled; watchdog IC TBD"
+    },
+    {
+      "id": "HW-ASCI-001",
+      "name": "ASCI UART",
+      "boot_critical": true,
+      "status_category": "partial",
+      "commit_after_completion": null
+    },
+    {
+      "id": "HW-MOD-001",
+      "name": "Modem line model",
+      "boot_critical": true,
+      "status_category": "partial",
+      "commit_after_completion": null
+    },
+    {
+      "id": "HW-HB-001",
+      "name": "Host bridge TCP",
+      "boot_critical": false,
+      "status_category": "partial",
+      "notes": "Enable only if trace proves boot waits on host"
+    },
+    {
+      "id": "HW-MACH-001",
+      "name": "MACH PIO 0xC0",
+      "boot_critical": true,
+      "status_category": "partial",
+      "commit_after_completion": null
+    },
+    {
+      "id": "HW-VOIC-001",
+      "name": "Voiceware",
+      "boot_critical": "conditional",
+      "status_category": "partial",
+      "commit_after_completion": null
+    },
+    {
+      "id": "HW-AUD-001",
+      "name": "Audio routing",
+      "boot_critical": false,
+      "status_category": "partial",
+      "notes": "Only if voiceware/route gates boot"
+    },
+    {
+      "id": "HW-NVRAM-001",
+      "name": "NVRAM file",
+      "boot_critical": "conditional",
+      "status_category": "partial",
+      "notes": "Only if trace shows config before VFD"
+    },
+    {
+      "id": "HW-VFD-001",
+      "name": "2-line VFD",
+      "boot_critical": true,
+      "status_category": "partial",
+      "commit_after_completion": null,
+      "notes": "M6 blocked until real 0x60 write observed"
+    },
+    {
+      "id": "HW-EV-001",
+      "name": "Evidence bundles",
+      "boot_critical": false,
+      "status_category": "partial"
+    },
+    {
+      "id": "HW-SCN-001",
+      "name": "Screenshot harness",
+      "boot_critical": true,
+      "status_category": "complete_unverified",
+      "notes": "Script + PNG path environment-dependent"
+    }
+  ]
+}

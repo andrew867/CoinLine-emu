@@ -1,0 +1,46 @@
+{
+  "timestamp_utc": "2026-05-06T03:39:15Z",
+  "reference_run": "build/runs/20260506T005800-boot-critical",
+  "post_fix_runs": [
+    "build/runs/20260506T010242-boot-critical",
+    "build/runs/20260506T010324-boot-critical",
+    "build/runs/20260506T010503-boot-critical",
+    "build/runs/20260506T010756-boot-critical"
+  ],
+  "milestones": {
+    "M6": true,
+    "M7A": true,
+    "M7B": true,
+    "M7C": false
+  },
+  "vfd_final_text": [
+    "Telephony board is",
+    "not responding"
+  ],
+  "source_map": {
+    "not_responding_ui_owner": "SERVTASK.C (SERVS_CHECK_OOS_MSG / service display selection)",
+    "alarm_clear_path": "CONTTELC.C TELEPHONY_ERROR_REPORT -> TERMSUB2.C alarm clear path",
+    "telephony_up_flag_path": "TERMSUB2.C / INITASK.C (TERMFG_TELEPHONY_UP, INIS_GOT_TEL_INF)"
+  },
+  "trace_observations": {
+    "c4_checksum_ok": true,
+    "c0_checksum_ok": true,
+    "service_update_level_observed": false,
+    "servs_check_oos_msg_observed": false,
+    "alarm_clear_observed": true,
+    "alarm_latch_observed": true,
+    "alarm_clear_after_latch_observed": true,
+    "termfg_telephony_up_candidate": true,
+    "rtos_signal_candidate_inis_got_tel_inf": true
+  },
+  "cycle_fixes": [
+    "COINLINE_TEL_RESPONSE_POLICY implemented with immediate/latch_then_clear/withhold modes",
+    "default uart policy set to latch_then_clear",
+    "alarm latch inferred from not-responding display branch before release",
+    "C4/C0 releases traced with c4_withheld_waiting_for_latch and c4_released_after_latch"
+  ],
+  "result": {
+    "m7c_reached": false,
+    "remaining_gate": "service display progression after alarm clear and telephony-up signal"
+  }
+}

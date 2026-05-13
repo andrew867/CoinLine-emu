@@ -1,0 +1,11 @@
+{
+  "documentation_ref": "docs/z180-internal-peripherals.md",
+  "prt0_relative_ports": {
+    "TMDR0L": "0x0C",
+    "TMDR0H": "0x0D",
+    "RLDR0L": "0x0E",
+    "RLDR0H": "0x0F",
+    "TCR": "0x10"
+  },
+  "periodic_tick_note": "Firmware-dependent; exact PRT0 rate vs CPU clock is OPEN until traced on hardware or long MAME runs."
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "fixtures/audio/voiceware-invalid-prompt/v1",
+  "description": "Illegal sequence or out-of-range phrase — expect voice_fault trace.",
+  "writes": [],
+  "expected_events": ["voice_fault"],
+  "compatibility_validation_required": ["fault_irq_behavior"]
+}

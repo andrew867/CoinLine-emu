@@ -1,0 +1,8 @@
+{
+  "type": "smartcard",
+  "protocol": "memory",
+  "atr_hex": "3B 00",
+  "memory_hex": "",
+  "atr_delay_us": 2000,
+  "apdu_response_delay_us": 500
+}

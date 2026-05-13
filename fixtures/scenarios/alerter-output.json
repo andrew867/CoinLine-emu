@@ -1,0 +1,11 @@
+{
+  "scenario_id": "alerter-output",
+  "description": "Fault or service entry path that triggers local tones — prove via alerter trace.",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/alerter-output",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "wait_cycles", "cycles": 200000000 },
+    { "verb": "export_evidence" }
+  ]
+}

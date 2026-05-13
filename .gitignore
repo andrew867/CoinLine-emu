@@ -1,0 +1,48 @@
+# Build outputs (local-only; never committed).
+build/
+build-*/
+out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.ninja
+.ninja_deps
+.ninja_log
+compile_commands.json
+
+# Default output path for the user I/O trace when unset (local evidence).
+user-io-trace.jsonl
+
+# Evidence / local runs (never committed).
+evidence-bundles/
+.evidence/
+*.log
+
+# Firmware / ROM blobs: by default the repo ships the committed images under
+# firmware/ and ignores everything else (dumps, evidence captures, scratch work).
+*.bin
+*.rom
+*.dla
+*.fw
+*.hex
+*.s19
+*.mot
+!firmware/flash.bin
+!firmware/flash1.bin
+!firmware/voice_a.bin
+!firmware/voice_b.bin
+!firmware/telephony_subprocessor.rom
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vs/
+.vscode/
+*.user
+
+# MAME / external tree checkouts (if ever vendored locally; default is external path)
+third-party/mame/

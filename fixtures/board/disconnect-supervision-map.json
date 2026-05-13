@@ -1,0 +1,30 @@
+{
+  "schema": "board/disconnect-supervision-map/v1",
+  "description": "Supervision-related telephony status codes and internal class mapping.",
+  "processor_to_host_codes": {
+    "LINE_INTERRUPTION": { "hex": "0x64", "confidence": "high" },
+    "LINE_CONNECTION": { "hex": "0x66", "confidence": "high" },
+    "LINE_REVERSAL_0": { "hex": "0x68", "confidence": "high" },
+    "LINE_REVERSAL_1": { "hex": "0x6A", "confidence": "high" },
+    "ON_HOOK_TRANSITION": { "hex": "0x60", "confidence": "high" },
+    "OFF_HOOK_TRANSITION": { "hex": "0x62", "confidence": "high" },
+    "ON_HOOK_STATE": { "hex": "0x6C", "confidence": "high" },
+    "OFF_HOOK_STATE": { "hex": "0x6E", "confidence": "high" },
+    "HANDSET_OK": { "hex": "0x8C", "confidence": "high" },
+    "HANDSET_DISCONTINUITY": { "hex": "0x8E", "confidence": "high" }
+  },
+  "internal_classes": {
+    "LINE_INTERRUPTION_CODE": { "value": 0, "confidence": "high", "evidence_internal": "reference firmware: SUPERVSN.H" },
+    "LINE_CONNECTION_CODE": { "value": 1, "confidence": "high" },
+    "LINE_REVERSAL_CODE": { "value": 2, "confidence": "high" }
+  },
+  "timers": {
+    "cutoff_on_disconnect_duration": {
+      "rom_default": 45,
+      "units": "profile_timer_ticks",
+      "status": "compatibility_validation_required",
+      "notes": "ROM table stores 45; convert to ms only after verifying task tick base."
+    }
+  },
+  "emulator_target": "src/mame/coinline/millennium_supervision.cpp"
+}

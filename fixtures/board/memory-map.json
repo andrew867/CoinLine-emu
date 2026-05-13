@@ -1,0 +1,52 @@
+{
+  "address_spaces": [
+    "program"
+  ],
+  "regions": [
+    {
+      "name": "rom",
+      "base": "0x00000",
+      "size": 1048576,
+      "access": "r",
+      "device": "rom",
+      "evidence": "",
+      "notes": "Full flash image linearly mapped at reset. Z180 physical space is 20-bit; emulator may bank \u2014 see OPEN QUESTION in public memory-map.md."
+    },
+    {
+      "name": "ram",
+      "base": "0x100000",
+      "size": 131072,
+      "access": "rw",
+      "device": "ram",
+      "evidence": "",
+      "notes": "OPEN QUESTION: fold into on-chip MMU banking vs flat extended model; validate with tests/boot/test_ram_init.cpp once M3 traces exist."
+    },
+    {
+      "name": "nvram",
+      "base": "0x120000",
+      "size": 8192,
+      "access": "rw",
+      "device": "nvram",
+      "evidence": "",
+      "notes": "Placeholder base/size for schema + layout tests; replace when nvram-storage-source-map confirms."
+    },
+    {
+      "name": "tablestore",
+      "base": "0x122000",
+      "size": 32768,
+      "access": "rw",
+      "device": "nvram",
+      "evidence": "",
+      "notes": "Separated from nvram primary in fixture for layout tests; may collapse to one region after evidence review."
+    },
+    {
+      "name": "dlastage",
+      "base": "0x12A000",
+      "size": 65536,
+      "access": "rw",
+      "device": "nvram",
+      "evidence": "",
+      "notes": "Staging size placeholder; align with firmware-download-source-map."
+    }
+  ]
+}

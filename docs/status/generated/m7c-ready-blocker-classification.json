@@ -1,0 +1,31 @@
+{
+  "timestamp_utc": "2026-05-06T03:39:15Z",
+  "run_folder": "build/runs/20260506T010756-boot-critical",
+  "classification": "termflag_set_but_ui_not_refreshed",
+  "evidence": {
+    "alarm_condition_trace": {
+      "latched_observed": true,
+      "clear_observed": true,
+      "clear_after_latch": true
+    },
+    "service_task_trace": {
+      "SERVS_UPDATE_LEVEL_observed": false,
+      "SERVS_CHECK_OOS_MSG_observed": false
+    },
+    "ready_decision_trace": {
+      "c4_released_after_latch": true,
+      "policy": "latch_then_clear"
+    },
+    "vfd_final_text": [
+      "Telephony board is",
+      "not responding"
+    ]
+  },
+  "why_not_other_classes": {
+    "alarm_never_latched_before_clear": "no longer true in latest run",
+    "alarm_clear_not_called": "clear candidate is present",
+    "termflag_not_set": "termflag/telephony-up candidates are present",
+    "service_signal_missing": "INIS_GOT_TEL_INF candidate appears"
+  },
+  "next_fix_target": "service display wakeup/queue propagation after alarm clear and INIS_GOT_TEL_INF ordering"
+}

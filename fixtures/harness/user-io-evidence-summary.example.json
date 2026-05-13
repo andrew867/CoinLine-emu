@@ -1,0 +1,35 @@
+{
+  "run_id": "example-20260507-001",
+  "resolved_profile_id": "vfd_11line_softkeys",
+  "spec_versions": {
+    "terminal_21_user_io_keys_hooks_softkeys_spec": "1.1.0",
+    "terminal_21_user_io_profile_matrix": "1.0.0",
+    "terminal_22_user_io_timing_and_arbitration_spec": "1.1.0",
+    "terminal_23_user_io_feature_overlay_profiles_spec": "1.1.0",
+    "terminal_24_user_io_fault_injection_and_recovery_spec": "1.1.0",
+    "terminal_25_user_io_harness_profile_and_evidence_schema_spec": "1.1.0"
+  },
+  "vector_results": [
+    {
+      "name": "repdial_10_button_full_mapping",
+      "status": "passed",
+      "timing_observed_ms": 0,
+      "expected_bytes_observed": [],
+      "failure_reason_if_any": null
+    }
+  ],
+  "counters": {
+    "unknown_opcode_count": 0,
+    "duplicate_release_count": 0,
+    "synthetic_release_count": 0,
+    "dropped_event_count": 0,
+    "hook_event_integrity_violation_count": 0,
+    "illegal_multi_softkey_sample_count": 0,
+    "abuse_guard_escalation_count": 0
+  },
+  "pass_fail_summary": {
+    "total_vectors": 1,
+    "passed": 1,
+    "failed": 0
+  }
+}

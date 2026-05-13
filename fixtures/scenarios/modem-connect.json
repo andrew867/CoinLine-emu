@@ -1,0 +1,14 @@
+{
+  "scenario_id": "modem-connect",
+  "description": "Exercise modem control verbs and fixture replay in CI; full host evidence requires MAME scenario runner.",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "steps": [
+    {"verb": "reset"},
+    {"verb": "run_cycles", "cycles": 100},
+    {"verb": "inject_modem_event", "event": "dialing"},
+    {"verb": "inject_modem_event", "event": "ringing"},
+    {"verb": "inject_modem_event", "event": "connected"},
+    {"verb": "inject_modem_event", "event": "carrier_lost"},
+    {"verb": "inject_modem_event", "event": "recover_idle"}
+  ]
+}

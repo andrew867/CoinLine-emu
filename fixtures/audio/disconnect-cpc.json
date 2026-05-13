@@ -1,0 +1,15 @@
+{
+  "schema": "fixtures/audio/disconnect-cpc/v1",
+  "description": "Supervision fixture — CPC-class event when profile distinguishes it.",
+  "disconnect_event": "cpc",
+  "replay_steps": [
+    { "kind": "status", "hex": "0x68" },
+    { "kind": "status", "hex": "0x6A" }
+  ],
+  "expected_trace": [
+    { "event_type": "supervision_status_code", "status_code_hex": "0x68" },
+    { "event_type": "supervision_status_code", "status_code_hex": "0x6A" },
+    { "event_type": "disconnect_event", "disconnect_event": "cpc" }
+  ],
+  "compatibility_validation_required": ["cpc_pulse_width_and_debounce"]
+}

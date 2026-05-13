@@ -1,0 +1,8 @@
+{
+  "schema": "fixtures/audio/alerter-error-beep/v1",
+  "description": "Cadence expectation for error-class tone.",
+  "tone_class": "error_beep",
+  "edges_ms": [0, 250],
+  "edge_slack_ms": 2,
+  "compatibility_validation_required": ["alerter_port_bit_timings"]
+}

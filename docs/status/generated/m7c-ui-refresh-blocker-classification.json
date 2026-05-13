@@ -1,0 +1,23 @@
+{
+  "timestamp_utc": "2026-05-06T03:57:00Z",
+  "run_folder": "build/runs/20260506T012610-boot-critical",
+  "classification": "oos_message_check_still_selects_not_responding",
+  "milestones": {
+    "M6": true,
+    "M7A": true,
+    "M7B": true,
+    "M7C": false
+  },
+  "evidence": {
+    "alarm_latched": true,
+    "alarm_clear_after_latch": true,
+    "service_refresh_signal": true,
+    "service_display_task_enter": true,
+    "display_queue_write": true,
+    "display_queue_flush": true,
+    "vfd_exit_not_responding": false,
+    "vfd_still_not_responding": true
+  },
+  "policy": "latch_then_clear",
+  "next_fix_target": "service level and out-of-service message selection after ready status acceptance"
+}

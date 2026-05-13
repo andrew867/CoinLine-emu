@@ -1,0 +1,12 @@
+{
+  "scenario_id": "voice-prompt-playback",
+  "expect_audio_traces": true,
+  "description": "Arm voiceware phrase / bank via firmware I/O — prove prompt_playback cross-trace matrix (voiceware + audio_route + io-trace). No standalone call_state injection.",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/voice-prompt-playback",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "wait_for_milestone", "milestone": "M5", "timeout_cycles": 500000000 },
+    { "verb": "export_evidence" }
+  ]
+}

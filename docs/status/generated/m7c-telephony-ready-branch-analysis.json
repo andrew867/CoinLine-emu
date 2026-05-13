@@ -1,0 +1,15 @@
+{
+  "schema_version": "coinline.m7c_branch_analysis/v1",
+  "stall_ui_driver": "craft_visual_prompt_when_telephony_up_clear",
+  "alarm_clear_opcode_class": "0xC4_error_report_handler",
+  "telephony_up_primary_path": "0xC0_during_power_on_seq_signals_init_telephony_inf",
+  "c0_length_byte": 8,
+  "c4_length_byte": 4,
+  "c0_payload_octets": 5,
+  "c4_payload_octets": 1,
+  "emulator_csio_both_frames_checksum_ok": true,
+  "m7b_milestone_requires_both_frames": true,
+  "m7c_blocked_by": "vfd_stall_string_persists_despite_csio_ok",
+  "por_vs_ack_note": "Late_injected_0x70_after_0x72_can_suspend_IP_comm_mid_PWR_ON_SEQ_per_CONTTEL2",
+  "next_focus": ["single_0x72_bootstrap", "no_periodic_0x72", "avoid_late_0x70_suspend_after_queries"]
+}

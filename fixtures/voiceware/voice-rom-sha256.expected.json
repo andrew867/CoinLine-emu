@@ -1,0 +1,5 @@
+{
+  "schema_version": "coinline.voice_rom_manifest/v1",
+  "voice_a_sha256": "e8b5c9628dd8e807ff71f31046fc2fee190f577e986535c65cdaaabda50a16d7",
+  "voice_b_sha256": "5480548ed2bc9b0b12ebe40a309d0e413532daf34a7433f805c9037c183c6bcd"
+}

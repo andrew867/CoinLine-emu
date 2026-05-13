@@ -1,0 +1,40 @@
+{
+  "mode": "im2",
+  "vector_base_register": "I",
+  "il_base_register": "IL",
+  "sources": [
+    {
+      "source": "INT0",
+      "external_line": "INT0",
+      "owning_device": "modem",
+      "evidence": "the firmware evidence inventory — firmware source tree / IODEFS.h RINGD_BIT on STATUS_PORT_2 (0x41) / modem path; OPEN QUESTION: exact glue net list",
+      "status": "suspected",
+      "validation_test": "tests/devices/test_modem_state_machine.cpp — assert INT0 edge on simulated ring"
+    },
+    {
+      "source": "PRT0",
+      "external_line": null,
+      "owning_device": "z180",
+      "evidence": "Z180 HD64180 datasheet — PRT0; firmware source tree / IODEFS.h TCR/TMDR0",
+      "status": "known",
+      "validation_test": "tests/devices/test_z180_prt.cpp"
+    },
+    {
+      "source": "ASCI0",
+      "external_line": null,
+      "owning_device": "modem",
+      "evidence": "firmware source tree / IODEFS.h — ASCI channel 0 registers 0x00–0x09",
+      "status": "known",
+      "validation_test": "tests/devices/test_z180_asci.cpp"
+    },
+    {
+      "source": "ASCI1",
+      "external_line": null,
+      "owning_device": "z180",
+      "evidence": "Z180 datasheet — ASCI1; OPEN QUESTION: firmware use on this SKU",
+      "status": "suspected",
+      "validation_test": "tests/devices/test_z180_asci.cpp — trace enables on ASCI1"
+    }
+  ]
+}
+

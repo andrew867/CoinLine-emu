@@ -1,0 +1,8 @@
+{
+  "schema": "fixtures/audio/audio-route-offhook-prompt/v1",
+  "description": "Off-hook with voice prompt path active.",
+  "route_state": "off_hook_prompt",
+  "mute_state": { "mic": true, "earpiece": false },
+  "voice_prompt_path_active": true,
+  "compatibility_validation_required": ["route_enum_binding"]
+}

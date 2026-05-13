@@ -1,0 +1,7 @@
+{
+  "schema": "fixtures/audio/audio-route-idle/v1",
+  "description": "Expected route snapshot after machine_reset — matches audio-routing-state-map idle/default rows.",
+  "route_state": "idle",
+  "mute_state": { "mic": false, "earpiece": false },
+  "compatibility_validation_required": ["exact_idle_bit_encoding"]
+}

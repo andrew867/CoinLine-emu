@@ -1,0 +1,223 @@
+<?xml version="1.0"?>
+<!--
+license:BSD-3-Clause
+copyright-holders:CoinLine contributors
+-->
+<mamelayout version="2">
+	<element name="front" defstate="0">
+		<image file="millennium-terminal-front.png" />
+	</element>
+	<element name="hit_num" defstate="0">
+		<rect state="0">
+			<color red="0.00" green="0.64" blue="0.91" alpha="0.30" />
+		</rect>
+	</element>
+	<element name="hit_down" defstate="0">
+		<rect state="0">
+			<color red="1.00" green="0.50" blue="0.16" alpha="0.32" />
+		</rect>
+	</element>
+	<element name="hit_up" defstate="0">
+		<rect state="0">
+			<color red="1.00" green="0.95" blue="0.00" alpha="0.32" />
+		</rect>
+	</element>
+	<element name="hit_lang" defstate="0">
+		<rect state="0">
+			<color red="0.93" green="0.11" blue="0.14" alpha="0.32" />
+		</rect>
+	</element>
+	<element name="hit_newcall" defstate="0">
+		<rect state="0">
+			<color red="0.53" green="0.00" blue="0.08" alpha="0.32" />
+		</rect>
+	</element>
+	<element name="hit_quick" defstate="0">
+		<rect state="0">
+			<color red="0.78" green="0.75" blue="0.91" alpha="0.30" />
+		</rect>
+	</element>
+	<element name="hit_coin" defstate="0">
+		<rect state="0">
+			<color red="0.85" green="0.79" blue="0.95" alpha="0.30" />
+		</rect>
+	</element>
+	<element name="hit_misc" defstate="0">
+		<rect state="0">
+			<color red="0.95" green="0.2" blue="0.95" alpha="0.00" />
+		</rect>
+	</element>
+	<element name="handset_state" defstate="0">
+		<rect state="0">
+			<color red="0.95" green="0.16" blue="0.16" alpha="0.34" />
+		</rect>
+		<rect state="1">
+			<color red="0.23" green="0.92" blue="0.45" alpha="0.36" />
+		</rect>
+	</element>
+	<element name="hit_vfd" defstate="0">
+		<rect state="0">
+			<color red="0.42" green="0.84" blue="0.97" alpha="0.00" />
+		</rect>
+	</element>
+	<element name="line_btn" defstate="0">
+		<rect state="0">
+			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+		</rect>
+	</element>
+	<element name="line_lbl_hook" defstate="0">
+		<rect state="0">
+			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+		</rect>
+		<text string="LINE">
+			<color red="1.0" green="1.0" blue="1.0" />
+			<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
+		</text>
+	</element>
+	<element name="line_lbl_ring" defstate="0">
+		<rect state="0">
+			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+		</rect>
+		<text string="REV 0">
+			<color red="1.0" green="1.0" blue="1.0" />
+			<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
+		</text>
+	</element>
+	<element name="line_lbl_answer" defstate="0">
+		<rect state="0">
+			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+		</rect>
+		<text string="REV 1">
+			<color red="1.0" green="1.0" blue="1.0" />
+			<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
+		</text>
+	</element>
+	<view name="Standard">
+		<element ref="front">
+			<bounds left="0" top="0" right="643" bottom="1515" />
+		</element>
+		<screen index="0">
+			<bounds left="219" top="360" right="558" bottom="444" />
+		</screen>
+		<element ref="hit_vfd">
+			<bounds left="219" top="360" right="558" bottom="444" />
+		</element>
+		<!-- Numeric keypad -->
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000001">
+			<bounds left="387" top="528" right="429" bottom="570" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000002">
+			<bounds left="446" top="527" right="489" bottom="569" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000004">
+			<bounds left="504" top="526" right="547" bottom="571" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000008">
+			<bounds left="383" top="584" right="430" bottom="633" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000010">
+			<bounds left="445" top="585" right="488" bottom="630" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000020">
+			<bounds left="505" top="586" right="547" bottom="632" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000040">
+			<bounds left="387" top="643" right="431" bottom="687" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000080">
+			<bounds left="445" top="644" right="492" bottom="689" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000100">
+			<bounds left="504" top="642" right="549" bottom="692" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000200">
+			<bounds left="386" top="703" right="433" bottom="749" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000400">
+			<bounds left="446" top="705" right="493" bottom="749" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000800">
+			<bounds left="504" top="702" right="550" bottom="750" />
+		</element>
+
+		<!-- Top row: down/up/language/new-call -->
+		<element ref="hit_down" inputtag="KEYMATRIX" inputmask="0x00020000">
+			<bounds left="325" top="466" right="354" bottom="491" />
+		</element>
+		<element ref="hit_up" inputtag="KEYMATRIX" inputmask="0x00010000">
+			<bounds left="387" top="470" right="406" bottom="486" />
+		</element>
+		<element ref="hit_lang" inputtag="KEYMATRIX" inputmask="0x00040000">
+			<bounds left="433" top="466" right="499" bottom="492" />
+		</element>
+		<element ref="hit_newcall" inputtag="KEYMATRIX" inputmask="0x00001000">
+			<bounds left="515" top="465" right="581" bottom="491" />
+		</element>
+
+		<!-- Quick access row -->
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00002000">
+			<bounds left="573" top="896" right="614" bottom="919" />
+		</element>
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00002000">
+			<bounds left="392" top="897" right="436" bottom="919" />
+		</element>
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00004000">
+			<bounds left="513" top="897" right="553" bottom="918" />
+		</element>
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00008000">
+			<bounds left="452" top="898" right="494" bottom="918" />
+		</element>
+
+		<!-- Simulated line controls -->
+		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x01">
+			<bounds left="573" top="859" right="613" bottom="882" />
+		</element>
+		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x02">
+			<bounds left="392" top="859" right="436" bottom="882" />
+		</element>
+		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x04">
+			<bounds left="513" top="859" right="553" bottom="882" />
+		</element>
+		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x08">
+			<bounds left="632" top="859" right="672" bottom="882" />
+		</element>
+		<element ref="line_lbl_hook">
+			<bounds left="573" top="859" right="613" bottom="882" />
+		</element>
+		<element ref="line_lbl_ring">
+			<bounds left="392" top="859" right="436" bottom="882" />
+		</element>
+		<element ref="line_lbl_answer">
+			<bounds left="513" top="859" right="553" bottom="882" />
+		</element>
+
+		<!-- Handset icon / off-hook -->
+		<element ref="handset_state" inputtag="KEYMATRIX" inputmask="0x00080000">
+			<bounds left="46" top="471" right="133" bottom="761" />
+		</element>
+
+		<!-- Service toggles -->
+		<element ref="hit_misc" inputtag="SECMASK" inputmask="0x01">
+			<bounds left="274" top="18" right="352" bottom="96" />
+		</element>
+
+		<!-- CARDUI: magstripe swipe (0x01), smart-card insert (0x02) -->
+		<element ref="hit_misc" inputtag="CARDUI" inputmask="0x01">
+			<bounds left="110" top="654" right="129" bottom="673" />
+		</element>
+		<element ref="hit_misc" inputtag="CARDUI" inputmask="0x02">
+			<bounds left="236" top="654" right="255" bottom="673" />
+		</element>
+
+		<!-- COINUI: coin insert (0x01), coin return (0x02), jam sim (0x04) -->
+		<element ref="hit_coin" inputtag="COINUI" inputmask="0x01">
+			<bounds left="573" top="896" right="614" bottom="919" />
+		</element>
+		<element ref="hit_coin" inputtag="COINUI" inputmask="0x02">
+			<bounds left="330" top="899" right="372" bottom="920" />
+		</element>
+		<element ref="hit_coin" inputtag="COINUI" inputmask="0x04">
+			<bounds left="392" top="897" right="436" bottom="919" />
+		</element>
+	</view>
+</mamelayout>

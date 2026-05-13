@@ -1,0 +1,7 @@
+{
+  "schema": "fixtures/audio/audio-route-call-connected/v1",
+  "description": "Connected call duplex routing expectation — concrete bits from audio-routing-state-map.",
+  "route_state": "call_connected",
+  "mute_state": { "mic": false, "earpiece": false },
+  "compatibility_validation_required": ["line_side_mux_rules"]
+}

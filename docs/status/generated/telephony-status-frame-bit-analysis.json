@@ -1,0 +1,9 @@
+{
+  "schema_version": "coinline.telephony_status_bits/v1",
+  "c0_wire_layout": ["0xC0", "length_0x08", "total_fail_lo", "total_fail_hi", "call_duration_lo", "call_duration_hi", "call_state", "checksum"],
+  "checksum_rule": "sum_all_octets_from_0xC0_through_last_payload_equals_final_checksum_byte",
+  "payload_words_le": ["total_fail_to_pots_calls", "call_duration"],
+  "call_state_constants_idle": 0,
+  "emulator_payload_default": "all_zero",
+  "blocking_hypothesis": "not_raw_checksum;_ui_refresh_or_init_signal_race"
+}

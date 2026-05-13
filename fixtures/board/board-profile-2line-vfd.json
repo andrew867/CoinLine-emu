@@ -1,0 +1,104 @@
+{
+  "profile_id": "millennium-2line-vfd",
+  "display": {
+    "type": "vfd",
+    "variant": "2line",
+    "idle_fixture": "fixtures/display/vfd-2line-idle.json",
+    "columns": 20,
+    "rows": 2,
+    "busy_cycles_char": 48,
+    "busy_cycles_clear": 240,
+    "busy_cycles_cursor": 64
+  },
+  "keypad": {
+    "layout": "3x4",
+    "quick_access_keys": ["A", "B", "C", "D", "E"],
+    "volume_up": "VOL+",
+    "volume_down": "VOL-",
+    "language": "LANG",
+    "debounce_cycles": 6,
+    "scan_min_total_reads": 16,
+    "scan_min_pb_deltas": 4
+  },
+  "user_io": {
+    "overlay_traits": {
+      "adsi_active": false,
+      "proton_active": false,
+      "mondex_active": false,
+      "git_ui_active": false
+    },
+    "policy": {
+      "user_if_active": true,
+      "protection_blocks_user_if_soft_actions": false,
+      "adsi_runtime_session_active": false,
+      "overlay_blocks_language_next_call": false,
+      "protection_blocks_dial_pad": false,
+      "cp_absorb_blocked_user_if_opcodes": false
+    }
+  },
+  "card_reader": {
+    "present": true,
+    "type": "magnetic"
+  },
+  "smartcard": {
+    "present": true,
+    "type": "iso7816-memory"
+  },
+  "coin": {
+    "validator_type": "pulse",
+    "denominations": [5, 10, 25],
+    "pulse_width_us": 350,
+    "inter_pulse_gap_us": 350
+  },
+  "alerter": {
+    "present": true,
+    "sample_rate_hz": 8000
+  },
+  "security": {
+    "lock": true,
+    "door": true,
+    "vault": true,
+    "service_switch": true,
+    "debounce_cycles": 8
+  },
+  "memory": {
+    "rom_size": 1048576,
+    "ram_size": 131072,
+    "nvram_base": "0x120000",
+    "nvram_size": 8192,
+    "table_storage_base": "0x122000",
+    "table_storage_size": 32768,
+    "dla_stage_base": "0x12A000",
+    "dla_stage_size": 65536
+  },
+  "z180": {
+    "clock_hz": 12288000,
+    "wait_states": {
+      "rom": 0,
+      "ram": 0,
+      "io": 1
+    }
+  },
+  "modem": {
+    "asci_channel": 0,
+    "default_baud": 9600,
+    "default_dcd": false,
+    "default_cts": true
+  },
+  "host_bridge": {
+    "transport": "tcp",
+    "default_endpoint": "127.0.0.1:9000"
+  },
+  "io_ports": {
+    "on_unknown": "log_and_continue",
+    "unknown_default": "0xFF"
+  },
+  "artwork": {
+    "front_image": "docs/images/terminal-unbranded.webp",
+    "layout": "artwork/millennium.lay"
+  },
+  "firmware": {
+    "strict_hash": true,
+    "supported_versions": ["reference-flash-default"]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema": "fixtures/audio/disconnect-timeout/v1",
+  "description": "Supervision watchdog / stuck-line timeout.",
+  "disconnect_event": "timeout",
+  "timeout_ms": null,
+  "replay_steps": [
+    { "kind": "watchdog_fired" }
+  ],
+  "expected_trace": [
+    { "event_type": "supervision_timeout" },
+    { "event_type": "disconnect_event", "disconnect_event": "timeout" }
+  ],
+  "compatibility_validation_required": ["supervision_timeout_threshold_ms"]
+}

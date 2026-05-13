@@ -1,0 +1,10 @@
+{
+  "documentation_ref": "docs/z180-internal-peripherals.md",
+  "asci0_relative_ports": {
+    "CNTLA0": "0x00",
+    "CNTLB0": "0x02",
+    "STAT0": "0x04",
+    "TDR0": "0x06",
+    "RDR0": "0x08"
+  }
+}

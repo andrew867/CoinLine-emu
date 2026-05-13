@@ -1,0 +1,10 @@
+{
+  "scenario_id": "earpiece-mute-unmute",
+  "description": "Exercise earpiece mute toggles through documented inputs only.",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/earpiece-mute-unmute",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "export_evidence" }
+  ]
+}

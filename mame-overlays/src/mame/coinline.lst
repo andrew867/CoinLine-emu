@@ -1,0 +1,12 @@
+// license:BSD-3-Clause
+// copyright-holders:CoinLine contributors
+/*******************************************************************************
+
+    coinline.lst
+
+    Drivers for SUBTARGET=coinline.
+
+*******************************************************************************/
+
+@source:coinline/millennium.cpp
+cl_millennium

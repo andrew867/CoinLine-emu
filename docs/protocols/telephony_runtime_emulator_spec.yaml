@@ -1,0 +1,46 @@
+id: telephony-runtime
+version: 1.0.0
+description: Byte-level emulator/simulator specification for non-boot telephony runtime behavior.
+transport:
+  message_types:
+    single_byte: { format: [opcode], checksum: none }
+    variable_length:
+      format: [msg_type, len, data, chk]
+      len_semantics: includes_msg_type_len_data_and_chk
+      data_len_formula: len-3
+      checksum: { algorithm: byte_additive_mod_256 }
+opcodes:
+  cp_to_tp:
+    QUERY_ERROR_REPORT: 0x38
+    QUERY_HANDSET_CONTINUITY: 0x3B
+    QUERY_KEY_MATRIX: 0x3A
+    QUERY_CO_LINE_STATUS: 0x37
+    CLEAR_ERROR_REPORT: 0x39
+    CLEAR_TELEPHONY_STATUS: 0x35
+    NEXT_CALL_IDLE: 0x32
+    CLEAR_DTMF_DIALING: 0x36
+    RELEASE_HOOK_SWITCH_RELAY: 0x3C
+    SEIZE_HOOK_SWITCH_RELAY: 0x3D
+    TELEPHONY_CONFIG_MSG_HDR: 0xC0
+  tp_to_cp:
+    HANDSET_OK: 0x8C
+    HANDSET_DISCONTINUITY: 0x8E
+    KEY_MATRIX_IDLE: 0x88
+    KEY_MATRIX_ACTIVE: 0x8A
+    CO_LINE_STATUS_1: 0x80
+    TELEPHONY_ERROR_REPORT: 0xC4
+runtime_contracts:
+  periodic_alive_and_health:
+    cp_tx_sequence: [0x38, 0x3B, 0x3A_when_on_hook]
+    expected_tp: [0xC4_frame, 0x8C_or_0x8E, 0x88_or_0x8A_when_queried]
+implementation_status:
+  modeled_now:
+    - query_error_report_0x38_to_C4_frame
+    - query_handset_continuity_0x3B_to_0x8C
+    - query_key_matrix_0x3A_to_0x88
+    - query_co_line_status_0x37_to_0x80
+    - clear_error_0x39_accepted
+    - clear_status_0x35_accepted
+  notes:
+    - deterministic_nominal_runtime_defaults_used
+    - async_supervision_stream_is_scenario_driven

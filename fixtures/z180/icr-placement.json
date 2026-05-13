@@ -1,0 +1,8 @@
+{
+  "documentation_ref": "docs/z180-internal-peripherals.md",
+  "default_icr_value_hex": "0x40",
+  "internal_decode_window": {
+    "base_inclusive_hex": "0x40",
+    "size_ports": 64
+  }
+}

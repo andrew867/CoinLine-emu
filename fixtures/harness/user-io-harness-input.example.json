@@ -1,0 +1,23 @@
+{
+  "run_id": "example-20260507-001",
+  "profile_traits": {
+    "quick_access_key_count": 10,
+    "has_11_line_softkeys": true
+  },
+  "overlay_traits": {
+    "adsi_active": false,
+    "proton_active": false,
+    "mondex_active": false,
+    "git_ui_active": false,
+    "data_jack_manual_keypad_active": false
+  },
+  "enabled_vectors": [
+    "repdial_10_button_full_mapping",
+    "soft_keys_11_line_mode",
+    "tap_dispatch_latency_budget",
+    "unknown_opcode_ignored",
+    "duplicate_release_ignored",
+    "missing_release_synthesized",
+    "contradictory_hook_events_filtered"
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "schema_version": "coinline.m7c_truth_table/v1",
+  "target_milestone": "M7C_TELEPHONY_READY",
+  "assumption_falsification_summary": [
+    {
+      "assumption": "M7B proves real firmware telephony-ready acceptance",
+      "evidence_status": "weakly_suggested_only",
+      "risk": "Parser-level frame evidence can pass while the firmware remains in a not-ready state."
+    },
+    {
+      "assumption": "OOS selector traces are direct firmware selector proof",
+      "evidence_status": "not_proved",
+      "risk": "The current selector label is derived from sampled VFD text and must be treated as a heuristic."
+    },
+    {
+      "assumption": "C0/C4 payloads are semantically correct",
+      "evidence_status": "weakly_suggested_only",
+      "risk": "Checksum-valid status may still encode an unhealthy or incomplete board bundle."
+    },
+    {
+      "assumption": "Latch-then-clear timing is correct",
+      "evidence_status": "not_proved",
+      "risk": "Clear/status may be arriving after the initialization state machine has already taken the fault path."
+    }
+  ],
+  "truth_table": [
+    {
+      "condition_name": "telephony_frame_shape",
+      "current_emulator_value": "checksum_valid_c4_c0_observed",
+      "expected_healthy_value": "checksum_valid_and_timed_for_init_acceptance",
+      "expected_fault_value": "missing_or_late_or_bad_frame",
+      "source_evidence_confidence": "high_for_shape_low_for_semantics",
+      "how_firmware_observes_it": "modeled_telephony_byte_stream",
+      "trace_proving_it": "telephony-parser-trace.jsonl",
+      "currently_proven": "shape_only",
+      "can_still_explain_m7c_failure": true,
+      "next_concrete_test": "send_clear_and_status_promptly_by_default"
+    },
+    {
+      "condition_name": "telephony_init_timing",
+      "current_emulator_value": "previous_uart_profile_waited_for_not_responding_path",
+      "expected_healthy_value": "board_replies_during_initial_poll_window",
+      "expected_fault_value": "board_replies_after_fault_display_path",
+      "source_evidence_confidence": "high",
+      "how_firmware_observes_it": "initial_telephony_poll_sequence",
+      "trace_proving_it": "telephony-ready-decision-trace.jsonl",
+      "currently_proven": "yes",
+      "can_still_explain_m7c_failure": true,
+      "next_concrete_test": "default_to_immediate_response_policy"
+    },
+    {
+      "condition_name": "display_replacement_payload",
+      "current_emulator_value": "no_alternate_replacement_seen",
+      "expected_healthy_value": "real_firmware_vfd_write_replaces_not_responding",
+      "expected_fault_value": "no_replacement_payload",
+      "source_evidence_confidence": "high",
+      "how_firmware_observes_it": "vfd_port_writes",
+      "trace_proving_it": "vfd-trace.jsonl",
+      "currently_proven": "symptom_only",
+      "can_still_explain_m7c_failure": true,
+      "next_concrete_test": "inspect_vfd_after_prompt_response"
+    },
+    {
+      "condition_name": "runtime_health_bundle",
+      "current_emulator_value": "nominal_alias_handlers_present_but_not_exercised_in_latest_run",
+      "expected_healthy_value": "continuity_ok_and_key_matrix_idle",
+      "expected_fault_value": "missing_continuity_or_stuck_key",
+      "source_evidence_confidence": "medium_low",
+      "how_firmware_observes_it": "telephony_health_polls_and_front_panel_inputs",
+      "trace_proving_it": "telephony-ready-decision-trace.jsonl",
+      "currently_proven": "no",
+      "can_still_explain_m7c_failure": true,
+      "next_concrete_test": "preserve_handlers_and_check_after_timing_change"
+    }
+  ],
+  "selected_hypothesis": {
+    "id": "m7b_parser_evidence_not_init_acceptance",
+    "description": "M7B currently proves modeled frame delivery/checksum, not that the firmware accepted telephony ready during its initialization window.",
+    "experiment": "Make prompt telephony response the default policy and remove accumulated refresh-byte pulses from the ready path."
+  },
+  "latest_experiments": {
+    "prompt_default_policy": {
+      "result": "falsified_as_sufficient",
+      "evidence": "Clear/status still occurred after the not-responding display path and did not produce a replacement VFD payload."
+    },
+    "post_config_initial_status_bundle": {
+      "result": "partially_supported_but_not_sufficient",
+      "evidence": "The completed configuration download is the earlier response window; however, a pre-latch error-report clear caused a false M7C candidate and final VFD still returned to not-responding."
+    },
+    "post_config_initial_status_only": {
+      "result": "not_sufficient",
+      "evidence": "A prompt status frame after configuration ACK did not prevent or later clear the not-responding display in 45s or 120s captures."
+    },
+    "m7c_gate_tightening": {
+      "result": "fixed_false_positive",
+      "evidence": "M7C now requires the not-responding banner to have been observed before a later exit can count."
+    }
+  },
+  "latest_result": {
+    "run_folder": "build/runs/20260506T123040-boot-critical",
+    "capture_seconds": 120,
+    "m7c_reached": false,
+    "final_vfd_text": "Telephony board is | not responding",
+    "next_highest_leverage_condition": "status payload semantics or missing board-bundle health field after a valid transport-level C0/C4 exchange"
+  }
+}

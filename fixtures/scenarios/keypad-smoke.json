@@ -1,0 +1,31 @@
+{
+  "scenario_id": "keypad-smoke",
+  "description": "Press each declared matrix key, quick-access keys, volume, language, hookswitch cycle. CI validates this file and replays hardware-level effects in unit tests; firmware-visible acknowledgment requires the full MAME scenario runner and evidence bundle (no synthesized UI ack in coinline_support tests).",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "steps": [
+    {"verb": "reset"},
+    {"verb": "run_cycles", "cycles": 500},
+    {"verb": "press_key", "key": "1", "duration_cycles": 48},
+    {"verb": "press_key", "key": "2", "duration_cycles": 48},
+    {"verb": "press_key", "key": "3", "duration_cycles": 48},
+    {"verb": "press_key", "key": "4", "duration_cycles": 48},
+    {"verb": "press_key", "key": "5", "duration_cycles": 48},
+    {"verb": "press_key", "key": "6", "duration_cycles": 48},
+    {"verb": "press_key", "key": "7", "duration_cycles": 48},
+    {"verb": "press_key", "key": "8", "duration_cycles": 48},
+    {"verb": "press_key", "key": "9", "duration_cycles": 48},
+    {"verb": "press_key", "key": "*", "duration_cycles": 48},
+    {"verb": "press_key", "key": "0", "duration_cycles": 48},
+    {"verb": "press_key", "key": "#", "duration_cycles": 48},
+    {"verb": "press_key", "key": "A", "duration_cycles": 48},
+    {"verb": "press_key", "key": "B", "duration_cycles": 48},
+    {"verb": "press_key", "key": "C", "duration_cycles": 48},
+    {"verb": "press_key", "key": "D", "duration_cycles": 48},
+    {"verb": "press_key", "key": "VOL+", "duration_cycles": 48},
+    {"verb": "press_key", "key": "VOL-", "duration_cycles": 48},
+    {"verb": "press_key", "key": "LANG", "duration_cycles": 48},
+    {"verb": "lift_handset"},
+    {"verb": "run_cycles", "cycles": 200},
+    {"verb": "hang_up"}
+  ]
+}

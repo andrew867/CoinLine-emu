@@ -1,0 +1,12 @@
+{
+  "schema": "fixtures/audio/voiceware-command-reset/v1",
+  "description": "Synthetic port-write sequence: voice reset pulse, bank latch, phrase arm — used by Class A replay tests.",
+  "profile_ref": "fixtures/board/voiceware-command-map.json",
+  "writes": [
+    { "port": "0x40", "value": "0x00", "note": "clear voice_reset bit per active-low semantics (fixture-relative)" },
+    { "port": "0x42", "value": "0x01", "note": "bank nibble" },
+    { "port": "0x40", "value": "0x08", "note": "release reset when mapped on bit 0x08" },
+    { "port": "0x61", "value": "0x00", "note": "phrase code — concrete values promoted by compatibility validation when needed" }
+  ],
+  "compatibility_validation_required": ["exact_reset_pulse_timing_ns"]
+}

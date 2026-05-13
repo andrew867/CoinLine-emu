@@ -1,0 +1,9 @@
+{
+  "schema": "fixtures/audio/voiceware-play-prompt/v1",
+  "description": "Happy-path phrase playback after reset discipline.",
+  "bank": 0,
+  "phrase_code": 1,
+  "expected_events": ["voice_segment_start", "voice_segment_complete"],
+  "duration_ms": null,
+  "compatibility_validation_required": ["prompt_duration_table_rom_or_profile"]
+}

@@ -1,0 +1,13 @@
+{
+  "scenario_id": "audio-boot-init",
+  "expect_audio_traces": true,
+  "description": "Boot until audio milestones M6A/M6B/M6C register — external inputs only (no internal audio injection).",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/audio-boot-init",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "wait_for_milestone", "milestone": "M5", "timeout_cycles": 500000000 },
+    { "verb": "wait_for_milestone", "milestone": "M6A", "timeout_cycles": 800000000, "optional": true },
+    { "verb": "export_evidence" }
+  ]
+}

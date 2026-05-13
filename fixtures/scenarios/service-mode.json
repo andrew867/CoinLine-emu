@@ -1,0 +1,14 @@
+{
+  "scenario_id": "service-mode",
+  "description": "From idle (M10), assert service switch and expect service-mode VFD copy",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/service-mode",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "wait_for_milestone", "milestone": "M10", "timeout_cycles": 500000000 },
+    { "verb": "set_service_state", "value": true },
+    { "verb": "run_cycles", "cycles": 50000000 },
+    { "verb": "expect_vfd_text", "rows": ["   SERVICE MODE     ", "   ENTER CODE:      "] },
+    { "verb": "export_evidence" }
+  ]
+}

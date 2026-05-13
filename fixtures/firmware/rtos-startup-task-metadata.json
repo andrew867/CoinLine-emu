@@ -1,0 +1,39 @@
+{
+  "schema_version": "coinline.rtos.startup-task-metadata/v1",
+  "source": "firmware_metadata",
+  "notes": "Startup task descriptors only.",
+  "tasks": [
+    {
+      "slot": 0,
+      "role": "init_task",
+      "status": 1,
+      "priority": 1,
+      "signals": 0,
+      "signals_upper": 1
+    },
+    {
+      "slot": 1,
+      "role": "background_task",
+      "status": 1,
+      "priority": 2,
+      "signals": 0,
+      "signals_upper": 0
+    },
+    {
+      "slot": 2,
+      "role": "telephony_comm_task",
+      "status": 1,
+      "priority": 2,
+      "signals": 0,
+      "signals_upper": 0
+    },
+    {
+      "slot": 3,
+      "role": "service_update_task",
+      "status": 1,
+      "priority": 3,
+      "signals": 0,
+      "signals_upper": 0
+    }
+  ]
+}

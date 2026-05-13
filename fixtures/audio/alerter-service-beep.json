@@ -1,0 +1,8 @@
+{
+  "schema": "fixtures/audio/alerter-service-beep/v1",
+  "description": "Cadence expectation for service-class tone.",
+  "tone_class": "service_beep",
+  "edges_ms": [0, 65, 115, 180],
+  "edge_slack_ms": 2,
+  "compatibility_validation_required": ["alerter_port_bit_timings"]
+}

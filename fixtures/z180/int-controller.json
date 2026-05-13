@@ -1,0 +1,6 @@
+{
+  "documentation_ref": "docs/z180-internal-peripherals.md",
+  "il_register_relative": "0x33",
+  "itc_register_relative": "0x34",
+  "im2_vector_order": ""
+}

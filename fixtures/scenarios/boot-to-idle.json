@@ -1,0 +1,12 @@
+{
+  "scenario_id": "boot-to-idle",
+  "description": "Reset, wait for idle milestone M10, export evidence",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/boot-to-idle",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "wait_for_milestone", "milestone": "M10", "timeout_cycles": 500000000 },
+    { "verb": "export_evidence" },
+    { "verb": "expect_milestone", "milestone": "M10" }
+  ]
+}

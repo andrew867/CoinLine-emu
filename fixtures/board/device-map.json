@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "devices": [
+    {
+      "tag": "z180",
+      "device_class": "z180",
+      "owning_ports": ["0x00-0x3F"],
+      "owning_regions": ["rom"],
+      "evidence": "firmware source tree / IODEFS.h — on-chip peripheral register file"
+    },
+    {
+      "tag": "pio82c55",
+      "device_class": "pio",
+      "owning_ports": ["0x41", "0x42", "0x43", "0x44", "0xC0", "0xC1", "0xC2", "0xC3", "0x63"],
+      "owning_regions": [],
+      "evidence": "firmware source tree / IODEFS.h — PIO / MACH_PIO definitions"
+    },
+    {
+      "tag": "vfd",
+      "device_class": "vfd",
+      "owning_ports": ["0x60"],
+      "owning_regions": [],
+      "evidence": "firmware source tree / IODEFS.h — DISPLAY_PORT"
+    },
+    {
+      "tag": "board_latch",
+      "device_class": "board_control",
+      "owning_ports": ["0x40"],
+      "owning_regions": [],
+      "evidence": "firmware source tree / IODEFS.h — HW_CNTL_PORT / STATUS_PORT_1"
+    },
+    {
+      "tag": "modem",
+      "device_class": "modem_uart",
+      "owning_ports": ["0x00-0x09"],
+      "owning_regions": [],
+      "evidence": "ASCI0 used for modem leg per firmware source tree /  modem driver sources — OPEN QUESTION: external UART at UART_BASE 0xE0 if present",
+      "notes": "Port overlap with z180 is intentional decode (ASCI inside Z180); emulator routes to Z180 core."
+    }
+  ]
+}
+

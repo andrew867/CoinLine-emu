@@ -1,0 +1,19 @@
+{
+  "run_dir": "build/runs/20260507T000105-nis-craft-install-acceptance",
+  "classification": "cp_writes_query_but_parser_misses_it",
+  "evidence": {
+    "telephony_init_ack_seen": true,
+    "cp_to_tp_bytes_seen_after_ack": true,
+    "tp_readiness_c4_sent_seen": false,
+    "tp_readiness_c0_sent_seen": false,
+    "telephony_runtime_poll_sent_seen": false,
+    "telephony_runtime_poll_response_seen": false,
+    "display_replaced_by_not_responding_seen": true,
+    "ready_state_true_seen": false
+  },
+  "notes": [
+    "Raw CSI/O trace shows many cp_to_tp_byte events after init ACK, but no readiness query sequence events (0x38/0x31) reaching modeled handler.",
+    "Readiness trace shows only 0x70 boot token and 0x74 config ACK queued/consumed before display falls to not responding.",
+    "Runtime trace has zero telephony_runtime_poll_* events before display replacement."
+  ]
+}

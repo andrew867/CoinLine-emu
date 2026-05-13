@@ -1,0 +1,8 @@
+{
+  "schema": "fixtures/audio/audio-route-class-a-replay/v1",
+  "description": "Class A: command bytes in host→processor order (no CPU ports, no scenario route_state).",
+  "command_bytes": ["0x40", "0x42", "0x27", "0x29"],
+  "expect_telephony_command_decode": 4,
+  "expect_final_route_state": "call_connected",
+  "expect_final_mute": { "mic": true, "earpiece": true }
+}

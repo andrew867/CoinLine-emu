@@ -1,0 +1,13 @@
+{
+  "description": "SHA-256 registry for supported terminal firmware binaries (hashes only; never store firmware bytes in git).",
+  "entries": [
+    {
+      "version_id": "reference-flash-default",
+      "friendly_name": "firmware source tree canonical flash image (1 MiB)",
+      "sha256_hex": "b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34",
+      "size_bytes": 1048576,
+      "notes": "1 MiB image from ../firmware/flash.bin + ../firmware/flash1.bin concatenated (or legacy monolithic ../firmware/flash.bin); relative to the repo root unless overridden by COINLINE_* env."
+    }
+  ]
+}
+

@@ -1,0 +1,13 @@
+{
+  "scenario_id": "coin-call",
+  "description": "Insert coin and assert host-call milestone (M11)",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "wait_for_milestone", "milestone": "M10", "timeout_cycles": 500000000 },
+    { "verb": "insert_coin", "denomination": "25" },
+    { "verb": "run_cycles", "cycles": 100000000 },
+    { "verb": "expect_milestone", "milestone": "M11" }
+  ],
+  "evidence_dir": "evidence/coin-call"
+}

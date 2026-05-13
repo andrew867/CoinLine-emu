@@ -1,0 +1,60 @@
+{
+  "schema_version": "coinline.m7c_oos_selector_analysis/v1",
+  "target_milestone": "M7C_TELEPHONY_READY",
+  "captures_seconds": 45,
+  "runs": [
+    "build/runs/20260506T100452-boot-critical",
+    "build/runs/20260506T100744-boot-critical",
+    "build/runs/20260506T100936-boot-critical"
+  ],
+  "selector_current_result": "telephony_not_responding",
+  "exact_selector_condition_observed": "current_vfd_text still matches telephony-not-responding banner on each oos selector pass",
+  "alarm_condition_update": {
+    "latched_observed": true,
+    "cleared_observed": true,
+    "still_selected_after_clear": true
+  },
+  "telephony_ready_state": {
+    "ready_candidate_observed": true,
+    "still_selected_when_ready": true
+  },
+  "telephony_retry_state": {
+    "retry_active_after_clear": false,
+    "timeout_pending_after_clear": false,
+    "forces_selection": false
+  },
+  "service_mode_state": {
+    "service_mode_bits": "0x00000000",
+    "craft_mode_bits": "0x00000000",
+    "door_lock_vault_bits": "0x00000000",
+    "line_mode_bits_latest": "0x00000000",
+    "forces_selection": false
+  },
+  "display_message_cache": {
+    "display_cache_hit_observed": true,
+    "display_message_unchanged_observed": true,
+    "display_cache_invalidated_observed": false,
+    "participates_in_blocker": true
+  },
+  "oos_reason_recompute": {
+    "refresh_signals_observed": true,
+    "alternate_oos_message_selected": false,
+    "no_oos_message_selected": false,
+    "recompute_effective": false
+  },
+  "implemented_fixes": [
+    {
+      "id": "fix_status_publish_after_clear",
+      "type": "timing_order_c4_c0_refresh",
+      "effect": "C0 now published on active post-clear poll path; service refresh reason error_report_poll_status_publish observed"
+    },
+    {
+      "id": "fix_line_answer_default_unasserted",
+      "type": "service_mode_default",
+      "effect": "line_mode_bits moved from 0x00000004 to 0x00000000"
+    }
+  ],
+  "m7c_reached": false,
+  "blocker": "oos_message_check_still_selects_not_responding",
+  "next_expected_fix_direction": "source-backed service/OOS recompute trigger that invalidates stale not-responding selection after clear+ready"
+}

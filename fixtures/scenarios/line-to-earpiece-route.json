@@ -1,0 +1,11 @@
+{
+  "scenario_id": "line-to-earpiece-route",
+  "description": "Carrier/modem-side stimulus so firmware selects line-to-handset routing.",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/line-to-earpiece-route",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "modem_inject_hex", "fixture": "fixtures/modem/clean-connect.hex", "optional": true },
+    { "verb": "export_evidence" }
+  ]
+}

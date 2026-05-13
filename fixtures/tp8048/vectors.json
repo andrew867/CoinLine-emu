@@ -1,0 +1,82 @@
+{
+  "schema": "coinline.tp8048.vectors.v1",
+  "clock_hz": 3579545,
+  "vectors": [
+    {
+      "id": "boot_ack_visible",
+      "steps": [
+        {"action": "reset"},
+        {"action": "step_ms", "ms": 20}
+      ],
+      "expect_tx_any": ["0x72", "0x70"],
+      "expect_state_any": ["boot_ack_visible", "init_dialogue", "runtime_active"]
+    },
+    {
+      "id": "hook_status_onhook",
+      "steps": [
+        {"action": "set_input", "linectrl": "onhook"},
+        {"action": "rx_cp", "byte": "0x30"},
+        {"action": "step_ms", "ms": 5}
+      ],
+      "expect_tx_sequence": ["0x6C"]
+    },
+    {
+      "id": "hook_status_offhook",
+      "steps": [
+        {"action": "set_input", "linectrl": "offhook"},
+        {"action": "step_ms", "ms": 50},
+        {"action": "rx_cp", "byte": "0x30"},
+        {"action": "step_ms", "ms": 5}
+      ],
+      "expect_tx_sequence": ["0x6E"]
+    },
+    {
+      "id": "status_query_c0_len8",
+      "steps": [
+        {"action": "rx_cp", "byte": "0x31"},
+        {"action": "step_ms", "ms": 5}
+      ],
+      "expect_tx_prefix": ["0xC0", "0x08"]
+    },
+    {
+      "id": "error_report_c4_len4",
+      "steps": [
+        {"action": "rx_cp", "byte": "0x38"},
+        {"action": "step_ms", "ms": 5}
+      ],
+      "expect_tx_prefix": ["0xC4", "0x04"]
+    },
+    {
+      "id": "config_ack",
+      "steps": [
+        {"action": "rx_cp", "byte": "0xC0"},
+        {"action": "rx_cp", "byte": "0x7E"},
+        {"action": "step_ms", "ms": 5}
+      ],
+      "expect_tx_contains": ["0x74"]
+    },
+    {
+      "id": "craft_digits_2727378",
+      "steps": [
+        {"action": "set_context", "oos": true, "hook": "onhook", "ready": true},
+        {"action": "press_digit", "digit": 2, "hold_ms": 120, "release_ms": 120},
+        {"action": "press_digit", "digit": 7, "hold_ms": 120, "release_ms": 120},
+        {"action": "press_digit", "digit": 2, "hold_ms": 120, "release_ms": 120},
+        {"action": "press_digit", "digit": 7, "hold_ms": 120, "release_ms": 120},
+        {"action": "press_digit", "digit": 3, "hold_ms": 120, "release_ms": 120},
+        {"action": "press_digit", "digit": 7, "hold_ms": 120, "release_ms": 120},
+        {"action": "press_digit", "digit": 8, "hold_ms": 120, "release_ms": 120}
+      ],
+      "expect_tp_key_sequence": ["2", "7", "2", "7", "3", "7", "8"],
+      "expect_no_direct_cp_injection": true
+    },
+    {
+      "id": "nis_tone_offhook_oos",
+      "steps": [
+        {"action": "set_context", "oos": true, "hook": "offhook", "voice_active": false},
+        {"action": "step_ms", "ms": 80}
+      ],
+      "expect_tone_mode": "nis"
+    }
+  ]
+}

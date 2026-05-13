@@ -1,0 +1,7 @@
+{
+  "schema": "fixtures/audio/audio-route-muted/v1",
+  "description": "User or policy mute engaged.",
+  "route_state": "call_connected",
+  "mute_state": { "mic": true, "earpiece": true },
+  "compatibility_validation_required": ["independent_mute_bits"]
+}

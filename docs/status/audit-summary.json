@@ -1,0 +1,23 @@
+{
+  "audit_timestamp_utc": "2026-05-04T00:50:00Z",
+  "repo_root": "<repo>/coinline-emu",
+  "firmware_resolved_path": "<repo>/firmware/flash.bin",
+  "firmware_sha256": "b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34",
+  "mame_root": "<repo>/third-party/mame",
+  "mame_commit": "e776c98438a465d3486c367cbad3777a6eb7902e",
+  "msys2_shell_profile": "MSYSTEM=MINGW64 — build via MSYS2 bash --login + tools/windows/_build_mame_inner.sh; GCC 16.x requires make NOWERROR=1",
+  "emulator_executable": "<repo>/build/bin/coinline-mame.exe",
+  "emulator_sha256": "be7dee276a3f7360eee94bec50d6c0a5773f94d925e6ce2c1b224eafef72ae3d",
+  "build_success": true,
+  "build_command": "tools/windows/build-mame-coinline.ps1 -ShellFlavor MINGW64 (make REGENIE=1 SUBTARGET=coinline NOWERROR=1)",
+  "run_performed": true,
+  "machine_shortname": "cl_millennium",
+  "run_command_example": "coinline-mame.exe cl_millennium -rompath <repo>/firmware -video none -sound none -nothrottle -seconds_to_run 120",
+  "latest_run_dir": "<repo>/build/runs/20260503T221924",
+  "highest_boot_milestone": "M5",
+  "m10_pass": false,
+  "boot_blocker_path": "<repo>/build/runs/20260503T221924/boot-blocker.md",
+  "validator_note": "validate-boot-milestones.ps1 requires M0–M10 in order; live run reached M5 within 120s — M6–M10 require further I/O/firmware progress or longer runs.",
+  "json_only_tests_remain": true,
+  "json_only_tests_label": "CMake/unit tests under tests/ that do not invoke coinline-mame.exe remain non-MAME; shell integration checks include tests/integration/*.Tests.ps1 (require a real run folder + firmware path)."
+}

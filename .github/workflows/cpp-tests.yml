@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Host C++ tests (CMake). Voiceware uPD7759 core flag is exported so any
+# getenv-sensitive harnesses share the same CI contract.
+
+name: C++ tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  COINLINE_VOICEWARE_UPD7759_CORE: "1"
+
+jobs:
+  cmake-ctest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure and test
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-ci -j"$(nproc)"
+          ctest --test-dir build-ci --output-on-failure

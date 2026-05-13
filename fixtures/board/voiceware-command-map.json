@@ -1,0 +1,42 @@
+{
+  "schema": "board/voiceware-command-map/v1",
+  "description": "Voice playback interface constants derived from integration headers.",
+  "hw_control_port": {
+    "port": "0x40",
+    "voice_reset_bit": {
+      "mask": "0x08",
+      "meaning": "Active-low reset to voice playback device"
+    },
+    "confidence": "high",
+    "status": "known"
+  },
+  "bank_port": {
+    "port": "0x42",
+    "mask": "0x0F",
+    "meaning": "ROM bank select field OR'd into PIO port B image",
+    "confidence": "high",
+    "status": "known"
+  },
+  "code_port": {
+    "port": "0x61",
+    "meaning": "Phrase index write",
+    "confidence": "high",
+    "status": "known"
+  },
+  "timing_notes": {
+    "reset_pulse_min_usec": 18,
+    "post_write_to_irq_min_usec": 10,
+    "inter_segment_delay_ticks_default": 10,
+    "inter_segment_tick_ms": 10,
+    "ic_watchdog_seconds": 60,
+    "confidence": "medium",
+    "status": "known",
+    "notes": "Microsecond timings originate from integration comments; validate on hardware."
+  },
+  "logical_signals": {
+    "completion": "VOICE_SYNTHESIS_COMPLETED_SIG",
+    "timeout": "VOICE_SYNTHESIS_IC_TIMEOUT_SIG",
+    "confidence": "high",
+    "status": "known"
+  }
+}

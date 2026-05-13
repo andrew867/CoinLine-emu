@@ -1,0 +1,18 @@
+{
+  "schema": "fixtures/audio/disconnect-normal/v1",
+  "description": "Supervision fixture — normal disconnect classification.",
+  "disconnect_event": "normal_disconnect",
+  "modem_inputs": { "carrier": false },
+  "replay_steps": [
+    { "kind": "carrier", "up": true },
+    { "kind": "status", "hex": "0x66" },
+    { "kind": "status", "hex": "0x64" },
+    { "kind": "carrier", "up": false }
+  ],
+  "expected_trace": [
+    { "event_type": "supervision_status_code", "status_code_hex": "0x66" },
+    { "event_type": "supervision_status_code", "status_code_hex": "0x64" },
+    { "event_type": "disconnect_event", "disconnect_event": "normal_disconnect" }
+  ],
+  "compatibility_validation_required": ["timing_vs_cpc_window"]
+}

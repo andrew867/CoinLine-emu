@@ -1,0 +1,11 @@
+{
+  "scenario_id": "mic-mute-unmute",
+  "description": "Exercise mic mute path via front-panel / hook interactions — no direct route register poke.",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/mic-mute-unmute",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "wait_for_milestone", "milestone": "M10", "timeout_cycles": 800000000, "optional": true },
+    { "verb": "export_evidence" }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "coinline.boot_milestone_status/v1",
+  "latest_run": "build/runs/20260505T185003-boot-critical",
+  "latest_build_sha256": "3c282710b186ec292a6a80fca12e6c01de34b929a2ed3d8a5684dddb16a98fcf",
+  "run_seconds": 120,
+  "trace_profile": "uart",
+  "capture_mode": "windowed_d3d_screenshot",
+  "highest_boot_trace_milestone": "M7B",
+  "milestones": {
+    "M6": true,
+    "M7A_TELEPHONY_ACK": true,
+    "M7B_TELEPHONY_RX_PATH": true,
+    "M7C_TELEPHONY_READY": false,
+    "M8_ASCI_BOOT_ORDER": true,
+    "M9": false,
+    "M10": false
+  },
+  "evidence": {
+    "csio_rx_buffer_trace_shows_c0_frame": true,
+    "telephony_parser_csio_varlen_ok": true,
+    "m7b_requires_both_c4_and_c0": true,
+    "removed_late_ipcomm_por_0x70": true,
+    "strict_m6_validation": true
+  },
+  "current_blocker": "M7C_service_task_display_refresh_not_observed_termfg_paths_open_see_m7c_branch_analysis",
+  "notes": "CSI/O framing/proof remains OK for M7B; VFD stall persists — firmware flag/UI paths (SERVTASK service_display_update vs craft power-on prompt) likely require RTOS/service-level progression (see docs/status/m7c-telephony-ready-branch-analysis.md)."
+}

@@ -1,0 +1,8 @@
+{
+  "documentation_ref": "docs/z180-internal-peripherals.md",
+  "mmu_register_ports_relative_to_internal_base": {
+    "CBR": "0x38",
+    "BBR": "0x39",
+    "CBAR": "0x3A"
+  }
+}

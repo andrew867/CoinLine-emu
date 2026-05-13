@@ -1,0 +1,37 @@
+{
+  "schema": "board/audio-routing-state-map/v1",
+  "description": "Telephony processor command bytes (host to processor) affecting audio routing.",
+  "source": "IPCODES.H integration constants",
+  "commands": {
+    "PRESET_VOLUME_LEVEL_1": { "hex": "0x20", "effect": "rx_gain_preset_0db", "confidence": "high" },
+    "PRESET_VOLUME_LEVEL_2": { "hex": "0x21", "effect": "rx_gain_preset_6_7db_comment", "confidence": "medium" },
+    "PRESET_VOLUME_LEVEL_3": { "hex": "0x22", "effect": "rx_gain_preset_13_3db_comment", "confidence": "medium" },
+    "PRESET_VOLUME_LEVEL_4": { "hex": "0x23", "effect": "rx_gain_preset_20db_comment", "confidence": "medium" },
+    "VOLUME_LEVEL_DOWN": { "hex": "0x24", "effect": "rx_gain_step_down", "confidence": "high" },
+    "VOLUME_LEVEL_UP": { "hex": "0x25", "effect": "rx_gain_step_up", "confidence": "high" },
+    "TX_UNMUTE": { "hex": "0x26", "effect": "handset_tx_unmute", "confidence": "high" },
+    "TX_MUTE": { "hex": "0x27", "effect": "handset_tx_mute", "confidence": "high" },
+    "RX_UNMUTE": { "hex": "0x28", "effect": "handset_rx_unmute", "confidence": "high" },
+    "RX_MUTE": { "hex": "0x29", "effect": "handset_rx_mute", "confidence": "high" },
+    "SIDETONE_SUPPRESSION_OFF": { "hex": "0x2A", "effect": "sidetone_suppression_off", "confidence": "high" },
+    "SIDETONE_SUPPRESSION_ON": { "hex": "0x2B", "effect": "sidetone_suppression_on", "confidence": "high" },
+    "DIAL_PAD_DTMF_DISABLE": { "hex": "0x2D", "effect": "keypad_dtmf_disable", "confidence": "high" },
+    "DIAL_PAD_DTMF_ENABLE": { "hex": "0x2E", "effect": "keypad_dtmf_enable", "confidence": "high" },
+    "TONE_GENERATOR_OFF": { "hex": "0x2F", "effect": "tone_generator_off", "confidence": "high" },
+    "CALL_STATE_IDLE": { "hex": "0x40", "effect": "call_state_idle", "confidence": "high" },
+    "CALL_STATE_DIALING": { "hex": "0x41", "effect": "call_state_dialing", "confidence": "high" },
+    "CALL_STATE_ESTAB_UNSUPVSED": { "hex": "0x42", "effect": "call_state_established_unsupervised", "confidence": "high" },
+    "CALL_STATE_ESTAB_INCOMING": { "hex": "0x43", "effect": "call_state_established_incoming", "confidence": "high" },
+    "CALL_STATE_ESTAB_SUPVSED": { "hex": "0x44", "effect": "call_state_established_supervised", "confidence": "high" },
+    "CALL_STATE_ESTAB_UNSVD_CHARGE": { "hex": "0x45", "effect": "call_state_established_unsupervised_charge", "confidence": "high" },
+    "CALL_STATE_ESTAB_SVD_CHARGE": { "hex": "0x46", "effect": "call_state_established_supervised_charge", "confidence": "high" }
+  },
+  "voice_prompt_conditioning_connected": {
+    "on_sequence": ["RX_MUTE", "SIDETONE_SUPPRESSION_OFF", "RX_UNMUTE"],
+    "off_sequence": ["RX_MUTE", "SIDETONE_SUPPRESSION_ON", "RX_UNMUTE"],
+    "notes": "Separate flows may TX_MUTE earlier (e.g., IOPR); voice_prompt_tel_cct_cntl only performs the RX/sidetone trio.",
+    "confidence": "high",
+    "evidence_internal": "reference firmware: VCALLTEL.C voice_prompt_tel_cct_cntl"
+  },
+  "status": "known"
+}

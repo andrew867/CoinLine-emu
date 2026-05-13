@@ -1,0 +1,26 @@
+{
+  "scenario_id": "install-and-ad-scroll",
+  "description": "Boot, reach idle when possible, enter INSTALL/service via craft interface, then observe on-hook advertising scroll. Requires scenario runner. Repository firmware tree is firmware source tree (there is no ../mtr21 in this workspace).",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/install-and-ad-scroll",
+  "firmware_source_notes": {
+    "terminal_table_install_record": "reference firmware: XSETROMI.C - DLOG_INSTALL_PARMS / rterm_install_parms",
+    "record_key_bytes_hex": ["0x27", "0x27", "0x37", "0x8E"],
+    "interpretation": "These bytes are stored as DLOG/install-parameter payload (see CRFTSUB1.C / NCC CRC paths). They are not proven to be raw 82C55 keypad matrix values; craft entry flow is implemented in CRFTTASK.C (craft_if_install_*) and requires service/craft UI state that this screenshot harness does not drive.",
+    "advertising_tables_reference": "reference firmware: XSETROMI.C - rterm_advert_prompts, ADVERT_SCROLL_IN / TEST_PRESET_ADVERTS build flags",
+    "hardware_init_pio_g": "reference firmware: IODEFS.h PIO_PORT_G=0x63; reference firmware: HWINITC.C pio_port_initialize writes this port for EPM power - emulator maps 0x63 as of 2026-05-04 driver update."
+  },
+  "steps": [
+    { "verb": "reset" },
+    {
+      "verb": "wait_for_milestone",
+      "milestone": "M10",
+      "timeout_cycles": 1200000000,
+      "optional": true,
+      "note": "Blocked until firmware reaches idle/VFD (M6/M10); demo builds may stall in early boot."
+    },
+    { "verb": "run_cycles", "cycles": 100000000 },
+    { "verb": "export_evidence" }
+  ]
+}
+

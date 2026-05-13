@@ -1,0 +1,12 @@
+{
+  "scenario_id": "disconnect-supervision",
+  "description": "Drop carrier / inject modem fixture for teardown — supervision traces must reflect firmware reads.",
+  "board_profile": "fixtures/board/board-profile-2line-vfd.json",
+  "evidence_dir": "evidence/disconnect-supervision",
+  "steps": [
+    { "verb": "reset" },
+    { "verb": "modem_inject_hex", "fixture": "fixtures/modem/clean-connect.hex", "optional": true },
+    { "verb": "modem_inject_hex", "fixture": "fixtures/modem/dropped-carrier.hex", "optional": true },
+    { "verb": "export_evidence" }
+  ]
+}

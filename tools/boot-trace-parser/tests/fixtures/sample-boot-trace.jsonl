@@ -1,0 +1,3 @@
+{"milestone":"M0","ts":"2026-05-03T00:00:00Z","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1048576}
+{"milestone":"M1","ts":"2026-05-03T00:00:01Z","pc":"0x0000","opcode":"0xED"}
+{"milestone":"M10","ts":"2026-05-03T00:00:02Z","vfd":"idle_ok","idle":true}

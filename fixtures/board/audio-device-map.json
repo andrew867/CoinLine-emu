@@ -1,0 +1,65 @@
+{
+  "schema": "board/audio-device-map/v1",
+  "description": "Logical audio-related devices and implementation targets for Millennium-class profiles.",
+  "devices": [
+    {
+      "id": "voice_playback",
+      "public_description": "Voice playback device for stored prompts and tones.",
+      "implementation_target": "src/mame/coinline/millennium_voiceware.cpp",
+      "ports": [
+        {
+          "port": "0x40",
+          "role": "hw_control",
+          "bits": {
+            "voice_reset": {
+              "mask": "0x08",
+              "active_low": true
+            }
+          },
+          "confidence": "high",
+          "evidence_internal": "reference firmware: IODEFS.H"
+        },
+        {
+          "port": "0x42",
+          "role": "voice_rom_bank_select",
+          "bits": {
+            "bank": {
+              "mask": "0x0F",
+              "shift": 0
+            }
+          },
+          "confidence": "high",
+          "evidence_internal": "reference firmware: I/O definitions header"
+        },
+        {
+          "port": "0x61",
+          "role": "voice_phrase_write",
+          "bits": {},
+          "confidence": "high",
+          "evidence_internal": "reference firmware: IODEFS.H"
+        }
+      ],
+      "interrupt": {
+        "signal": "voice_playback_complete",
+        "notes": "Mapped via INT0 enable path in integration; vector wiring is board-specific.",
+        "status": "compatibility_validation_required"
+      }
+    },
+    {
+      "id": "telephony_processor_bridge",
+      "public_description": "Telephony processor command and status bridge for handset/line audio routing.",
+      "implementation_target": "src/mame/coinline/millennium_telephony.cpp",
+      "ports": [],
+      "status": "compatibility_validation_required",
+      "notes": "Logical device; physical transport (UART/SIO) not enumerated here."
+    },
+    {
+      "id": "alerter_path",
+      "public_description": "Alert transducer path for ring and warning tones.",
+      "implementation_target": "src/mame/coinline/millennium_audio.cpp",
+      "ports": [],
+      "confidence": "medium",
+      "notes": "Relay steering varies by PCB revision (PIO vs HW_CNTL schemes)."
+    }
+  ]
+}

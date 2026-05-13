@@ -1,0 +1,8 @@
+{
+  "type": "magstripe",
+  "track": 2,
+  "payload_body": ";4111111111111111=251210112345678?",
+  "swipe_duration_ms": 2500,
+  "bit_rate_bps": 210,
+  "force_lrc_error": false
+}
