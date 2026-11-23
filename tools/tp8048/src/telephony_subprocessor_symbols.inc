@@ -39,10 +39,11 @@ TMP1        EQU 03AH
 TMP2        EQU 03BH
 TMP3        EQU 03CH        ; scratch; also PAD_FLAGS (DTMF pad enable, tone gen off) when CFG ingest idle
 TMP_SUM     EQU 03DH        ; scratch: running sum for config checksum verify
+ISR_A_SAVE  EQU 03EH        ; interrupt handlers run on RB1 and restore A before RETR
 ; Hook sequencing (CONTTELC telephony_msg_decode_task): CP expects transition then steady state.
 ; After RESP_HOOK_TRANS_*, defer RESP_HOOK_ON/OFF by HOOK_STATE_DELAY_IRQs timer IRQs (~50–100 ms).
-HOOK_SEQ_REM   EQU 03EH     ; 0 = idle; countdown per TIMER_IRQ
-HOOK_SEQ_BYTE  EQU 03FH     ; second opcode (ON_HOOK_STATE / OFF_HOOK_STATE)
+HOOK_SEQ_REM   EQU 03FH     ; 0 = idle; countdown per TIMER_IRQ
+HOOK_SEQ_BYTE  EQU 0DEH     ; second opcode (ON_HOOK_STATE / OFF_HOOK_STATE)
 
 ; Simple ring buffer layout (TX shrunk to free 0x60.. for 126-byte config image)
 RX_BUF      EQU 040H      ; 16 bytes: CP -> TP accepted bytes

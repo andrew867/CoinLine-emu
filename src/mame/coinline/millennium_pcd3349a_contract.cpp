@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "millennium_pcd3349a_contract.h"
+#include "millennium_am8048_core.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <utility>
 
@@ -111,7 +113,15 @@ void pcd3349a_contract::reset()
 	m_port_latch = m_port_reset_mask;
 	m_cp_rx_bytes.clear();
 	m_servicing_cp_byte = false;
+	m_boot_tx_window = true;
+	m_boot_ack_emitted = false;
+	m_suppress_boot_ack_echo = false;
+	m_cfg_rx_remaining = 0U;
+	m_cfg_ack_pending = false;
 	m_relay_cp_seized = false;
+	m_p0_tx_latch = 0xffU;
+	m_p0_tx_latch_valid = false;
+	m_p0_tx_overrun_bytes.clear();
 	m_core.reset();
 	// First POWER_ON_* byte comes from TP program ROM (QUEUE_BOOT_ACK), not injected here.
 	m_obs.tx_pending = false;
@@ -126,11 +136,10 @@ void pcd3349a_contract::load_firmware_rom(std::uint8_t const *data, std::size_t 
 void pcd3349a_contract::set_input_snapshot(tp_input_snapshot const &input)
 {
 	m_input = input;
-	m_obs.hook_off = (input.keymatrix & 0x00080000U) != 0U;
-	m_obs.line_ok = (input.linectrl & 0x01U) != 0U;
-
-	bool const off_hook = (input.keymatrix & 0x00080000U) != 0U;
 	std::uint8_t const linectrl = static_cast<std::uint8_t>(input.linectrl & 0xffU);
+	bool const off_hook = (linectrl & 0x01U) != 0U;
+	m_obs.hook_off = off_hook;
+	m_obs.line_ok = (input.linectrl & 0x01U) != 0U;
 
 	std::uint8_t const wire =
 		resolve_terminal21_wire_opcode(input.keymatrix, input.terminal_21_profile, input.softkeys);
@@ -184,15 +193,93 @@ void pcd3349a_contract::set_input_snapshot(tp_input_snapshot const &input)
 
 void pcd3349a_contract::receive_cp_byte(std::uint8_t byte)
 {
+	m_boot_tx_window = false;
 	m_obs.last_cp_opcode = byte;
 	// TP→CP hook relay: \c 0x3C release, \c 0x3D seize — CP ownership of hook relay for audio path.
 	if (byte == 0x3cU)
 		m_relay_cp_seized = false;
 	else if (byte == 0x3dU)
 		m_relay_cp_seized = true;
-	m_cp_rx_bytes.push_back(byte);
+	bool const in_cfg = m_cfg_rx_remaining > 0U;
+	if (byte == 0xc0U) {
+		m_cfg_rx_remaining = 125U;
+	} else if (m_cfg_rx_remaining > 0U) {
+		m_cfg_rx_remaining--;
+	}
+	// Tail is the octet that closes a frame already in progress. A bare opcode also
+	// has remaining==0 and must not take the config-finish budget.
+	bool const config_frame_tail = in_cfg && m_cfg_rx_remaining == 0U;
+	m_port_bus_in = byte;
+	m_servicing_cp_byte = true;
+	pulse_cp_byte_irq(64U);
+	m_servicing_cp_byte = false;
+	// Do not force the PC into SERVICE_CP_RX. That RET pops the real stack and the
+	// following step executes the ROM image as a straight line. The external IRQ
+	// already calls the parser; MAIN_LOOP SERVICE_TX then emits one byte per pass.
+	// Config payload octets are stored in the IRQ. Further MAIN_LOOP passes in the
+	// same host byte were popping stale RX-ring slots and finishing the frame early,
+	// so the ACK was emitted while P0 was still suppressed. Only the closing octet
+	// needs a slice long enough for CFG_DO_ACCEPT_FINISH to drain its TX ring.
+	std::uint32_t const budget = config_frame_tail ? 65536U : (m_cfg_rx_remaining > 0U ? 0U : 16384U);
+	m_core.step_cycles(budget);
+	commit_p0_tx_latch();
+	drain_tx_ring();
+	if (char const *trace_path = std::getenv("COINLINE_TP8048_CFG_TRACE")) {
+		if (*trace_path) {
+			auto const *core = dynamic_cast<millennium_am8048_core const *>(&m_core);
+			if (core && (byte == 0xc0U || m_cfg_rx_remaining > 120U || m_cfg_rx_remaining < 5U || config_frame_tail)) {
+				if (std::FILE *f = std::fopen(trace_path, "ab")) {
+					std::fprintf(f,
+						"{\"cp_byte\":\"0x%02X\",\"host_cfg_remaining\":%u,\"tail\":%s,"
+						"\"pc\":\"0x%04X\",\"rx_head\":\"0x%02X\",\"rx_tail\":\"0x%02X\","
+						"\"cfg_need\":\"0x%02X\",\"cfg_idx\":\"0x%02X\","
+						"\"cfg_len\":\"0x%02X\",\"cfg_chk\":\"0x%02X\",\"tmp_sum\":\"0x%02X\","
+						"\"tx_head\":\"0x%02X\",\"tx_tail\":\"0x%02X\","
+						"\"latched\":%s,\"tx_queue\":%zu}\n",
+						unsigned(byte), m_cfg_rx_remaining, config_frame_tail ? "true" : "false",
+						unsigned(core->debug_pc() & 0xffffU), unsigned(core->debug_ram(0x20U)),
+						unsigned(core->debug_ram(0x21U)), unsigned(core->debug_ram(0x37U)),
+						unsigned(core->debug_ram(0x38U)), unsigned(core->debug_ram(0x61U)),
+						unsigned(core->debug_ram(0xddU)), unsigned(core->debug_ram(0x3dU)), unsigned(core->debug_ram(0x22U)),
+						unsigned(core->debug_ram(0x23U)), m_p0_tx_latch_valid ? "true" : "false",
+						m_tx_bytes.size());
+					std::fclose(f);
+				}
+			}
+		}
+	}
 	if (byte == 0x3cU || byte == 0x3dU)
 		update_tone_mode();
+}
+
+void pcd3349a_contract::drain_tx_ring()
+{
+	auto *core = dynamic_cast<millennium_am8048_core *>(&m_core);
+	if (!core)
+		return;
+	// SERVICE_TX emits one queued byte per MAIN_LOOP pass via OUTL BUS. A short IRQ
+	// window cannot cover that, so keep stepping until TX_HEAD catches TX_TAIL.
+	for (unsigned pass = 0U; pass < 512U; ++pass) {
+		if (core->debug_ram(0x22U) == core->debug_ram(0x23U))
+			break;
+		m_core.step_cycles(128U);
+	}
+	commit_p0_tx_latch();
+}
+
+void pcd3349a_contract::flush_boot_tx_queue()
+{
+	commit_p0_tx_latch();
+	// Retire QUEUE_BOOT_ACK's TX ring copy while the pre-link window is still open,
+	// so SERVICE_TX cannot echo 0x70/0x72 after the CP query burst starts.
+	for (unsigned pass = 0U; pass < 256U && m_boot_tx_window; ++pass) {
+		auto const *core = dynamic_cast<millennium_am8048_core const *>(&m_core);
+		bool const ring_empty = !core || core->debug_ram(0x22U) == core->debug_ram(0x23U);
+		if (m_boot_ack_emitted && ring_empty && !m_suppress_boot_ack_echo)
+			break;
+		m_core.step_cycles(128U);
+		commit_p0_tx_latch();
+	}
 }
 
 void pcd3349a_contract::run_until_cp_cycle(std::uint64_t cp_cycle, std::uint32_t cp_hz)
@@ -207,13 +294,13 @@ void pcd3349a_contract::run_until_cp_cycle(std::uint64_t cp_cycle, std::uint32_t
 		m_port_bus_in = m_cp_rx_bytes.front();
 		m_cp_rx_bytes.pop_front();
 		m_servicing_cp_byte = true;
-		m_core.assert_external_interrupt(true);
-		m_core.step_cycles(32U);
-		m_core.assert_external_interrupt(false);
+		pulse_cp_byte_irq(32U);
 		m_servicing_cp_byte = false;
 	}
 	if (tp_cycles > 0U)
 		m_core.step_cycles(tp_cycles);
+	commit_p0_tx_latch();
+	drain_tx_ring();
 	m_last_step_cp_cycle = cp_cycle;
 	m_obs.tp_cycles = m_core.cycles();
 }
@@ -266,15 +353,67 @@ void pcd3349a_contract::write_port(unsigned port, std::uint8_t value)
 {
 	if (port < m_port_latch.size())
 		m_port_latch[port] = value;
-	if (port == 0U && m_servicing_cp_byte) {
-		m_tx_bytes.push_back(value);
-		m_obs.tx_pending = true;
-	} else if (port == 0U) {
-		// TP8048 firmware drives TP→CP keypad/hook bytes via P0; the host does not synthesize or
-		// second-guess wire opcodes. Drop only open-bus idle (never a catalogued TP→CP single byte).
-		if (value == 0xffU)
+	auto const trace_p0_write = [&](char const *action) {
+		if (port != 0U)
 			return;
-		m_ui_events.push_back(value);
+		char const *trace_path = std::getenv("COINLINE_TP8048_CFG_TRACE");
+		if (!trace_path || !*trace_path)
+			return;
+		if (std::FILE *f = std::fopen(trace_path, "ab")) {
+			auto const *core = dynamic_cast<millennium_am8048_core const *>(&m_core);
+			std::fprintf(f,
+				"{\"event\":\"p0_write\",\"value\":\"0x%02X\",\"action\":\"%s\","
+				"\"host_cfg_remaining\":%u,\"ack_pending\":%s,\"latched\":%s,"
+				"\"pc\":\"0x%04X\",\"rx_head\":\"0x%02X\",\"rx_tail\":\"0x%02X\","
+				"\"tx_head\":\"0x%02X\",\"tx_tail\":\"0x%02X\",\"hook_seq_rem\":\"0x%02X\","
+				"\"hook_seq_byte\":\"0x%02X\"}\n",
+				unsigned(value), action ? action : "", m_cfg_rx_remaining,
+				m_cfg_ack_pending ? "true" : "false", m_p0_tx_latch_valid ? "true" : "false",
+				core ? unsigned(core->debug_pc() & 0xffffU) : 0U,
+				core ? unsigned(core->debug_ram(0x20U)) : 0U,
+				core ? unsigned(core->debug_ram(0x21U)) : 0U,
+				core ? unsigned(core->debug_ram(0x22U)) : 0U,
+				core ? unsigned(core->debug_ram(0x23U)) : 0U,
+				core ? unsigned(core->debug_ram(0x3fU)) : 0U,
+				core ? unsigned(core->debug_ram(0xdeU)) : 0U);
+			std::fclose(f);
+		}
+	};
+	if (port == 0U && value == 0xffU) {
+		// 0xFF is the quasi-bidirectional idle/open-bus latch value, not a TP wire opcode.
+		trace_p0_write("idle_ff");
+		return;
+	}
+	if (port == 0U && m_cfg_rx_remaining > 0U) {
+		// CP streams 125 payload bytes after 0xC0; hold TP CSI/O silent until CFG_DO_ACCEPT_FINISH.
+		trace_p0_write("suppress_cfg_stream");
+		return;
+	}
+	if (port == 0U && (value == 0x70U || value == 0x72U) && m_suppress_boot_ack_echo) {
+		// QUEUE_BOOT_ACK already exposed this byte with OUTL BUS and also queued it.
+		// SERVICE_TX would echo it one main-loop pass later. One echo only.
+		m_suppress_boot_ack_echo = false;
+		trace_p0_write("drop_boot_ack_echo");
+		return;
+	}
+	if (port == 0U && m_boot_tx_window) {
+		// The boot primer runs the 8048 before the CP clocks CSI/O. Expose only the
+		// ROM-authored POWER_ON_* byte from that window; drop pre-link service chatter.
+		if (!m_boot_ack_emitted && (value == 0x70U || value == 0x72U)) {
+			note_cp_tx_byte(value);
+			m_boot_ack_emitted = true;
+			m_suppress_boot_ack_echo = true;
+			trace_p0_write("boot_ack");
+		} else {
+			trace_p0_write("drop_prelink");
+		}
+		return;
+	}
+	if (port == 0U) {
+		// SERVICE_TX emits one TX-ring byte per MAIN_LOOP pass. That is far outside the
+		// CP-byte IRQ window, so every non-idle P0 write is a CP reply, not a UI event.
+		note_cp_tx_byte(value);
+		trace_p0_write("cp_tx");
 	} else if (port == 4U) {
 		m_obs.hgf = value;
 		m_obs.tone = (m_obs.hgf == 0U && m_obs.lgf == 0U) ? tp_tone_mode::none : tp_tone_mode::dtmf;
@@ -302,6 +441,68 @@ void pcd3349a_contract::tone_registers_changed(std::uint8_t hgf, std::uint8_t lg
 
 void pcd3349a_contract::trace(char const *, std::uint64_t, std::uint8_t)
 {
+}
+
+void pcd3349a_contract::pulse_cp_byte_irq(std::uint32_t finish_cycles)
+{
+	auto *core = dynamic_cast<millennium_am8048_core *>(&m_core);
+	std::uint8_t const rx_head_before = core ? core->debug_ram(0x20U) : 0U;
+	m_core.assert_external_interrupt(true);
+	if (core) {
+		for (unsigned spins = 0U; spins < 512U && core->debug_ram(0x20U) == rx_head_before; ++spins)
+			m_core.step_cycles(1U);
+	} else {
+		m_core.step_cycles(1U);
+	}
+	m_core.assert_external_interrupt(false);
+	m_core.step_cycles(finish_cycles);
+	// Ensure the ROM RX ring drains even if the interrupted PC is not in MAIN_LOOP yet.
+	if (auto const *core = dynamic_cast<millennium_am8048_core const *>(&m_core)) {
+		for (unsigned spin = 0U; spin < 262144U; ++spin) {
+			if (core->debug_ram(0x20U) == core->debug_ram(0x21U))
+				break;
+			m_core.step_cycles(1U);
+		}
+	}
+}
+
+void pcd3349a_contract::step_tp_cycles_raw(std::uint64_t tp_cycles)
+{
+	if (tp_cycles > 0U)
+		m_core.step_cycles(tp_cycles);
+	commit_p0_tx_latch();
+}
+
+void pcd3349a_contract::service_hook_timer_tail()
+{
+	// ROM defers RESP_HOOK_ON/OFF by HOOK_STATE_DELAY_IRQs timer IRQs after the transition byte.
+	for (unsigned pass = 0U; pass < 24U; ++pass) {
+		m_core.step_cycles(65536U);
+		commit_p0_tx_latch();
+	}
+}
+
+void pcd3349a_contract::note_cp_tx_byte(std::uint8_t value)
+{
+	m_tx_bytes.push_back(value);
+	m_obs.tx_pending = true;
+	// Hook steady / keypad bytes are also UI observations. The boot ACK stays on the CP TX path only.
+	if ((value >= 0x20U && value < 0x60U) || value == 0x6cU || value == 0x6eU)
+		m_ui_events.push_back(value);
+}
+
+void pcd3349a_contract::commit_p0_tx_latch()
+{
+	if (!m_p0_tx_latch_valid)
+		return;
+	std::uint8_t const first = m_p0_tx_latch;
+	m_p0_tx_latch_valid = false;
+	note_cp_tx_byte(first);
+	while (!m_p0_tx_overrun_bytes.empty()) {
+		std::uint8_t const b = m_p0_tx_overrun_bytes.front();
+		m_p0_tx_overrun_bytes.pop_front();
+		note_cp_tx_byte(b);
+	}
 }
 
 void pcd3349a_contract::update_tone_mode()

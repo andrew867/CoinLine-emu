@@ -988,9 +988,12 @@ catch {
 $gracefulStop = $false
 $forcedStop = $false
 
-# Let MAME complete its own -seconds_to_run shutdown so wavwrite can finalize RIFF/data sizes.
+# Windowed runs already waited $RunSeconds above. Headless skips that loop, so wait here
+# for the requested wall time (emulation is often slower than -seconds_to_run).
 if (-not $microwireEarlyStopUsed) {
-    Wait-Process -Id $p.Id -Timeout 20 -ErrorAction SilentlyContinue
+    $waitSec = 20
+    if ($Headless) { $waitSec = [Math]::Max(20, $RunSeconds) }
+    Wait-Process -Id $p.Id -Timeout $waitSec -ErrorAction SilentlyContinue
 }
 else {
     Add-Content -LiteralPath $runLog -Value 'microwire_early_stop: skipping Wait-Process for natural -seconds_to_run exit' -Encoding UTF8

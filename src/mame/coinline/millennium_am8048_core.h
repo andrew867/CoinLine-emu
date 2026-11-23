@@ -22,6 +22,7 @@ public:
 
 	std::uint8_t debug_port_latch(unsigned port) const override;
 	std::uint16_t debug_pc() const override { return m_pc; }
+	std::uint8_t debug_ram(std::uint8_t addr) const { return read_ram(addr); }
 
 private:
 	unsigned execute_one();

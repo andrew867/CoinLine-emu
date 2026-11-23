@@ -3,6 +3,7 @@
 #include "millennium_pcd3349a.h"
 #include "millennium_debug.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <cstdio>
@@ -83,14 +84,37 @@ void millennium_pcd3349a::reset(bool onhook_initial)
 	m_core.reset();
 	m_tp.load_firmware_rom(rom.data(), rom.size());
 	m_tp.reset();
-	// Idle on-hook P1 sample so behavioural firmware can emit POWER_ON_RESET vs POWER_ON_ACK correctly
-	// without consuming main-CPU cycle coupling (avoid run_until_cp_cycle before Z180 timebase exists).
+	// Sample the handset before the Z180 timebase exists (avoid run_until_cp_cycle).
+	// The first slice holds P1.7 low so the ROM emits POWER_ON_ACK; the rest settles on-hook.
+	//
+	// QUEUE_BOOT_ACK runs at START, before this primer. A multi-second head-start only
+	// advances the ROM health timer (TICK_1S / MISS_CNT) while no CP octet exists, and
+	// SERVICE_RUNTIME_HEALTH then latches F_FAULT before the query block. 400K cycles
+	// retires the boot-ACK echo and stays under that 1-second tick. Override with
+	// COINLINE_TP_BOOT_PRIMER_RAW_CYCLES when a longer self-test image needs it.
 	{
 		coinline::tp8048::tp_input_snapshot snap{};
 		snap.keymatrix = 0U;
-		snap.linectrl = 0x07U;
+		// P1.7 low for the power-on sample so QUEUE_BOOT_ACK emits POWER_ON_ACK (0x72).
+		// POWER_ON_RESET (0x70) suspends IP communications until an idle event that does not
+		// arrive before the init watchdog, so the CP never sends 0x30/0x33/0x38/0x31.
+		// After the ACK is queued, present on-hook so the later hook query reports 0x6C.
+		snap.linectrl = 0x01U;
 		m_tp.set_input_snapshot(snap);
-		m_tp.step_tp_cycles_raw(400000ULL);
+		std::uint64_t primer_raw_cycles = 400000ULL;
+		if (char const *const env = std::getenv("COINLINE_TP_BOOT_PRIMER_RAW_CYCLES")) {
+			char *end = nullptr;
+			unsigned long long const v = std::strtoull(env, &end, 0);
+			if (end && end != env && v > 0ULL)
+				primer_raw_cycles = static_cast<std::uint64_t>(v);
+		}
+		std::uint64_t const ack_cycles = std::min<std::uint64_t>(primer_raw_cycles, 32768ULL);
+		m_tp.step_tp_cycles_raw(ack_cycles);
+		snap.linectrl = 0x00U;
+		m_tp.set_input_snapshot(snap);
+		if (primer_raw_cycles > ack_cycles)
+			m_tp.step_tp_cycles_raw(primer_raw_cycles - ack_cycles);
+		m_tp.flush_boot_tx_queue();
 	}
 	m_last_keymatrix = 0U;
 	m_last_linectrl = 0U;
@@ -118,13 +142,27 @@ millennium_pcd3349a::front_panel_result millennium_pcd3349a::process_front_panel
 	snap.voice_active = voice_active;
 	snap.cp_cycle = cycle;
 	snap.terminal_21_profile = profile;
+	bool const hook_delta = (linectrl & 0x01U) != (m_last_linectrl & 0x01U);
+	m_last_keymatrix = keymatrix;
+	m_last_linectrl = linectrl;
 	m_tp.set_input_snapshot(snap);
 	m_tp.run_until_cp_cycle(cycle, m_cp_hz);
+	// Host-poll ticks are the only clock for deferred SERVICE_TX bytes (hook steady state).
+	m_tp.drain_tx_ring();
+	if (hook_delta)
+		m_tp.service_hook_timer_tail();
 	append_trace(m_runtime_trace_path, "input_snapshot", cycle, static_cast<std::uint8_t>(linectrl & 0xffU));
 	append_trace(m_port_trace_path, "port_sample_p1", cycle, static_cast<std::uint8_t>(keymatrix & 0xffU));
+	while (m_tp.has_tx_byte()) {
+		std::uint8_t const v = m_tp.pop_tx_byte();
+		r.tp_bytes.push_back(v);
+		append_trace(m_cp_protocol_trace_path, "tp_to_cp_byte", cycle, v);
+		if (!m_keypad_trace_path.empty() && v >= 0x20U && v < 0x60U)
+			append_trace(m_keypad_trace_path, "tp_key_event", cycle, v);
+	}
 	while (m_tp.has_ui_event())
 		r.tp_events.push_back(m_tp.pop_ui_event());
-	for (std::uint8_t ev : r.tp_events) {
+	auto const note_hook_byte = [&r, this](std::uint8_t ev) {
 		if (ev == 0x6EU) {
 			r.hook_changed = true;
 			r.hook_onhook = false;
@@ -134,7 +172,11 @@ millennium_pcd3349a::front_panel_result millennium_pcd3349a::process_front_panel
 			r.hook_onhook = true;
 			m_hook_onhook = true;
 		}
-	}
+	};
+	for (std::uint8_t ev : r.tp_bytes)
+		note_hook_byte(ev);
+	for (std::uint8_t ev : r.tp_events)
+		note_hook_byte(ev);
 	for (std::uint8_t ev : r.tp_events)
 		append_trace(m_keypad_trace_path, "tp_key_event", cycle, ev);
 	return r;
@@ -144,6 +186,8 @@ std::vector<std::uint8_t> millennium_pcd3349a::handle_cp_to_tp_byte(std::uint8_t
 {
 	(void)hook_onhook_stable;
 	m_tp.receive_cp_byte(byte);
+	// Reply bytes are OUTL'd by SERVICE_TX one main-loop pass after the handler queues them.
+	m_tp.drain_tx_ring();
 	append_trace(m_cp_protocol_trace_path, "cp_to_tp_byte", m_core.cycles(), byte);
 	std::vector<std::uint8_t> out;
 	while (m_tp.has_tx_byte()) {

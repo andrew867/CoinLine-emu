@@ -2328,8 +2328,19 @@ void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, s
 		m_voiceware->playing(), m_keypad_board.terminal_21_profile, cycle, m_maincpu->unscaled_clock());
 	if (res.hook_changed)
 		set_tel_hook_state(res.hook_onhook, cycle, "pcd3349a_hook_transition");
-	for (std::uint8_t ev : res.tp_events)
-		tp_enqueue_ui_event(ev, "pcd3349a_front_panel");
+	tp_backend_queue_response_bytes(res.tp_bytes, "pcd3349a_async");
+	for (std::uint8_t ev : res.tp_events) {
+		bool already_on_tx = false;
+		for (std::uint8_t b : res.tp_bytes) {
+			if (b == ev) {
+				already_on_tx = true;
+				break;
+			}
+		}
+		// ROM OUTL bytes are already on the CSI/O queue via tp_bytes. Do not enqueue them again.
+		if (!already_on_tx)
+			tp_enqueue_ui_event(ev, "pcd3349a_front_panel");
+	}
 
 	bool const off_hook = !m_tel_hook_onhook;
 	bool const voice_active = m_voiceware->playing();
@@ -2367,24 +2378,39 @@ bool millennium_state::tp_backend_handle_cp_byte(std::uint8_t byte)
 	auto const resp = m_tp_pcd3349a->handle_cp_to_tp_byte(byte, m_tel_hook_onhook_stable);
 	// PCD3349A/TP8048 is the sole source of TP→CP CSI/O octets: never fall through to the
 	// host-modeled opcode catalog in \c ipcomm_complete_csio_tx_byte.
-	for (std::size_t i = 0; i < resp.size(); ++i) {
-		std::uint8_t const b = resp[i];
-		ipcomm_queue_rx_byte(b, b >= 0xC0U);
+	tp_backend_queue_response_bytes(resp, "pcd3349a_cp_byte");
+	trace_tp_command_accepted(byte, !resp.empty(), "pcd3349a", "pcd3349a_backend");
+	return true;
+}
+
+void millennium_state::tp_backend_queue_response_bytes(std::vector<std::uint8_t> const &bytes, char const *reason)
+{
+	(void)reason;
+	// One ROM burst stays on one FIFO. Per-byte priority (b >= 0xC0) drains the opcode
+	// and checksum before the length and payload, so C4/C0 frames fail checksum.
+	bool framed = false;
+	for (std::uint8_t b : bytes) {
+		if (b >= 0xC0U)
+			framed = true;
+	}
+	for (std::size_t i = 0; i < bytes.size(); ++i) {
+		std::uint8_t const b = bytes[i];
+		ipcomm_queue_rx_byte(b, framed);
 		if (b == 0x70U || b == 0x72U) {
 			m_tel_boot_power_ack_seen = true;
 			m_tel_boot_code_sent = true;
 		}
 		if (b == 0x6cU || b == 0x6eU)
 			m_tel_boot_hook_state_seen = true;
-		if (b == 0x7aU)
+		if (b == 0x7aU || b == 0x7cU)
 			m_tel_boot_power_status_seen = true;
 		if (b == 0xc4U)
 			m_tel_boot_error_report_seen = true;
 		if (b == 0xc0U)
 			m_tel_boot_status_seen = true;
-		if (b == 0xc4U && i + 3U < resp.size())
+		if (b == 0xc4U && i + 3U < bytes.size())
 			m_csio_error_report_ok = true;
-		if (b == 0xc0U && i + 7U < resp.size())
+		if (b == 0xc0U && i + 7U < bytes.size())
 			m_csio_status_frame_ok = true;
 	}
 	if (m_tel_boot_power_ack_seen && m_tel_boot_error_report_seen && m_tel_boot_status_seen) {
@@ -2403,8 +2429,6 @@ bool millennium_state::tp_backend_handle_cp_byte(std::uint8_t byte)
 			millennium_boot_trace_append_line(m_tp_readiness_sequence_trace_path, b);
 		}
 	}
-	trace_tp_command_accepted(byte, !resp.empty(), "pcd3349a", "pcd3349a_backend");
-	return true;
 }
 
 void millennium_state::tp_process_front_panel_events(u32 keymatrix, u32 linectrl, u32 softkeys_raw)
@@ -3230,24 +3254,29 @@ void millennium_state::board_status_w(u8 data)
 	if (prev_sclk != sclk) {
 		u8 const cntr_before_edge = static_cast<u8>(m_maincpu->state_int(Z180_CNTR) & 0xffU);
 		u8 const trdr_before_edge = static_cast<u8>(m_maincpu->state_int(Z180_TRDR) & 0xffU);
+		// CSI/O samples RXS on the rising edge. The bit has to be stable before that edge;
+		// driving it afterwards shifts the byte by one and mixes in the previous pin state.
+		if (sclk && m_ipcomm_have_rx_byte) {
+			int const bit = (m_ipcomm_rx_shift >> m_ipcomm_rx_bit) & 1;
+			m_maincpu->rxs_cts1_w(bit);
+		}
 		m_maincpu->cks_w(sclk ? 1 : 0);
 		u8 const cntr_after_edge = static_cast<u8>(m_maincpu->state_int(Z180_CNTR) & 0xffU);
+		u8 const trdr_after_edge = static_cast<u8>(m_maincpu->state_int(Z180_TRDR) & 0xffU);
 		if (!m_tp_csio_raw_trace_path.empty()) {
-			char b[520];
+			char b[560];
 			std::snprintf(b, sizeof(b),
 				"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"sp\":\"0x%04X\",\"event\":\"csio_clock_edge\","
-				"\"cntr_before\":\"0x%02X\",\"cntr_after\":\"0x%02X\",\"trdr\":\"0x%02X\","
+				"\"cntr_before\":\"0x%02X\",\"cntr_after\":\"0x%02X\",\"trdr\":\"0x%02X\",\"trdr_after\":\"0x%02X\","
 				"\"sclk_before\":%s,\"sclk_after\":%s,\"ready_state_before\":%s,\"ready_state_after\":%s}",
 				static_cast<unsigned long long>(cy), unsigned(pc), unsigned(m_maincpu->state_int(Z180_SP) & 0xffffU),
 				unsigned(cntr_before_edge), unsigned(cntr_after_edge), unsigned(trdr_before_edge),
+				unsigned(trdr_after_edge),
 				prev_sclk ? "true" : "false", sclk ? "true" : "false",
 				m_tel_ready_sequence_completed ? "true" : "false", m_tel_ready_sequence_completed ? "true" : "false");
 			millennium_boot_trace_append_line(m_tp_csio_raw_trace_path, b);
 		}
-		// Provide the next RX bit ahead of the rising edge so CSIO samples correct data.
 		if (sclk && m_ipcomm_have_rx_byte) {
-			int const bit = (m_ipcomm_rx_shift >> m_ipcomm_rx_bit) & 1;
-			m_maincpu->rxs_cts1_w(bit);
 			m_ipcomm_rx_bit = (m_ipcomm_rx_bit + 1) & 7;
 			if (m_ipcomm_rx_bit == 0) {
 				std::uint8_t const delivered = m_ipcomm_rx_shift;
@@ -3264,6 +3293,10 @@ void millennium_state::board_status_w(u8 data)
 				// Finished a byte; clear RTS if no more queued bytes.
 				m_ipcomm_have_rx_byte = false;
 				prime_ipcomm_rx_shift_from_queues();
+				// Idle the receive pin high when the queue is empty so the next transfer
+				// does not sample the last data bit.
+				if (!m_ipcomm_have_rx_byte)
+					m_maincpu->rxs_cts1_w(1);
 			}
 		}
 		// Decode control-processor→telephony CSI/O bytes from TRDR when an octet finishes shifting out.
@@ -5993,8 +6026,9 @@ void millennium_state::sync_modem_asci_lines()
 {
 	int const cts = m_modem->cts_line() ? 1 : 0;
 	int const dcd = m_modem->dcd_line() ? 1 : 0;
+	// ASCI0 carries the modem handshake. RXS/CTS1 is the telephony CSI/O receive pin;
+	// writing modem CTS there replaces in-flight RX bits (the sampled byte becomes 0xEF/0xFF).
 	m_maincpu->cts0_w(cts);
-	m_maincpu->rxs_cts1_w(cts);
 	m_maincpu->dcd0_w(dcd);
 }
 

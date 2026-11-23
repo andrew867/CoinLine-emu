@@ -388,6 +388,7 @@ private:
 	void tp_backend_process_front_panel(std::uint32_t keymatrix, std::uint32_t linectrl, std::uint32_t softkeys_raw,
 		std::uint8_t secmask, std::uint64_t cycle, std::uint16_t pc);
 	bool tp_backend_handle_cp_byte(std::uint8_t byte);
+	void tp_backend_queue_response_bytes(std::vector<std::uint8_t> const &bytes, char const *reason);
 
 	u32 m_card_ui_last = 0;
 	u32 m_coin_ui_last = 0;

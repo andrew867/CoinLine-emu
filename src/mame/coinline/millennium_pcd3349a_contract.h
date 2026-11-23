@@ -2,6 +2,8 @@
 #pragma once
 
 #include "millennium_am8048_core_contract.h"
+
+class millennium_am8048_core;
 #include "millennium_keypad_model.h"
 
 #include <cstdint>
@@ -51,7 +53,13 @@ public:
 	void receive_cp_byte(std::uint8_t byte);
 	void run_until_cp_cycle(std::uint64_t cp_cycle, std::uint32_t cp_hz);
 	/** Advance TP core only (does not move CP-cycle coupling baseline). Boot-time primer. */
-	void step_tp_cycles_raw(std::uint64_t tp_cycles) { m_core.step_cycles(tp_cycles); }
+	void step_tp_cycles_raw(std::uint64_t tp_cycles);
+	/** Run MAIN_LOOP until SERVICE_TX has emptied the ROM TX ring (one OUTL BUS per pass). */
+	void drain_tx_ring();
+	/** After boot primer: commit latched P0 and drain ROM TX ring until boot ack is host-visible. */
+	void flush_boot_tx_queue();
+	/** Run enough timer IRQs for HOOK_SEQ_REM steady bytes (0x6C/0x6E) after a hook edge. */
+	void service_hook_timer_tail();
 
 	bool has_tx_byte() const;
 	std::uint8_t pop_tx_byte();
@@ -76,8 +84,18 @@ private:
 	std::array<std::uint8_t, 3> m_port_reset_mask{ 0xffU, 0xffU, 0xffU };
 	std::deque<std::uint8_t> m_cp_rx_bytes;
 	bool m_servicing_cp_byte = false;
+	bool m_boot_tx_window = false;
+	bool m_boot_ack_emitted = false;
+	/// QUEUE_BOOT_ACK does OUTL BUS and also TX_PUSH. Drop the SERVICE_TX echo of that one byte.
+	bool m_suppress_boot_ack_echo = false;
+	unsigned m_cfg_rx_remaining = 0U;
+	bool m_cfg_ack_pending = false;
 	/// Hook relay seize/release opcodes — stops OOS NIS when CP seizes the hook relay.
 	bool m_relay_cp_seized = false;
+	/// Latest OUTL BUS from SERVICE_TX; one CSI/O exchange exposes at most one TP→CP byte.
+	std::uint8_t m_p0_tx_latch = 0xffU;
+	bool m_p0_tx_latch_valid = false;
+	std::deque<std::uint8_t> m_p0_tx_overrun_bytes;
 
 	std::uint8_t read_port(unsigned port);
 	void write_port(unsigned port, std::uint8_t value);
@@ -86,6 +104,9 @@ private:
 	void trace(char const *event, std::uint64_t cycle, std::uint8_t value);
 
 	void update_tone_mode();
+	void pulse_cp_byte_irq(std::uint32_t finish_cycles);
+	void commit_p0_tx_latch();
+	void note_cp_tx_byte(std::uint8_t value);
 };
 
 } // namespace coinline::tp8048

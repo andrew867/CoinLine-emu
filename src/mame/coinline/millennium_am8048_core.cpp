@@ -254,10 +254,12 @@ unsigned millennium_am8048_core::execute_one()
 		trace_event("stop_tcnt", op);
 		break;
 	case 0x75: m_t0_clk_ena = true; break; // ENT0 CLK
-	case 0x08: { // INS A,BUS — quasi-bidirectional: pin reads external ∧ latch (latch 0 forces low).
+	case 0x08: { // INS A,BUS — true bidirectional bus port: latched output is tri-stated for the
+		// strobe, so A receives the external value directly. AND'ing with the output latch corrupts
+		// CP→TP traffic after the boot ACK leaves a non-0xFF latch byte (e.g. 0x70 → CMD_CONFIG masked
+		// to 0x40, suppressing CFG_NEED prime and RESP_CONFIG_ACK).
 		cycles++;
-		std::uint8_t const ext = m_cb.read_port ? m_cb.read_port(0U) : 0xffU;
-		m_a = static_cast<std::uint8_t>(ext & m_port_latch[0]);
+		m_a = m_cb.read_port ? m_cb.read_port(0U) : 0xffU;
 		trace_event("ins_bus", m_a);
 		break;
 	}

@@ -14,12 +14,71 @@ the emulator backend so runs remain reproducible.
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROM_SIZE = 4096
+
+LISTING_BYTES_RE = re.compile(r"^\s*\d+/\s*([0-9A-Fa-f]{1,4})\s*:\s*((?:[0-9A-Fa-f]{2}\s*)+)")
+
+
+def write_rom_from_listing(lst_path: Path, out_path: Path) -> bool:
+    """ASL/p2bin flattens gaps between ORG blocks; the listing keeps absolute addresses."""
+    if not lst_path.exists():
+        return False
+    data = bytearray([0xFF] * ROM_SIZE)
+    wrote = False
+    for line in lst_path.read_text(errors="replace").splitlines():
+        match = LISTING_BYTES_RE.match(line)
+        if not match:
+            continue
+        addr = int(match.group(1), 16)
+        parts = match.group(2).split()
+        if any(len(part) != 2 or int(part, 16) > 0xFF for part in parts):
+            continue
+        blob = bytes(int(part, 16) for part in parts)
+        if addr >= ROM_SIZE:
+            continue
+        data[addr : min(addr + len(blob), ROM_SIZE)] = blob[: max(0, ROM_SIZE - addr)]
+        wrote = True
+    if not wrote:
+        return False
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(data)
+    return True
+
+
+def validate_behavioural_rom(out_path: Path) -> bool:
+    """Catch stale p2bin output and accidental MCS-48 page-layout regressions."""
+    data = out_path.read_bytes()
+    checks = {
+        0x0000: bytes.fromhex("0410"),  # RESET -> START
+        0x0003: bytes.fromhex("0446"),  # EXTINT -> EXT_IRQ
+        0x0007: bytes.fromhex("0454"),  # TIMER -> TIMER_IRQ
+        0x0036: bytes.fromhex("3420"),  # MAIN_LOOP calls SERVICE_CP_RX
+        0x0118: bytes.fromhex("e44de470"),  # RX_EMPTY/RX_POP far-jump stubs
+        0x0120: bytes.fromhex("15b820f0"),  # SERVICE_CP_RX: DIS I, then RX_HEAD sample
+        0x014B: bytes.fromhex("b838f0"),  # CPRX_STORE: MOV R0,#CFG_IDX / MOV A,@R0
+        0x055E: bytes.fromhex("b82df0a9"),  # ACCEPT_HOOK_STATE
+        0x0300: bytes.fromhex("b826"),  # UPDATE_TONE_FROM_STATE page
+        0x0400: bytes.fromhex("b836"),  # CP command router page
+        0x07C4: bytes.fromhex("b820ba60"),  # CLEAR_RAM high page is present
+        0x0B00: bytes.fromhex("a372dd7f"),  # DTMF lookup page is present
+    }
+    ok = True
+    for addr, expected in checks.items():
+        got = data[addr : addr + len(expected)]
+        if got != expected:
+            print(
+                f"[tp8048] ROM sanity failed at 0x{addr:03X}: "
+                f"expected {expected.hex()} got {got.hex()}",
+                file=sys.stderr,
+            )
+            ok = False
+    return ok
 
 
 def bundled_asl_tools(emu_root: Path) -> tuple[Path, Path] | None:
@@ -30,14 +89,16 @@ def bundled_asl_tools(emu_root: Path) -> tuple[Path, Path] | None:
     on PATH and finally fall back to the deterministic placeholder.
     """
     bin_dir = emu_root / "tools" / "tp8048" / "bin"
-    asl = bin_dir / "asl.exe"
-    p2bin = bin_dir / "p2bin.exe"
-    if asl.is_file() and p2bin.is_file():
-        return asl, p2bin
-    asl2 = bin_dir / "asl"
-    p2bin2 = bin_dir / "p2bin"
-    if asl2.is_file() and p2bin2.is_file():
-        return asl2, p2bin2
+    alt_dir = emu_root / "third-party" / "aswcurr" / "bin"
+    for bin_dir in (bin_dir, alt_dir):
+        asl = bin_dir / "asl.exe"
+        p2bin = bin_dir / "p2bin.exe"
+        if asl.is_file() and p2bin.is_file():
+            return asl, p2bin
+        asl2 = bin_dir / "asl"
+        p2bin2 = bin_dir / "p2bin"
+        if asl2.is_file() and p2bin2.is_file():
+            return asl2, p2bin2
     return None
 
 
@@ -75,15 +136,18 @@ def try_asl(src: Path, out_path: Path, emu_root: Path) -> bool:
     if not cand:
         return False
 
+    lst_path = src.with_suffix(".lst")
     for asl, p2bin in cand:
-        if run([str(asl), "-cpu", "8048", src.name], cwd) != 0:
+        # ASL only refreshes the listing when -L is set; a stale listing would
+        # otherwise pin high-page code at an old image.
+        if run([str(asl), "-cpu", "8048", "-L", lst_path.name, src.name], cwd) != 0:
             continue
         p_file = src.with_suffix(".p")
         if not p_file.exists():
             continue
         if (
             run(
-                [str(p2bin), p_file.name, str(out_path.name), "-r", "0x0000-0x0FFF", "-l", "255"],
+                [str(p2bin), p_file.name, str(out_path.name), "-l", "255"],
                 cwd,
             )
             != 0
@@ -92,13 +156,19 @@ def try_asl(src: Path, out_path: Path, emu_root: Path) -> bool:
         break
     else:
         return False
+    if write_rom_from_listing(lst_path, out_path):
+        return validate_behavioural_rom(out_path)
     built = cwd / out_path.name
-    if built.exists():
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        if built.resolve() != out_path.resolve():
-            out_path.write_bytes(built.read_bytes())
-        return True
-    return False
+    if not built.exists():
+        return False
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    blob = built.read_bytes()
+    if len(blob) < ROM_SIZE:
+        blob = blob + (b"\x00" * (ROM_SIZE - len(blob)))
+    else:
+        blob = blob[:ROM_SIZE]
+    out_path.write_bytes(blob)
+    return validate_behavioural_rom(out_path)
 
 
 def try_as8048(src: Path, out_path: Path) -> bool:
