@@ -8,9 +8,51 @@ Open the included **Quick Start.txt** for setup. The [Windows operator guide](to
 
 ## First INSTALL
 
-Start CoinLine Server with its NCC listener on loopback TCP 4000. Use the lab terminal’s configured 10-digit wire ID as the line number and assign the validated ten-record lab set, including the test card and free-call screening records. The decimal NCC number for `127.0.0.1` is `2130706433`. For a different local TCP port, copy `coinline.example.ini` to `coinline.ini` and set `ncc_port`.
+Start CoinLine Server with its NCC listener on loopback TCP 4000. Use the lab terminal’s configured 10-digit wire ID as the line number and assign the table set for its firmware. The default MTR 1.9 Multi-Pay lab set includes the test card and free-call screening records. The decimal NCC number for `127.0.0.1` is `2130706433`. For a different local TCP port, copy `coinline.example.ini` to `coinline.ini` and set `ncc_port`.
 
 An out-of-service display on first launch is expected. Complete the firmware’s INSTALL with the CO and answer checks, NCC download, keypad, card, and coin checks. The portable launcher never writes the terminal tables or installation flags. When the terminal enters service, later runs reuse its firmware-written battery file.
+
+## Hardware selection
+
+The launcher defaults to `auto`. It selects a hardware preset from the verified
+firmware inventory, then checks for a recognized program tag when the registry
+entry has no firmware ID. The firmware hash registry supplies the legacy I/O
+map when no preset is identified. Use `--hardware` to override selection.
+
+| Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
+| --- | --- | --- | --- |
+| `multipay-v1` | NBA1F02, NPA1S01, NPA1F01 | Earlier | 0 |
+| `multipay-v1-dual-flash` | NCA1X03 | Later | 0 |
+| `multipay-v1.1` | NKA1X02, NKA1X05 | Later | 1 |
+| `multipay-v1.3` | NLA1X05, NOA1X04, NOK1X03, NQA1X01 | Later | 1 |
+| `desk-rel1`, `desk-rel2` | NBJ1S03, NAJ2S05 | Earlier | 0 |
+| `card-only`, `coin-basic` | M06CBBX1, NPE1S01 | Earlier | 0 where fitted |
+
+These presets select the I/O and card clock wiring for each board. The earlier
+board connects the coin validator to ASCI0. The later board uses a 600-baud serial
+link through the external UART and IRQ1. Desk REL 1 and REL 2 have successful
+INSTALL and restart cases. All four staged later V1.3 images (`NLA1X05`,
+`NQA1X01`, `NOK1X03`, and `NOA1X04`) also completed INSTALL and returned to
+service after restart. Both V1.1 images (`NKA1X02` and `NKA1X05`) also
+passed. Their dedicated NCC set includes the two mandatory expanded
+visual-prompt records, MT85 and MT86. Chip-card acceptance and several
+other firmware families still have open gates.
+See the [batch acceptance guide](tools/acceptance/README.md)
+and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
+
+```text
+"Start OEM.cmd" --local --hardware multipay-v1.1 --firmware firmware/U2.bin --flash1 firmware/X1.bin --rompath roms-v2 --check
+```
+
+The same arguments work with `./start-oem.sh` on Linux and macOS. `--rompath`
+contains a `cl_millennium/` folder with the matching Voiceware pair.
+Use `--check` to verify the input paths, mapped image SHA-256, and selected
+profile. Remove `--check` to launch. OEM 1.9 retains its portable state
+directory. Other mapped programs and presets each get their own battery and
+configuration directories under `data/oem/`.
+
+Direct MAME invocations can set `COINLINE_CARD_DMA_CHANNEL` to `0` or `1`.
+The portable launcher and acceptance runner select it from the hardware preset.
 
 ## Controls
 
@@ -23,6 +65,7 @@ An out-of-service display on first launch is expected. Complete the firmware’s
 | =, -, L, N | Volume up/down, language, next call |
 | K, C, A, or the matching LED row | Toggle the lock, housing, or cash vault |
 | P or click the card reader | Insert, read, and remove the synthetic test card |
+| `[` | Insert or remove the synthetic smart card when prompted |
 | V, B, M | Nickel, dime, quarter |
 | Q W E R T | Quick-access positions 1 through 5, also clickable on the panel |
 | Y G J X Z | Positions 6 through 10 on a ten-button profile |

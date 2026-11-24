@@ -1,0 +1,2002 @@
+{
+  "wiki_rows": 122,
+  "wiki_raw_sha256": "002ab45ccbf5e5be5b4ed5766b3bb539eb4499266d0c655f436b64ebabfc6ace",
+  "manager_rows": 22,
+  "sources": {
+    "muccc/millennium": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+    "armeniki/Nortel-Millennium": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+    "hharte/mm_manager": "a5b595f6189245885bcc2a7232681a11061ac71c"
+  },
+  "baseline": {
+    "firmware_id": "NBA1F02",
+    "program_sha256": "8273d9eb5d8799a8e1b6ccdf3d98da7d5e7973f9016e44aa1c4b878beeeadc8f",
+    "matching_images": [
+      "images/NBA1F02/muc/U5_NBA1F02.BIN",
+      "images/NBA1F02/extra/NBA1F02.bin"
+    ]
+  },
+  "firmware": {
+    "M12ABX10": {
+      "wiki_version": "1.6s",
+      "terminal_type": "12",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M12ABX11": {
+      "wiki_version": "1.6s",
+      "terminal_type": "12",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M12ABX12": {
+      "wiki_version": "1.6",
+      "terminal_type": "9",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06CAA10": {
+      "wiki_version": "1.7",
+      "terminal_type": "13",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06CAA17": {
+      "wiki_version": "1.7",
+      "terminal_type": "13",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "06CAA17",
+        "version": "1.7",
+        "terminal": "MP/MC",
+        "languages": "",
+        "report": "Appears working except for chip cards, but Mandatory Table Alarm is present."
+      },
+      "images": [
+        "images/M06CAA17/muc/NT_FW_1.7_06CAA17_STM27C2001_32DIP.BIN"
+      ]
+    },
+    "M06CAF03": {
+      "wiki_version": "1.7",
+      "terminal_type": "13",
+      "wiki_description": "Multipay Magstripe E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06CBBX1": {
+      "wiki_version": "1.?",
+      "terminal_type": "",
+      "wiki_description": "Multipay Card-Only",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "06CBBX1",
+        "version": "1.7",
+        "terminal": "Card-only",
+        "languages": "English / Spanish",
+        "report": "Fully working except for chip cards"
+      },
+      "images": [
+        "images/M06CBBX1/muc/NT_FW_M06CBBX1_M27C2001_DIP32_Card_Only.BIN"
+      ]
+    },
+    "M06CFA01": {
+      "wiki_version": "1.7",
+      "terminal_type": "14",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06KFA01": {
+      "wiki_version": "1.7",
+      "terminal_type": "14",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1F03": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1F04": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1J03": {
+      "wiki_version": "1.7",
+      "terminal_type": "23-26",
+      "wiki_description": "Multipay Multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1J04": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1J06": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1S03": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1S04": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAA1S05": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "",
+      "manager": {
+        "listed_code": "NAA1S05",
+        "version": "1.7",
+        "terminal": "MP/MC",
+        "languages": "",
+        "report": "?"
+      },
+      "images": [
+        "images/NAA1S05/extra/NAA1S05.bin"
+      ]
+    },
+    "NAA1S06": {
+      "wiki_version": "1.7",
+      "terminal_type": "26",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAE1F02": {
+      "wiki_version": "1.7",
+      "terminal_type": "23",
+      "wiki_description": "Card only multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAE1J02": {
+      "wiki_version": "1.7",
+      "terminal_type": "23",
+      "wiki_description": "Card only multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAE1S02": {
+      "wiki_version": "1.7",
+      "terminal_type": "23",
+      "wiki_description": "Card only multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6KDB02": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6KDB03": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6KDB05": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6KDB07": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6KDC01": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6KDC02": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6CDB01": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "MO6CDB02": {
+      "wiki_version": "1.7",
+      "terminal_type": "15",
+      "wiki_description": "Desk Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ1S06": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ1S07": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ1F06": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ1J04": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ1J06": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ1J07": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ1S04": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2J01": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/J REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2J02": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/J REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2S01": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2S03": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2S04": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2S05": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NAJ2S05",
+        "version": "1.7",
+        "terminal": "Desk",
+        "languages": "",
+        "report": "Fully working except for chip cards"
+      },
+      "images": [
+        "images/NAJ2S05/muc/desk_mtr17.bin",
+        "images/NAJ2S05/muc/deskmillennium_mtr_1_7.bin",
+        "images/NAJ2S05/muc/deskmillennium_soundrom.bin",
+        "images/NAJ2S05/extra/NAJ2S05.bin"
+      ]
+    },
+    "NAJ2J03": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/J REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2S06": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAJ2S07": {
+      "wiki_version": "1.7",
+      "terminal_type": "25",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAD4J01": {
+      "wiki_version": "1.7",
+      "terminal_type": "19",
+      "wiki_description": "Coin Only Display E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAD4J02": {
+      "wiki_version": "1.7",
+      "terminal_type": "19",
+      "wiki_description": "Coin Only Display E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NAD4S02": {
+      "wiki_version": "1.7",
+      "terminal_type": "19",
+      "wiki_description": "Coin Only Display E/S",
+      "wiki_dump_label": "",
+      "manager": {
+        "listed_code": "NAD4S02",
+        "version": "1.7",
+        "terminal": "Coin Basic",
+        "languages": "",
+        "report": "?"
+      },
+      "images": [
+        "images/NAD4S02/extra/NAD4S02.bin"
+      ]
+    },
+    "NAD4S03": {
+      "wiki_version": "1.7",
+      "terminal_type": "19",
+      "wiki_description": "Coin Only Display E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NADXS01": {
+      "wiki_version": "1.7",
+      "terminal_type": "19, 24",
+      "wiki_description": "Coin Only No Display E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NADXS02": {
+      "wiki_version": "1.7",
+      "terminal_type": "19",
+      "wiki_description": "Coin Only No Display E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NADXS03": {
+      "wiki_version": "1.7",
+      "terminal_type": "19",
+      "wiki_description": "Coin Only No Display E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NADXS04": {
+      "wiki_version": "1.7",
+      "terminal_type": "19",
+      "wiki_description": "Coin Only No Display E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06KOB02": {
+      "wiki_version": "1.7",
+      "terminal_type": "",
+      "wiki_description": "Card Only NETAS",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06KOB04": {
+      "wiki_version": "1.7",
+      "terminal_type": "",
+      "wiki_description": "Card Only NETAS",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06CND04": {
+      "wiki_version": "1.7",
+      "terminal_type": "",
+      "wiki_description": "Card Only MACEDONIA/NETAS",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06JOB02": {
+      "wiki_version": "1.7",
+      "terminal_type": "",
+      "wiki_description": "Card Only JORAN/NETAS",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06CNB02": {
+      "wiki_version": "1.7",
+      "terminal_type": "",
+      "wiki_description": "Card Only BOSNIA/NETAS",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "M06KEC12": {
+      "wiki_version": "1.7i",
+      "terminal_type": "15",
+      "wiki_description": "Inmate E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBA1F01": {
+      "wiki_version": "1.9",
+      "terminal_type": "30 (28)",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBA1F02": {
+      "wiki_version": "1.9",
+      "terminal_type": "30 (28)",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NBA1F02",
+        "version": "1.9",
+        "terminal": "MP/MC",
+        "languages": "English / French",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NBA1F02/muc/U10_QQ1SFK-01(VW).BIN",
+        "images/NBA1F02/muc/U5_NBA1F02.BIN",
+        "images/NBA1F02/extra/NBA1F02.bin",
+        "images/NBA1F02/extra/NBA1F02_ddmmyy.bin"
+      ]
+    },
+    "NBA1F03": {
+      "wiki_version": "1.9",
+      "terminal_type": "30",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBA1J01": {
+      "wiki_version": "1.9",
+      "terminal_type": "30",
+      "wiki_description": "Multipay Multicard E/J",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBE1F01": {
+      "wiki_version": "1.9",
+      "terminal_type": "27",
+      "wiki_description": "Card only multicard E/F",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBE1S01": {
+      "wiki_version": "1.9",
+      "terminal_type": "27",
+      "wiki_description": "Card only multicard E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBJ1F01": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/F REL 1 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBF1F03": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/F REL 1 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBJ1J03": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/J REL 1 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBJ1S03": {
+      "wiki_version": "1.9",
+      "terminal_type": "",
+      "wiki_description": "Desk Multicard",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NBJ1S03",
+        "version": "1.9",
+        "terminal": "Desk",
+        "languages": "English / Spanish",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NBJ1S03/muc/NBJ1S03.bin",
+        "images/NBJ1S03/extra/NBJ1S03.bin"
+      ]
+    },
+    "NBJ2F01": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/F REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBJ2F03": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/F REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBJ2F04": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/F REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBJ2J03": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/J REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NBJ2J04": {
+      "wiki_version": "1.9",
+      "terminal_type": "29",
+      "wiki_description": "Desk Multicard E/J REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "PBAXS02": {
+      "wiki_version": "1.9",
+      "terminal_type": "32",
+      "wiki_description": "Multipay PERU",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "PBAXS03": {
+      "wiki_version": "1.9",
+      "terminal_type": "32",
+      "wiki_description": "Multipay PERU",
+      "wiki_dump_label": "to be prepared",
+      "images": []
+    },
+    "PBAXS04": {
+      "wiki_version": "1.9",
+      "terminal_type": "32",
+      "wiki_description": "Multipay PERU",
+      "wiki_dump_label": "to be prepared",
+      "images": []
+    },
+    "PBAXS05": {
+      "wiki_version": "1.9",
+      "terminal_type": "",
+      "wiki_description": "Multipay PERU",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "PBAXS05",
+        "version": "1.7",
+        "terminal": "MP/MC/International",
+        "languages": "",
+        "report": "Not working"
+      },
+      "images": [
+        "images/PBAXS05/muc/TEST.BIN"
+      ]
+    },
+    "EBA1S01": {
+      "wiki_version": "1.9",
+      "terminal_type": "32",
+      "wiki_description": "Multipay EQUADOR",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "IBAXS01": {
+      "wiki_version": "1.9",
+      "terminal_type": "46",
+      "wiki_description": "Multiplay INTERNATIONAL",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "IBDXS01": {
+      "wiki_version": "1.9",
+      "terminal_type": "42",
+      "wiki_description": "Coin Only INTERNATIONAL",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "IBF4S01": {
+      "wiki_version": "1.9",
+      "terminal_type": "33",
+      "wiki_description": "Card Only COLOMBIA",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "IBK4S01": {
+      "wiki_version": "1.9",
+      "terminal_type": "33",
+      "wiki_description": "Deskset COLOMBIA",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NNA1F02": {
+      "wiki_version": "1.9",
+      "terminal_type": "",
+      "wiki_description": "Multipay TTY E/F",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NNA1F02",
+        "version": "1.9",
+        "terminal": "MP/MC/TTY",
+        "languages": "English / French",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NNA1F02/muc/NT_FW_NNA1F02_31C6_1.9_TTY_STM27C2001_32DIP.BIN",
+        "images/NNA1F02/muc/NT_VW_LM5U09BA_A0623480_2B52_STM27C4001_32DIP.BIN"
+      ]
+    },
+    "NJJXS01": {
+      "wiki_version": "1.11",
+      "terminal_type": "45",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NJJXS02": {
+      "wiki_version": "1.11",
+      "terminal_type": "45",
+      "wiki_description": "Desk Multicard E/S REL 2 H/W",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NNK1F05": {
+      "wiki_version": "1.13",
+      "terminal_type": "",
+      "wiki_description": "Multipay Magstripe TTY",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NNK1F05",
+        "version": "1.13",
+        "terminal": "MP/MC/TTY",
+        "languages": "English / French",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NNK1F05/muc/U10_MTR1.13 Voiceware.BIN",
+        "images/NNK1F05/muc/U5_MTR1.13 Keyboard.BIN"
+      ]
+    },
+    "12AAV08": {
+      "wiki_version": "1.xx",
+      "terminal_type": "",
+      "wiki_description": "Multipay Multicard E/F",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "12AAV08",
+        "version": "1.7",
+        "terminal": "MP/MC",
+        "languages": "",
+        "report": "?"
+      },
+      "images": [
+        "images/12AAV08/muc/U10.BIN",
+        "images/12AAV08/muc/U5.BIN"
+      ]
+    },
+    "06JAA03": {
+      "wiki_version": "1.xx",
+      "terminal_type": "",
+      "wiki_description": "Multipay Magstripe E/S",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "06JAA03",
+        "version": "1.7",
+        "terminal": "MP/MC",
+        "languages": "English / Japanese",
+        "report": "Fully working except for chip cards"
+      },
+      "images": [
+        "images/06JAA03/muc/U10_06FEN01.BIN",
+        "images/06JAA03/muc/U5_06JAA03.BIN"
+      ]
+    },
+    "NPA1S01": {
+      "wiki_version": "1.20",
+      "terminal_type": "",
+      "wiki_description": "Multipay Multicard E/S",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NPA1S01",
+        "version": "1.20",
+        "terminal": "MP/MC",
+        "languages": "English / Spanish",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NPA1S01/muc/dump1/NPA1S01(FW).BIN",
+        "images/NPA1S01/muc/dump1/NPA1S01(VW).BIN",
+        "images/NPA1S01/muc/dump2/NT_06FAL01_5A8A_AMD_PALCE16V8H.bin",
+        "images/NPA1S01/muc/dump2/NT_06FAL01_5A8A_Lattice_GAL16V8B.bin",
+        "images/NPA1S01/muc/dump2/NT_FW_1.20_STM27C2001_32DIP.bin",
+        "images/NPA1S01/muc/dump2/NT_VW_06EAJ01_A0620793_NT5U40AW_STM27C4001_32DIP.bin",
+        "images/NPA1S01/extra/NPA1S01.BIN"
+      ]
+    },
+    "NPE1S01": {
+      "wiki_version": "1.20",
+      "terminal_type": "",
+      "wiki_description": "Multipay Coin Basic",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NPE1S01",
+        "version": "1.20",
+        "terminal": "Coin Basic",
+        "languages": "",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NPE1S01/muc/NT_FW_1.20_NPE1S01_V1.0_M27C2001_DIP32_Coin_Basic.BIN"
+      ]
+    },
+    "NPA1F01": {
+      "wiki_version": "1.20",
+      "terminal_type": "",
+      "wiki_description": "Multipay",
+      "wiki_dump_label": "public link",
+      "images": [
+        "images/NPA1F01/muc/06EBC01 A0623480 2B52 v1.20 E-F VW.bin",
+        "images/NPA1F01/muc/NPA1F01 - 1.20 FW  - EF D5D6 - Wimactel (Bell) Phone.bin"
+      ]
+    },
+    "NCA1S01": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCA1S02": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCA1X01": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCA1X02": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCA1X03": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NCA1X03",
+        "version": "2.0",
+        "terminal": "MP/MC/DJ",
+        "languages": "",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NCA1X03/muc/FW_2.0_NCA1X03V1.0_U2_STM29F040B_PLCC32.BIN",
+        "images/NCA1X03/muc/FW_2.0_NCA1X03V1.0_X1_STM29F040B_PLCC32.BIN"
+      ]
+    },
+    "NED2X01": {
+      "wiki_version": "2.0",
+      "terminal_type": "38",
+      "wiki_description": "Coin Only Display",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NED4X01": {
+      "wiki_version": "2.0",
+      "terminal_type": "38",
+      "wiki_description": "Coin Only No Display",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCE2X01": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Card MAC WEBSTN (NetVenue)",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCE2X02": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Card MAC WEBSTN (NetVenue)",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCE2X03": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Card NETVENUE",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NCE3X01": {
+      "wiki_version": "2.0",
+      "terminal_type": "36",
+      "wiki_description": "Card NETVENUE",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NEA1X02": {
+      "wiki_version": "2.0",
+      "terminal_type": "40",
+      "wiki_description": "Multipay Graphic",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NEA1S01": {
+      "wiki_version": "2.2",
+      "terminal_type": "22",
+      "wiki_description": "Multipay Graphic E/S",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NEA3F01": {
+      "wiki_version": "2.2",
+      "terminal_type": "22",
+      "wiki_description": "Multipay Mondex",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NEA3F02": {
+      "wiki_version": "2.2",
+      "terminal_type": "22",
+      "wiki_description": "Multipay Mondex",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NEA3F03": {
+      "wiki_version": "2.2",
+      "terminal_type": "22",
+      "wiki_description": "Multipay Mondex",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NEA3F04": {
+      "wiki_version": "2.2",
+      "terminal_type": "22",
+      "wiki_description": "Multipay Mondex",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NFA1S02": {
+      "wiki_version": "2.3",
+      "terminal_type": "34",
+      "wiki_description": "Multipay E-Purse",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NKA1X01": {
+      "wiki_version": "2.11",
+      "terminal_type": "51",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NKA2X01": {
+      "wiki_version": "2.11",
+      "terminal_type": "53",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NKA2X02": {
+      "wiki_version": "2.11",
+      "terminal_type": "53",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NKA1X02": {
+      "wiki_version": "2.11",
+      "terminal_type": "51",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NKA1X02",
+        "version": "2.11",
+        "terminal": "MP/MC",
+        "languages": "English / Spanish",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NKA1X02/muc/FW_2.11_NKA1X02_U2_STM29F040B_PLCC32.BIN",
+        "images/NKA1X02/muc/FW_2.11_NKA1X02_X1_STM29F040B_PLCC32.BIN",
+        "images/NKA1X02/muc/VW2.0A_737874_U16_NEC_UPD27C8001_PLCC32.BIN",
+        "images/NKA1X02/muc/VW2.0A_737877_U26_NEC_UPD27C8001_PLCC32.BIN"
+      ]
+    },
+    "NKA1X03": {
+      "wiki_version": "2.11",
+      "terminal_type": "51",
+      "wiki_description": "Multipay Multicard Downloadable",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NKD1X04": {
+      "wiki_version": "2.11",
+      "terminal_type": "56",
+      "wiki_description": "Coin Only Display",
+      "wiki_dump_label": "",
+      "images": []
+    },
+    "NLA1X05": {
+      "wiki_version": "2.12",
+      "terminal_type": "",
+      "wiki_description": "Multipay Multicard",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NLA1X05",
+        "version": "2.12",
+        "terminal": "",
+        "languages": "",
+        "report": "?"
+      },
+      "images": [
+        "images/NLA1X05/muc/FLASH0.BIN",
+        "images/NLA1X05/muc/FLASH1.BIN"
+      ]
+    },
+    "NLA1X06": {
+      "wiki_version": "2.12",
+      "terminal_type": "",
+      "wiki_description": "Multipay Multicard Demo",
+      "wiki_dump_label": "private",
+      "images": []
+    },
+    "NOA1X04": {
+      "wiki_version": "2.12",
+      "terminal_type": "",
+      "wiki_description": "Multipay Multicard Dialpad-TTY",
+      "wiki_dump_label": "public link",
+      "images": [
+        "images/NOA1X04/muc/M27C801@PLCC32 - 737874 - VW2.0A - U16.bin",
+        "images/NOA1X04/muc/M27C801@PLCC32 - 737877 - VW2.0A - U26.bin",
+        "images/NOA1X04/muc/M29F040B@PLCC32-NOA1X04-212 TTY U2.bin",
+        "images/NOA1X04/muc/M29F040B@PLCC32-NOA1X04-212 TTY X1.bin"
+      ]
+    },
+    "NQA1X01": {
+      "wiki_version": "2.12",
+      "terminal_type": "",
+      "wiki_description": "",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NQA1X01",
+        "version": "2.20",
+        "terminal": "MP/MC",
+        "languages": "English / Spanish",
+        "report": "Fully working"
+      },
+      "images": [
+        "images/NQA1X01/muc/NT_FW_2.12_U2_Rev2_CPC_STM29F040B_32PLCC.bin",
+        "images/NQA1X01/muc/NT_FW_2.12_X1_Rev2_CPC_STM29F040B_32PLCC.bin",
+        "images/NQA1X01/muc/VW2.0A_737877_U16_ST27C801_PLCC32.bin",
+        "images/NQA1X01/muc/VW2.0A_737877_U26_ST27C801_PLCC32.bin"
+      ]
+    },
+    "NOK1X03": {
+      "wiki_version": "2.13",
+      "terminal_type": "",
+      "wiki_description": "Multipay Multicard TTY",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NOK1X03",
+        "version": "2.13",
+        "terminal": "MP/MC/TTY",
+        "languages": "",
+        "report": "?"
+      },
+      "images": [
+        "images/NOK1X03/muc/U16_VW2.0A.BIN",
+        "images/NOK1X03/muc/U26_VW2.0A.BIN",
+        "images/NOK1X03/muc/U2_MTR2.13 TTY.BIN",
+        "images/NOK1X03/muc/X1_MTR2.13 TTY.BIN"
+      ]
+    },
+    "NKA1X05": {
+      "wiki_version": "2.xx",
+      "terminal_type": "unknown",
+      "wiki_description": "Multipay Multicard",
+      "wiki_dump_label": "public link",
+      "manager": {
+        "listed_code": "NKA1X05",
+        "version": "2.11",
+        "terminal": "MP/MC",
+        "languages": "",
+        "report": "?"
+      },
+      "images": [
+        "images/NKA1X05/muc/U16.BIN",
+        "images/NKA1X05/muc/U16/blob1.bin",
+        "images/NKA1X05/muc/U16/blob2.bin",
+        "images/NKA1X05/muc/U16/blob3.bin",
+        "images/NKA1X05/muc/U16/blob4.bin",
+        "images/NKA1X05/muc/U16/blob5.bin",
+        "images/NKA1X05/muc/U16/blob6.bin",
+        "images/NKA1X05/muc/U16/blob7.bin",
+        "images/NKA1X05/muc/U16/blob8.bin",
+        "images/NKA1X05/muc/U2.BIN",
+        "images/NKA1X05/muc/U26.BIN",
+        "images/NKA1X05/muc/U26/blob1.bin",
+        "images/NKA1X05/muc/U26/blob2.bin",
+        "images/NKA1X05/muc/U26/blob3.bin",
+        "images/NKA1X05/muc/U26/blob4.bin",
+        "images/NKA1X05/muc/U26/blob5.bin",
+        "images/NKA1X05/muc/U26/blob6.bin",
+        "images/NKA1X05/muc/U26/blob7.bin",
+        "images/NKA1X05/muc/U26/blob8.bin",
+        "images/NKA1X05/muc/X1.BIN",
+        "images/NKA1X05/muc/prompts/english.bin",
+        "images/NKA1X05/muc/prompts/french.bin",
+        "images/NKA1X05/muc/prompts/japanese.bin",
+        "images/NKA1X05/muc/prompts/service.bin",
+        "images/NKA1X05/muc/prompts/spanish.bin",
+        "images/NKA1X05/extra/NKA1X05_U2.bin",
+        "images/NKA1X05/extra/NKA1X05_X1.BIN"
+      ]
+    },
+    "NBE1J01": {
+      "manager": {
+        "listed_code": "NBE1J01",
+        "version": "1.9",
+        "terminal": "Card-only",
+        "languages": "English / Japanese",
+        "report": "Provisions but can\u2019t rate calls."
+      },
+      "images": []
+    },
+    "NAD4K02": {
+      "manager": {
+        "listed_code": "NAD4K02",
+        "version": "1.7",
+        "terminal": "Coin Basic",
+        "languages": "",
+        "report": "?"
+      },
+      "images": [
+        "images/NAD4K02/extra/NAD4K02.bin"
+      ]
+    },
+    "NBJ1F03": {
+      "archive_only": true,
+      "images": [
+        "images/NBJ1F03/extra/NBJ1F03.bin"
+      ]
+    },
+    "FREETEL-1.x": {
+      "archive_only": true,
+      "images": [
+        "images/FREETEL-1.x/extra/FREETEL-1.x.BIN"
+      ]
+    }
+  },
+  "files": [
+    {
+      "firmware_id": "06JAA03",
+      "role": "voiceware",
+      "path": "images/06JAA03/muc/U10_06FEN01.BIN",
+      "bytes": 524288,
+      "sha256": "7b92e886b72b044b35b3b30fe39284017a9119e51053a1fe7578118489cbd981",
+      "git_blob": "59776f81e013a66cc9c10ed9a00073d83141d0f7",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/06JAA03/U10_06FEN01.BIN"
+    },
+    {
+      "firmware_id": "06JAA03",
+      "role": "program",
+      "path": "images/06JAA03/muc/U5_06JAA03.BIN",
+      "bytes": 262144,
+      "sha256": "2a51b8534c22911defaae36778db0baa8b7b29b5c347b16f16622b938f5568e3",
+      "git_blob": "6b8f0c216e4051c04d521a16adde5d38e9c82be5",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/06JAA03/U5_06JAA03.BIN"
+    },
+    {
+      "firmware_id": "12AAV08",
+      "role": "voiceware",
+      "path": "images/12AAV08/muc/U10.BIN",
+      "bytes": 524288,
+      "sha256": "854738a968e6eb8aa16f3e01b12558642826117fa96e8fda1c461d4a26bdce62",
+      "git_blob": "73f00ad2c5542b39854ce7623f55b29d0c5edbc3",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/12AAV08/U10.BIN"
+    },
+    {
+      "firmware_id": "12AAV08",
+      "role": "program",
+      "path": "images/12AAV08/muc/U5.BIN",
+      "bytes": 262144,
+      "sha256": "ec2f67dbe2fbd245ff43250980d0addab82824f686daf6aee0eda1a107714a9c",
+      "git_blob": "f8c04150fb1430788eb0f8dd1ab2d1c7fe3e67c2",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/12AAV08/U5.BIN"
+    },
+    {
+      "firmware_id": "M06CAA17",
+      "role": "program",
+      "path": "images/M06CAA17/muc/NT_FW_1.7_06CAA17_STM27C2001_32DIP.BIN",
+      "bytes": 262144,
+      "sha256": "3536fa1fe06d7dff818af663d3114299b874e8a3954edc24aefcf639fb5fa309",
+      "git_blob": "ca584c8253694b7dc4639335788d71a4d6bb364c",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/M06CAA17/NT_FW_1.7_06CAA17_STM27C2001_32DIP.BIN"
+    },
+    {
+      "firmware_id": "M06CBBX1",
+      "role": "program",
+      "path": "images/M06CBBX1/muc/NT_FW_M06CBBX1_M27C2001_DIP32_Card_Only.BIN",
+      "bytes": 262144,
+      "sha256": "788e6124d06c378243dd84f1e0283595a78b7a10215a408db4bf0d1cde771019",
+      "git_blob": "7e1ca42e93800e1f905bf3ebf69af5d2a56fd350",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/M06CBBX1/NT_FW_M06CBBX1_M27C2001_DIP32_Card_Only.BIN"
+    },
+    {
+      "firmware_id": "NAJ2S05",
+      "role": "program",
+      "path": "images/NAJ2S05/muc/desk_mtr17.bin",
+      "bytes": 262144,
+      "sha256": "32551c4a16461ccbff5747dc9af3eaf50b65717972eca047c0ef707ec3a639c0",
+      "git_blob": "3520918d17f2a17003be54db2c17b80735dec591",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NAJ2S05/desk_mtr17.bin"
+    },
+    {
+      "firmware_id": "NAJ2S05",
+      "role": "alternate image, layout unverified",
+      "path": "images/NAJ2S05/muc/deskmillennium_mtr_1_7.bin",
+      "bytes": 524288,
+      "sha256": "beabb085bb69212d9e1f38c2e5cca50411346d8ce73dd4c2029fc2bcdfede7ea",
+      "git_blob": "3273094aac52d7653c1a9b5e26fa8606c457376c",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NAJ2S05/deskmillennium_mtr_1_7.bin"
+    },
+    {
+      "firmware_id": "NAJ2S05",
+      "role": "voiceware",
+      "path": "images/NAJ2S05/muc/deskmillennium_soundrom.bin",
+      "bytes": 262144,
+      "sha256": "c43f81ff1574eec01ae5377bdc35f46c6064bc3ddd87a7ba1fa34813f671377d",
+      "git_blob": "eb6a2f610c50750a27cb75beef4ef79ba73d4bcb",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NAJ2S05/deskmillennium_soundrom.bin"
+    },
+    {
+      "firmware_id": "NBA1F02",
+      "role": "voiceware",
+      "path": "images/NBA1F02/muc/U10_QQ1SFK-01(VW).BIN",
+      "bytes": 524288,
+      "sha256": "e9622c92340149be22f6ab41f0ac219a24fc9bc234cb8493a7cf053ca142d15b",
+      "git_blob": "8df90135ef7790a03e4ce4652c632369dd1d391e",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NBA1F02/U10_QQ1SFK-01%28VW%29.BIN"
+    },
+    {
+      "firmware_id": "NBA1F02",
+      "role": "program",
+      "path": "images/NBA1F02/muc/U5_NBA1F02.BIN",
+      "bytes": 262144,
+      "sha256": "8273d9eb5d8799a8e1b6ccdf3d98da7d5e7973f9016e44aa1c4b878beeeadc8f",
+      "git_blob": "c23eb18d5d0e0ce5d3a7d256baafaf7849467380",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NBA1F02/U5_NBA1F02.BIN"
+    },
+    {
+      "firmware_id": "NBJ1S03",
+      "role": "program",
+      "path": "images/NBJ1S03/muc/NBJ1S03.bin",
+      "bytes": 262144,
+      "sha256": "e039b1cf1c703f8853614ab37865c2ced79d34b78a45ad1f6185353bd8a9fbe9",
+      "git_blob": "b36863b42fbf7103e26668d7ad8a9fed2127b48c",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NBJ1S03/NBJ1S03.bin"
+    },
+    {
+      "firmware_id": "NCA1X03",
+      "role": "flash U2",
+      "path": "images/NCA1X03/muc/FW_2.0_NCA1X03V1.0_U2_STM29F040B_PLCC32.BIN",
+      "bytes": 524288,
+      "sha256": "e0b8cd26f8c82942bab57e23b723f441baee1b26137f7ce30a8aead850f0358a",
+      "git_blob": "ef46a24baa38ec3707b7476ec54ee0c5fcf1edbc",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NCA1X03/FW_2.0_NCA1X03V1.0_U2_STM29F040B_PLCC32.BIN"
+    },
+    {
+      "firmware_id": "NCA1X03",
+      "role": "flash X1",
+      "path": "images/NCA1X03/muc/FW_2.0_NCA1X03V1.0_X1_STM29F040B_PLCC32.BIN",
+      "bytes": 524288,
+      "sha256": "e25e948fc4fc21a1da4a396225c54c2e6e91728108320ccd32ac7b36ced1cfdb",
+      "git_blob": "199b5a93c531a2758a85ed4757960057f5ee2187",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NCA1X03/FW_2.0_NCA1X03V1.0_X1_STM29F040B_PLCC32.BIN"
+    },
+    {
+      "firmware_id": "NKA1X02",
+      "role": "flash U2",
+      "path": "images/NKA1X02/muc/FW_2.11_NKA1X02_U2_STM29F040B_PLCC32.BIN",
+      "bytes": 524288,
+      "sha256": "a0b88b3efcd46c9aa7455a11d4a38686800a7ae1a0b539ecd8981ea44c4e87e6",
+      "git_blob": "f12d84b31b7b6064d53fc27411a20e0f16176e8e",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X02/FW_2.11_NKA1X02_U2_STM29F040B_PLCC32.BIN"
+    },
+    {
+      "firmware_id": "NKA1X02",
+      "role": "flash X1",
+      "path": "images/NKA1X02/muc/FW_2.11_NKA1X02_X1_STM29F040B_PLCC32.BIN",
+      "bytes": 524288,
+      "sha256": "c58084e844666c39d8a3bbc6dc4b887b5da5ebe1a13107b0af09a6e0be34078d",
+      "git_blob": "27773722b0a9680d0e3eb4317d456043ba8bfa37",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X02/FW_2.11_NKA1X02_X1_STM29F040B_PLCC32.BIN"
+    },
+    {
+      "firmware_id": "NKA1X02",
+      "role": "voiceware U16",
+      "path": "images/NKA1X02/muc/VW2.0A_737874_U16_NEC_UPD27C8001_PLCC32.BIN",
+      "bytes": 1048576,
+      "sha256": "e8b5c9628dd8e807ff71f31046fc2fee190f577e986535c65cdaaabda50a16d7",
+      "git_blob": "33ba92c67d6d6653cd28ea9139bea2dcb14de78f",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X02/VW2.0A_737874_U16_NEC_UPD27C8001_PLCC32.BIN"
+    },
+    {
+      "firmware_id": "NKA1X02",
+      "role": "voiceware U26",
+      "path": "images/NKA1X02/muc/VW2.0A_737877_U26_NEC_UPD27C8001_PLCC32.BIN",
+      "bytes": 1048576,
+      "sha256": "5480548ed2bc9b0b12ebe40a309d0e413532daf34a7433f805c9037c183c6bcd",
+      "git_blob": "57bf3a32c4876fa53d6afa99f390c3b2c7c5fff4",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X02/VW2.0A_737877_U26_NEC_UPD27C8001_PLCC32.BIN"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "voiceware U16",
+      "path": "images/NKA1X05/muc/U16.BIN",
+      "bytes": 1048576,
+      "sha256": "e8b5c9628dd8e807ff71f31046fc2fee190f577e986535c65cdaaabda50a16d7",
+      "git_blob": "33ba92c67d6d6653cd28ea9139bea2dcb14de78f",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16.BIN"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob1.bin",
+      "bytes": 131072,
+      "sha256": "a3f23883ccfcd4fe20abbfd9b7ed8799e2f7a179bf9b501e0176665f46a205b0",
+      "git_blob": "5e578db0123a7ed1a0d28c52fae86080e42337e6",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob1.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob2.bin",
+      "bytes": 131072,
+      "sha256": "c409ef1bd9072cc99db53834f58b3e84470f8e1836d9c0be4a67ba8404b7559d",
+      "git_blob": "68c106617e82174e1772ec3573530c48f83e484d",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob2.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob3.bin",
+      "bytes": 131072,
+      "sha256": "3de30d200a71ec074b7f57e28d7c31195a9299e84593f5061a18975ef0c41459",
+      "git_blob": "f1267dbc38bd779a65e3e836bafdb4b18f25d0fb",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob3.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob4.bin",
+      "bytes": 131072,
+      "sha256": "4facfa782439f6c5a4ae570b29b21c431214519491c3603f052faa0fff062086",
+      "git_blob": "40b25a722abc6557400005de9f6d047683b4f680",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob4.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob5.bin",
+      "bytes": 131072,
+      "sha256": "946b0426b6f5791a9ebb81ed1a316fa40113801e02b9feec7b5a6208b0a871b2",
+      "git_blob": "e2a54cf0d8d4b27363ed253336b0e863537d528b",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob5.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob6.bin",
+      "bytes": 131072,
+      "sha256": "e2d14bd7fd1f8b37ba70c712039f0977a11c7b35a3d61db9f53328d06231ec4b",
+      "git_blob": "4a0fc83af1452843bc672842a514175326474208",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob6.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob7.bin",
+      "bytes": 131072,
+      "sha256": "ac5b5b2db4e4fbf1a9f7bd0f6a24e5ee5c5e6cc5d0bb33f55f627d15c2fe300a",
+      "git_blob": "dd65c82dfe8c2b2568632b411207055171f7fea1",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob7.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U16/blob8.bin",
+      "bytes": 131072,
+      "sha256": "6b8c0348c825591950532b756d6c0d236773a2ce7640cb3d702a975c6ddbe527",
+      "git_blob": "51fe08a3b6a2a9683a3066abb785c7e4aa1efd85",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U16/blob8.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "flash U2",
+      "path": "images/NKA1X05/muc/U2.BIN",
+      "bytes": 524288,
+      "sha256": "b15f848dcdfd4fb0af572468020af2b465fbd010dd620327ba103d6f9e8ea5f9",
+      "git_blob": "1434c95a1a31a1b6fa5d1b145ff608d69ec88cf6",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U2.BIN"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "voiceware U26",
+      "path": "images/NKA1X05/muc/U26.BIN",
+      "bytes": 1048576,
+      "sha256": "5480548ed2bc9b0b12ebe40a309d0e413532daf34a7433f805c9037c183c6bcd",
+      "git_blob": "57bf3a32c4876fa53d6afa99f390c3b2c7c5fff4",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26.BIN"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob1.bin",
+      "bytes": 131072,
+      "sha256": "4642b5dc51813ba0d909c80178f4e0576d8b4fa144e9188dae9b778e2614bdcf",
+      "git_blob": "556c78b72d4b418d7bab588850c788e8b2b784ab",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob1.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob2.bin",
+      "bytes": 131072,
+      "sha256": "4ac41d31ff54302f7431df9824481be0bfc9fefa06f378f5a20dbfbb42a15a6b",
+      "git_blob": "c0ff5c0d96310c2408cd3e38e4dc878f7c8beedf",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob2.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob3.bin",
+      "bytes": 131072,
+      "sha256": "8193f228b7f67c1ce38731a8a15b90171c9c1acd951ab08529dd1ac4f8c4dfe7",
+      "git_blob": "09653bc0dea36e4a8db830a2df4e1213f78859da",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob3.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob4.bin",
+      "bytes": 131072,
+      "sha256": "dd03ec4cf9b516cd82bd5410d6e072e0247bb46938531dba59dc51e82daaf4a8",
+      "git_blob": "5c325c1d96b9507938462621a98e2de8bbac2a4a",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob4.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob5.bin",
+      "bytes": 131072,
+      "sha256": "a973d00de8d9010dfca851a35ddee40c5adc30c0657b35f10a3df89d7f15fbc3",
+      "git_blob": "19f67fc73d914d11cbf6687c938e39acccad06fb",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob5.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob6.bin",
+      "bytes": 131072,
+      "sha256": "3a9dd88d2fccc4f92440728cb605802a1a6faca0e72fd7d82ab40e63cab164c6",
+      "git_blob": "6a0b84b5bd8872fddb3e081a8884569e4a0beedc",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob6.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob7.bin",
+      "bytes": 131072,
+      "sha256": "22a03a32d4a0ff9b93d76f5554ff2334ebee545e63ab5c9f831dcdc165d824fc",
+      "git_blob": "41121cd6a904c130e51e27fe517e6984a13f6851",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob7.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "Voiceware fragment",
+      "path": "images/NKA1X05/muc/U26/blob8.bin",
+      "bytes": 131072,
+      "sha256": "d4b0eafe74c569766c61c5dff9f162d8a837000327c80ba33bf7a31458baba7f",
+      "git_blob": "105f74cd4b68e674b6ba2c27a0a728e706537b6a",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/U26/blob8.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "flash X1",
+      "path": "images/NKA1X05/muc/X1.BIN",
+      "bytes": 524288,
+      "sha256": "2b2428a81c92b494916bca0f3c05940778e27c8d518aaa9e48f7379bb44fa29b",
+      "git_blob": "1da2e973b81b55713b563cf368b8156716faffbb",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/X1.BIN"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "display prompt data",
+      "path": "images/NKA1X05/muc/prompts/english.bin",
+      "bytes": 8000,
+      "sha256": "2259416f492061b6e0f98b6d555a8ba084246b270cab13a7ae8a457cc272bfb6",
+      "git_blob": "fbd67c5ba268cca121d2673373cf2c6ad2e5ef71",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/prompts/english.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "display prompt data",
+      "path": "images/NKA1X05/muc/prompts/french.bin",
+      "bytes": 8000,
+      "sha256": "2a66e8d06d0e9a719e3f3248547a466f4302b17de79c9c98862dd1c85b53b5cb",
+      "git_blob": "9b957b79d6fece0ea7fe11625131faac7d531a5e",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/prompts/french.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "display prompt data",
+      "path": "images/NKA1X05/muc/prompts/japanese.bin",
+      "bytes": 8000,
+      "sha256": "9602cab46fe53bfcb210799f4c60006daebaec9d10398bd570f942f1537e9965",
+      "git_blob": "e4907c627780364882c9b5f327f765bf9dc3c76a",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/prompts/japanese.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "display prompt data",
+      "path": "images/NKA1X05/muc/prompts/service.bin",
+      "bytes": 6000,
+      "sha256": "9c2d870f1d6e704ae4c1053af24a856e281e1a7f151de607b85ba0d9e157b2a7",
+      "git_blob": "ce6c94b1f961686c6b91d446fe3e1477aeb1189b",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/prompts/service.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "display prompt data",
+      "path": "images/NKA1X05/muc/prompts/spanish.bin",
+      "bytes": 8000,
+      "sha256": "af3dc7c7f43a5b8e24b17446c3473f52434b11386863e74506698e7f362599bc",
+      "git_blob": "3c1848a68944f09c588aca837b79b82322ce3079",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NKA1X05/prompts/spanish.bin"
+    },
+    {
+      "firmware_id": "NLA1X05",
+      "role": "flash 0",
+      "path": "images/NLA1X05/muc/FLASH0.BIN",
+      "bytes": 524288,
+      "sha256": "4e05f977940f64de917f3921f6e8c2451558a3e2e7a6cda413e7add3205805fb",
+      "git_blob": "1ad91210a573bd1a384486d2cf1a9af2d9c48c5c",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NLA1X05/FLASH0.BIN"
+    },
+    {
+      "firmware_id": "NLA1X05",
+      "role": "flash 1",
+      "path": "images/NLA1X05/muc/FLASH1.BIN",
+      "bytes": 524288,
+      "sha256": "5aa523bd75521b1e6d7bcf9191061b671434ea436a11ae053e5264e6b064144c",
+      "git_blob": "8d30ef4d31ababecae48e8b39e170e39ba9b8232",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NLA1X05/FLASH1.BIN"
+    },
+    {
+      "firmware_id": "NNA1F02",
+      "role": "program",
+      "path": "images/NNA1F02/muc/NT_FW_NNA1F02_31C6_1.9_TTY_STM27C2001_32DIP.BIN",
+      "bytes": 262144,
+      "sha256": "4b2eb5b0561568bd0636025be02ba13b9413474eacd45f02184efda0965074d2",
+      "git_blob": "17a65d3ff7d9ab831043bed5bacd2e7480347834",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NNA1F02/NT_FW_NNA1F02_31C6_1.9_TTY_STM27C2001_32DIP.BIN"
+    },
+    {
+      "firmware_id": "NNA1F02",
+      "role": "voiceware",
+      "path": "images/NNA1F02/muc/NT_VW_LM5U09BA_A0623480_2B52_STM27C4001_32DIP.BIN",
+      "bytes": 524288,
+      "sha256": "9fa4717a8803985402032bbc543e9720053588e9c0e69f67d4b0a9bdc3ff1782",
+      "git_blob": "29062f3d952855e517f41a7c20b4214ddddafd88",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NNA1F02/NT_VW_LM5U09BA_A0623480_2B52_STM27C4001_32DIP.BIN"
+    },
+    {
+      "firmware_id": "NNK1F05",
+      "role": "voiceware",
+      "path": "images/NNK1F05/muc/U10_MTR1.13 Voiceware.BIN",
+      "bytes": 524288,
+      "sha256": "9fa4717a8803985402032bbc543e9720053588e9c0e69f67d4b0a9bdc3ff1782",
+      "git_blob": "29062f3d952855e517f41a7c20b4214ddddafd88",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NNK1F05/U10_MTR1.13%20Voiceware.BIN"
+    },
+    {
+      "firmware_id": "NNK1F05",
+      "role": "program",
+      "path": "images/NNK1F05/muc/U5_MTR1.13 Keyboard.BIN",
+      "bytes": 262144,
+      "sha256": "279684c6ca33a37d6fd6076276d4ff76d136f3732d5f3c78d56d28eea1b1850b",
+      "git_blob": "5d03bfa88902750c8c56bed4ca43625163200d3d",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NNK1F05/U5_MTR1.13%20Keyboard.BIN"
+    },
+    {
+      "firmware_id": "NOA1X04",
+      "role": "voiceware U16",
+      "path": "images/NOA1X04/muc/M27C801@PLCC32 - 737874 - VW2.0A - U16.bin",
+      "bytes": 1048576,
+      "sha256": "e8b5c9628dd8e807ff71f31046fc2fee190f577e986535c65cdaaabda50a16d7",
+      "git_blob": "33ba92c67d6d6653cd28ea9139bea2dcb14de78f",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOA1X04/M27C801%40PLCC32%20-%20737874%20-%20VW2.0A%20-%20U16.bin"
+    },
+    {
+      "firmware_id": "NOA1X04",
+      "role": "voiceware U26",
+      "path": "images/NOA1X04/muc/M27C801@PLCC32 - 737877 - VW2.0A - U26.bin",
+      "bytes": 1048576,
+      "sha256": "5480548ed2bc9b0b12ebe40a309d0e413532daf34a7433f805c9037c183c6bcd",
+      "git_blob": "57bf3a32c4876fa53d6afa99f390c3b2c7c5fff4",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOA1X04/M27C801%40PLCC32%20-%20737877%20-%20VW2.0A%20-%20U26.bin"
+    },
+    {
+      "firmware_id": "NOA1X04",
+      "role": "flash U2",
+      "path": "images/NOA1X04/muc/M29F040B@PLCC32-NOA1X04-212 TTY U2.bin",
+      "bytes": 524288,
+      "sha256": "f6c399edc56c50798c8838a4a85faa5dc0fac0b82b9c433a8799b7a01ee80f39",
+      "git_blob": "34626b56f88216b62a2236d6555a45117275ee92",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOA1X04/M29F040B%40PLCC32-NOA1X04-212%20TTY%20U2.bin"
+    },
+    {
+      "firmware_id": "NOA1X04",
+      "role": "flash X1",
+      "path": "images/NOA1X04/muc/M29F040B@PLCC32-NOA1X04-212 TTY X1.bin",
+      "bytes": 524288,
+      "sha256": "d5874b87585cec41e5f4e151303a1bffd4e3168805a15944b320e71a7c1d7b12",
+      "git_blob": "f0bc5c34619e411a0dd1ae075afaafa291691d26",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOA1X04/M29F040B%40PLCC32-NOA1X04-212%20TTY%20X1.bin"
+    },
+    {
+      "firmware_id": "NOK1X03",
+      "role": "voiceware U16",
+      "path": "images/NOK1X03/muc/U16_VW2.0A.BIN",
+      "bytes": 1048576,
+      "sha256": "e8b5c9628dd8e807ff71f31046fc2fee190f577e986535c65cdaaabda50a16d7",
+      "git_blob": "33ba92c67d6d6653cd28ea9139bea2dcb14de78f",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOK1X03/U16_VW2.0A.BIN"
+    },
+    {
+      "firmware_id": "NOK1X03",
+      "role": "voiceware U26",
+      "path": "images/NOK1X03/muc/U26_VW2.0A.BIN",
+      "bytes": 1048576,
+      "sha256": "5480548ed2bc9b0b12ebe40a309d0e413532daf34a7433f805c9037c183c6bcd",
+      "git_blob": "57bf3a32c4876fa53d6afa99f390c3b2c7c5fff4",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOK1X03/U26_VW2.0A.BIN"
+    },
+    {
+      "firmware_id": "NOK1X03",
+      "role": "flash U2",
+      "path": "images/NOK1X03/muc/U2_MTR2.13 TTY.BIN",
+      "bytes": 524288,
+      "sha256": "45e4c9cd7330fa49ee35e3632122ecef228753848ed22a28b52a8fca22205172",
+      "git_blob": "df106e31c061968aa0b329862b466d386145709e",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOK1X03/U2_MTR2.13%20TTY.BIN"
+    },
+    {
+      "firmware_id": "NOK1X03",
+      "role": "flash X1",
+      "path": "images/NOK1X03/muc/X1_MTR2.13 TTY.BIN",
+      "bytes": 524288,
+      "sha256": "d98dea5a71e864295cf51d584d3ab84ce2d4f5e6547cc55d4bef4a38463064ab",
+      "git_blob": "f867d7e0bc0461ce273f4c98d080f31caaa9592b",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NOK1X03/X1_MTR2.13%20TTY.BIN"
+    },
+    {
+      "firmware_id": "NPA1F01",
+      "role": "voiceware",
+      "path": "images/NPA1F01/muc/06EBC01 A0623480 2B52 v1.20 E-F VW.bin",
+      "bytes": 524288,
+      "sha256": "9fa4717a8803985402032bbc543e9720053588e9c0e69f67d4b0a9bdc3ff1782",
+      "git_blob": "29062f3d952855e517f41a7c20b4214ddddafd88",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1F01/06EBC01%20A0623480%202B52%20v1.20%20E-F%20VW.bin"
+    },
+    {
+      "firmware_id": "NPA1F01",
+      "role": "program",
+      "path": "images/NPA1F01/muc/NPA1F01 - 1.20 FW  - EF D5D6 - Wimactel (Bell) Phone.bin",
+      "bytes": 262144,
+      "sha256": "bf86757b51c05419c30e368da459d845750182969fe113126f4f356756ab633c",
+      "git_blob": "14c7faa508257f344511e7876cb33daaa15f5189",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1F01/NPA1F01%20-%201.20%20FW%20%20-%20EF%20D5D6%20-%20Wimactel%20%28Bell%29%20Phone.bin"
+    },
+    {
+      "firmware_id": "NPA1S01",
+      "role": "program",
+      "path": "images/NPA1S01/muc/dump1/NPA1S01(FW).BIN",
+      "bytes": 262144,
+      "sha256": "c04d14fbe063529eb7969310b34712da884cbc3aaa1bbd6491fe8e230fbf9488",
+      "git_blob": "a855816f55b19892b550b4b724fa267f010b833a",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1S01/dump1/NPA1S01%28FW%29.BIN"
+    },
+    {
+      "firmware_id": "NPA1S01",
+      "role": "voiceware",
+      "path": "images/NPA1S01/muc/dump1/NPA1S01(VW).BIN",
+      "bytes": 524288,
+      "sha256": "b1024bf1a81d1bacad4f1022eee5c3162f69846ac28e2fdf347f1e63b2ac890d",
+      "git_blob": "ab9ad582bcb97da0fe5373f93c6464033a64206a",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1S01/dump1/NPA1S01%28VW%29.BIN"
+    },
+    {
+      "firmware_id": "NPA1S01",
+      "role": "logic-device dump",
+      "path": "images/NPA1S01/muc/dump2/NT_06FAL01_5A8A_AMD_PALCE16V8H.bin",
+      "bytes": 2194,
+      "sha256": "24126510e2390794feb6cf5a7cc97e85abd9b12a722e9d8c891897b39c213deb",
+      "git_blob": "7b19e191b01a046a58a0fe4684e6fe6dc224d641",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1S01/dump2/NT_06FAL01_5A8A_AMD_PALCE16V8H.bin"
+    },
+    {
+      "firmware_id": "NPA1S01",
+      "role": "logic-device dump",
+      "path": "images/NPA1S01/muc/dump2/NT_06FAL01_5A8A_Lattice_GAL16V8B.bin",
+      "bytes": 2194,
+      "sha256": "24126510e2390794feb6cf5a7cc97e85abd9b12a722e9d8c891897b39c213deb",
+      "git_blob": "7b19e191b01a046a58a0fe4684e6fe6dc224d641",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1S01/dump2/NT_06FAL01_5A8A_Lattice_GAL16V8B.bin"
+    },
+    {
+      "firmware_id": "NPA1S01",
+      "role": "program",
+      "path": "images/NPA1S01/muc/dump2/NT_FW_1.20_STM27C2001_32DIP.bin",
+      "bytes": 262144,
+      "sha256": "166bb598698a8638a1b335db5cc75a3fa6b13877cb36b1b91693a944ebf8fcc8",
+      "git_blob": "dd776796944bdbd74372a7e92421f9991b348e61",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1S01/dump2/NT_FW_1.20_STM27C2001_32DIP"
+    },
+    {
+      "firmware_id": "NPA1S01",
+      "role": "voiceware",
+      "path": "images/NPA1S01/muc/dump2/NT_VW_06EAJ01_A0620793_NT5U40AW_STM27C4001_32DIP.bin",
+      "bytes": 524288,
+      "sha256": "b1024bf1a81d1bacad4f1022eee5c3162f69846ac28e2fdf347f1e63b2ac890d",
+      "git_blob": "ab9ad582bcb97da0fe5373f93c6464033a64206a",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPA1S01/dump2/NT_VW_06EAJ01_A0620793_NT5U40AW_STM27C4001_32DIP.bin"
+    },
+    {
+      "firmware_id": "NPE1S01",
+      "role": "program",
+      "path": "images/NPE1S01/muc/NT_FW_1.20_NPE1S01_V1.0_M27C2001_DIP32_Coin_Basic.BIN",
+      "bytes": 262144,
+      "sha256": "ddbd9742eeff1655e32f870f4d8f007dc732854febab7a21f5fd18e500a5f5b9",
+      "git_blob": "88f9418d2da7ded2ed4d846db4ecdb55573ee7db",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NPE1S01/NT_FW_1.20_NPE1S01_V1.0_M27C2001_DIP32_Coin_Basic.BIN"
+    },
+    {
+      "firmware_id": "NQA1X01",
+      "role": "flash U2",
+      "path": "images/NQA1X01/muc/NT_FW_2.12_U2_Rev2_CPC_STM29F040B_32PLCC.bin",
+      "bytes": 524288,
+      "sha256": "cfa6561865ac4681be7fbc04fe22d91c7a5d71a2933b886186c21ccd6b4259e1",
+      "git_blob": "c74899b778302ea86a8209e63638df625e14918e",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NQA1X01/NT_FW_2.12_U2_Rev2_CPC_STM29F040B_32PLCC"
+    },
+    {
+      "firmware_id": "NQA1X01",
+      "role": "flash X1",
+      "path": "images/NQA1X01/muc/NT_FW_2.12_X1_Rev2_CPC_STM29F040B_32PLCC.bin",
+      "bytes": 524288,
+      "sha256": "d4860aee8578aae39a71b3c5c9ea6d9685755c490f4ee6422cc3575f63b4acb7",
+      "git_blob": "8773fb3dd01719c1a4e63fd6c8e970b8f27b3919",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NQA1X01/NT_FW_2.12_X1_Rev2_CPC_STM29F040B_32PLCC"
+    },
+    {
+      "firmware_id": "NQA1X01",
+      "role": "voiceware U16",
+      "path": "images/NQA1X01/muc/VW2.0A_737877_U16_ST27C801_PLCC32.bin",
+      "bytes": 1048576,
+      "sha256": "e8b5c9628dd8e807ff71f31046fc2fee190f577e986535c65cdaaabda50a16d7",
+      "git_blob": "33ba92c67d6d6653cd28ea9139bea2dcb14de78f",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NQA1X01/VW2.0A_737877_U16_ST27C801_PLCC32"
+    },
+    {
+      "firmware_id": "NQA1X01",
+      "role": "voiceware U26",
+      "path": "images/NQA1X01/muc/VW2.0A_737877_U26_ST27C801_PLCC32.bin",
+      "bytes": 1048576,
+      "sha256": "fd3af843dfdc5f8cfecf7f2c42e549a92a0cffbe93a2ff0a14294c8b90d25079",
+      "git_blob": "cf8ec2cf8b8155421260527ad6ca2222d0e6eb7a",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/NQA1X01/VW2.0A_737877_U26_ST27C801_PLCC32"
+    },
+    {
+      "firmware_id": "PBAXS05",
+      "role": "unverified image format",
+      "path": "images/PBAXS05/muc/TEST.BIN",
+      "bytes": 227722,
+      "sha256": "de5dd9a11a7fc77f96db330984945d9db2b04e3729ac6949c9cdbe91954e85d1",
+      "git_blob": "f9366c110f571a1a67e811043fbb1365d4ec7745",
+      "source_commit": "a70a19ec891c65e4d70e2ce5c833ce9b517889bf",
+      "source": "https://github.com/muccc/millennium/blob/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware/PBAXS05/TEST.BIN"
+    },
+    {
+      "firmware_id": "NPA1S01",
+      "role": "program",
+      "path": "images/NPA1S01/extra/NPA1S01.BIN",
+      "bytes": 262144,
+      "sha256": "166bb598698a8638a1b335db5cc75a3fa6b13877cb36b1b91693a944ebf8fcc8",
+      "git_blob": "dd776796944bdbd74372a7e92421f9991b348e61",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.20/MULTIPAY/NPA1S01.BIN"
+    },
+    {
+      "firmware_id": "NAD4S02",
+      "role": "program",
+      "path": "images/NAD4S02/extra/NAD4S02.bin",
+      "bytes": 262144,
+      "sha256": "8be05875ba6496069a8142ba7dc13e7c48da6cf6dc9a1e2e1941aff3a441f7a0",
+      "git_blob": "afa4c8812d33a885c574fe9510ed4767e20f6176",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.7/COIN_NO_DISPLAY/NAD4S02.bin"
+    },
+    {
+      "firmware_id": "NAD4K02",
+      "role": "program",
+      "path": "images/NAD4K02/extra/NAD4K02.bin",
+      "bytes": 262144,
+      "sha256": "9dfb1388c43747f141ac8e380c8e7fe9b4c9c2a0a73cc328cb2772003072b1ce",
+      "git_blob": "90566d6d8e247f76dcc513d18e059c48bc80dc28",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.7/Coin/NAD4K02.bin"
+    },
+    {
+      "firmware_id": "NAJ2S05",
+      "role": "program",
+      "path": "images/NAJ2S05/extra/NAJ2S05.bin",
+      "bytes": 262144,
+      "sha256": "32551c4a16461ccbff5747dc9af3eaf50b65717972eca047c0ef707ec3a639c0",
+      "git_blob": "3520918d17f2a17003be54db2c17b80735dec591",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.7/DESK/NAJ2S05.bin"
+    },
+    {
+      "firmware_id": "NAA1S05",
+      "role": "program",
+      "path": "images/NAA1S05/extra/NAA1S05.bin",
+      "bytes": 262144,
+      "sha256": "7ae8f0847b1f1d96690a13afdefb6f6fbd0b0f14ac52e066765cea6e1af7a17b",
+      "git_blob": "01f687df46092aff2dd8ad768dbe21e55104a3a7",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.7/MULTIPAY/NAA1S05.bin"
+    },
+    {
+      "firmware_id": "NBJ1F03",
+      "role": "program",
+      "path": "images/NBJ1F03/extra/NBJ1F03.bin",
+      "bytes": 262144,
+      "sha256": "070f7cf195eea2202a54fe13221926dd0ecf6113eb167614424fb7f07cecbf98",
+      "git_blob": "57a94ba7153041a8c0885f739d66c1d464d1430f",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.9/DESK/NBJ1F03.bin"
+    },
+    {
+      "firmware_id": "NBJ1S03",
+      "role": "program",
+      "path": "images/NBJ1S03/extra/NBJ1S03.bin",
+      "bytes": 262144,
+      "sha256": "e039b1cf1c703f8853614ab37865c2ced79d34b78a45ad1f6185353bd8a9fbe9",
+      "git_blob": "b36863b42fbf7103e26668d7ad8a9fed2127b48c",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.9/DESK/NBJ1S03.bin"
+    },
+    {
+      "firmware_id": "NBA1F02",
+      "role": "program",
+      "path": "images/NBA1F02/extra/NBA1F02.bin",
+      "bytes": 262144,
+      "sha256": "8273d9eb5d8799a8e1b6ccdf3d98da7d5e7973f9016e44aa1c4b878beeeadc8f",
+      "git_blob": "c23eb18d5d0e0ce5d3a7d256baafaf7849467380",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.9/MULTIPAY/NBA1F02.bin"
+    },
+    {
+      "firmware_id": "NBA1F02",
+      "role": "modified program",
+      "path": "images/NBA1F02/extra/NBA1F02_ddmmyy.bin",
+      "bytes": 262144,
+      "sha256": "f42ac0366accb8ede5a9a12afa18472adfbc92465ce5464e1e7c2369f823a837",
+      "git_blob": "0b52f47d6102836270f8dfcfd790c5f3fe5a07d4",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.9/MULTIPAY/NBA1F02_ddmmyy.bin"
+    },
+    {
+      "firmware_id": "FREETEL-1.x",
+      "role": "demo program",
+      "path": "images/FREETEL-1.x/extra/FREETEL-1.x.BIN",
+      "bytes": 262144,
+      "sha256": "89da9954f21a00c0fbc8db9cd1893e281cb506bb597ece6c64fdfb953e4b2186",
+      "git_blob": "ee6df1be7b31c6c8aaea129a513980098727126c",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_1.x_DEMO/FREETEL-1.x.BIN"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "flash U2",
+      "path": "images/NKA1X05/extra/NKA1X05_U2.bin",
+      "bytes": 524288,
+      "sha256": "b15f848dcdfd4fb0af572468020af2b465fbd010dd620327ba103d6f9e8ea5f9",
+      "git_blob": "1434c95a1a31a1b6fa5d1b145ff608d69ec88cf6",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_2.11/MULTIPAY/NKA1X05_U2.bin"
+    },
+    {
+      "firmware_id": "NKA1X05",
+      "role": "flash X1",
+      "path": "images/NKA1X05/extra/NKA1X05_X1.BIN",
+      "bytes": 524288,
+      "sha256": "2b2428a81c92b494916bca0f3c05940778e27c8d518aaa9e48f7379bb44fa29b",
+      "git_blob": "1da2e973b81b55713b563cf368b8156716faffbb",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware/MTR_2.11/MULTIPAY/NKA1X05_X1.BIN"
+    },
+    {
+      "firmware_id": "shared-voiceware",
+      "role": "voiceware",
+      "path": "images/shared-voiceware/extra/LM5U09BA.bin",
+      "bytes": 524288,
+      "sha256": "9fa4717a8803985402032bbc543e9720053588e9c0e69f67d4b0a9bdc3ff1782",
+      "git_blob": "29062f3d952855e517f41a7c20b4214ddddafd88",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Voiceware/English-French/LM5U09BA.bin"
+    },
+    {
+      "firmware_id": "shared-voiceware",
+      "role": "voiceware",
+      "path": "images/shared-voiceware/extra/O6EAJ01.bin",
+      "bytes": 524288,
+      "sha256": "b1024bf1a81d1bacad4f1022eee5c3162f69846ac28e2fdf347f1e63b2ac890d",
+      "git_blob": "ab9ad582bcb97da0fe5373f93c6464033a64206a",
+      "source_commit": "2abc8f42910b05e42a2870947c47d8f58a8df915",
+      "source": "https://github.com/armeniki/Nortel-Millennium/blob/2abc8f42910b05e42a2870947c47d8f58a8df915/Voiceware/English-Spanish/O6EAJ01.bin"
+    }
+  ]
+}

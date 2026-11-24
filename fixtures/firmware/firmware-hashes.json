@@ -6,7 +6,8 @@
       "friendly_name": "reference flash image (1 MiB)",
       "sha256_hex": "b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34",
       "size_bytes": 1048576,
-      "notes": "1 MiB image from ../firmware/FLASH0.BIN + ../firmware/FLASH1.BIN concatenated (or legacy monolithic ../firmware/flash.bin); relative to coinline-emu root unless overridden by COINLINE_* env."
+      "notes": "1 MiB image from ../firmware/FLASH0.BIN + ../firmware/FLASH1.BIN concatenated (or legacy monolithic ../firmware/flash.bin); relative to repository root unless overridden by COINLINE_* env.",
+      "firmware_id": "NLA1X05"
     },
     {
       "version_id": "demo-universal-builtin-tables",
@@ -22,8 +23,176 @@
       "motherboard": "earlier",
       "sha256_hex": "cac5d2ea9764fef1dabd91d8ca86d65b0e816658b32a88c5803c77a537fe329a",
       "size_bytes": 1048576,
-      "notes": "256 KiB image placed in the low quarter of the 1 MiB window; the remainder is erased (0xFF). Same earlier universal motherboard decode as demo-universal-builtin-tables. Not stored in git."
+      "notes": "256 KiB image placed in the low quarter of the 1 MiB window; the remainder is erased (0xFF). Same earlier universal motherboard decode as demo-universal-builtin-tables. Not stored in git.",
+      "firmware_id": "NBA1F02"
+    },
+    {
+      "version_id": "06jaa03-99cbc3795722",
+      "sha256_hex": "99cbc3795722f96e097f148967241c85aa86b4f80a5a7e10c72b63968be40453",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "06JAA03"
+    },
+    {
+      "version_id": "12aav08-60e93437dde2",
+      "sha256_hex": "60e93437dde26b2dde49e96a5e9f35d9ea3c6b4815b6f0bc4b65c6e308ceec35",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "12AAV08"
+    },
+    {
+      "version_id": "m06caa17-f96e8f1bce3a",
+      "sha256_hex": "f96e8f1bce3a4c43bd555142f2112cd6f81c9f5bc5b7fb6e7794287d862cd85b",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "M06CAA17"
+    },
+    {
+      "version_id": "naa1s05-d45035186951",
+      "sha256_hex": "d45035186951ad3132f9bf940e9fc47122eba861f7ca14f33048c0fc328fb6e7",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NAA1S05"
+    },
+    {
+      "version_id": "nba1f02-0d0f97cfc0c1",
+      "sha256_hex": "0d0f97cfc0c166942cb29d0e77030b2d024a523a9add1ad5f21ab9403392ea1a",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NBA1F02"
+    },
+    {
+      "version_id": "nna1f02-4975d816d084",
+      "sha256_hex": "4975d816d084e051b6a28c5a19978e2959a02036a1f14f776cda213b311622e8",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NNA1F02"
+    },
+    {
+      "version_id": "nnk1f05-f023b6ed4b55",
+      "sha256_hex": "f023b6ed4b553971a420404cb7a341b1330670c4b8fb7c8b619f52b9fddbff6a",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NNK1F05"
+    },
+    {
+      "version_id": "npa1f01-a487eb9c4df9",
+      "sha256_hex": "a487eb9c4df933951481ba33632c2f3eae339c7be6d5dca8798730c8ccdb5048",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NPA1F01"
+    },
+    {
+      "version_id": "npa1s01-659e998f056e",
+      "sha256_hex": "659e998f056ed10afe96d154813206a8df199f5350b78cdf6cc28b8c8365d80e",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NPA1S01"
+    },
+    {
+      "version_id": "npa1s01-2ba2e8ae2338",
+      "sha256_hex": "2ba2e8ae233888a28d6bfa5f71a6c8b01d0bb49fe00dc4244ef9a03b77ae276a",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NPA1S01"
+    },
+    {
+      "version_id": "freetel-1.x-06a28963b5a1",
+      "sha256_hex": "06a28963b5a1c18f3df0c16398a5cd29cefd1eecab7b2d6362fb2369999f129f",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "FREETEL-1.x"
+    },
+    {
+      "version_id": "nca1x03-b813cead0427",
+      "sha256_hex": "b813cead0427c9ab130c08f77a8f4af1e7d2e7c333775b59186c8c5bdfa6587b",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NCA1X03"
+    },
+    {
+      "version_id": "nka1x02-df9552e6c3da",
+      "sha256_hex": "df9552e6c3dac5138d40917d17e770b5d4e038d753030f770038e24183314255",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NKA1X02"
+    },
+    {
+      "version_id": "nka1x05-f20a919db705",
+      "sha256_hex": "f20a919db70558181382c6e8fd24818185315c289684972949c3d54909ca9037",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NKA1X05"
+    },
+    {
+      "version_id": "noa1x04-dae3c1a16afc",
+      "sha256_hex": "dae3c1a16afcd2a5fa8f30b8de7061a74c9e4f58109cdd50607f0f6bf3aa7fc9",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NOA1X04"
+    },
+    {
+      "version_id": "nok1x03-81c9644246b5",
+      "sha256_hex": "81c9644246b5cd6bb70e721c6ca927589b58e2cd67a37741a6ad1a6ff78bbc10",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NOK1X03"
+    },
+    {
+      "version_id": "nqa1x01-43673e2afe85",
+      "sha256_hex": "43673e2afe85b8122c73b52c8232d04b539f7d674b487c96660174f3cb6027cf",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NQA1X01"
+    },
+    {
+      "version_id": "nbj1s03-865fb1ed8aeb",
+      "sha256_hex": "865fb1ed8aeb74f594070795b7f98c599a690268b057da61f70f13766e51ce66",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NBJ1S03"
+    },
+    {
+      "version_id": "nbj1f03-d7f68fec3f44",
+      "sha256_hex": "d7f68fec3f441183f7f709420c6ceea632b9f1421b7acb9318f3e79b6d5c646d",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NBJ1F03"
+    },
+    {
+      "version_id": "naj2s05-6c233d974e6c",
+      "sha256_hex": "6c233d974e6c74959eeb29567ec3d539d339cca0cd6fae5a022b56a5888666ed",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NAJ2S05"
+    },
+    {
+      "version_id": "m06cbbx1-8206ea58d659",
+      "sha256_hex": "8206ea58d659d2cd56c986f5d9149a6e1eff3af3a1ebe8202844ba0e5074a760",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "M06CBBX1"
+    },
+    {
+      "version_id": "nad4k02-a80094d51066",
+      "sha256_hex": "a80094d510664f35adf60599ce7f1fdee8815249e50a7f7176d306dc6554684b",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NAD4K02"
+    },
+    {
+      "version_id": "nad4s02-b28e4b39fb1d",
+      "sha256_hex": "b28e4b39fb1d9a8d3bd566a9c66354be51793302530c58182ea6f7eb43bf6be4",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NAD4S02"
+    },
+    {
+      "version_id": "npe1s01-a546bec72043",
+      "sha256_hex": "a546bec720430270566fadbada48202aef5d44e811cbcc89d5581106b9f81b35",
+      "size_bytes": 1048576,
+      "motherboard": "earlier",
+      "firmware_id": "NPE1S01"
     }
   ]
 }
-

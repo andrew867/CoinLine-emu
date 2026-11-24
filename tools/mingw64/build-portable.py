@@ -98,8 +98,9 @@ def build_mame(mame, work, windows):
 
 
 def include_mame(source, target):
-    system32 = Path(output(["cygpath", "-u", os.environ.get("SystemRoot", "C:/Windows")])) / "System32"
-    libraries = {path.name.lower(): path for folder in (Path("/mingw64/bin"), source.parent)
+    system32 = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32"
+    mingw_bin = Path(output(["cygpath", "-w", "/mingw64/bin"]))
+    libraries = {path.name.lower(): path for folder in (mingw_bin, source.parent)
                  for path in folder.glob("*.dll")}
     system = {path.name.lower() for path in system32.glob("*.dll")}
     copied = set()
@@ -110,7 +111,7 @@ def include_mame(source, target):
             continue
         copy_file(executable, destination)
         copied.add(destination.name.lower())
-        pe = output(["/mingw64/bin/objdump", "-p", str(executable)])
+        pe = output([str(mingw_bin / "objdump.exe"), "-p", str(executable)])
         for name in re.findall(r"DLL Name:\s*(\S+)", pe):
             name = name.lower()
             if name in system or name.startswith(("api-ms-win-", "ext-ms-win-")):
@@ -137,6 +138,7 @@ def stage_files(bundle, mame, rom_input, windows):
         "Quick Start.txt": PORTABLE / ("quick-start.txt" if windows else "quick-start-posix.txt"),
         "coinline.example.ini": PORTABLE / "coinline.example.ini",
         "app/launch.py": PORTABLE / "launch.py",
+        "app/hardware.py": PORTABLE / "hardware.py",
         "app/central_office.py": ROOT / "tools/line-jack/central_office.py",
         "app/sip_media.py": ROOT / "tools/line-jack/sip_media.py",
         "artwork/Millenft.ttf": ROOT / "artwork/Millenft.ttf",

@@ -16,6 +16,14 @@ not, supply your authorized images at the following paths.
   firmware/oem/flash.bin (256 KiB)
   roms/cl_millennium/voice_u16.bin and voice_u26.bin (1 MiB each)
 
+For other firmware, set the flash paths and hardware profile under [hardware]
+in coinline.ini, or pass --firmware, --flash1, --rompath and --hardware on the
+command line. Use --check to verify selection and the mapped flash hash before
+launch. Available profiles include multipay-v1, multipay-v1-dual-flash,
+multipay-v1.1, multipay-v1.3, desk-rel1, desk-rel2, card-only and coin-basic.
+The V1.1 and V1.3 presets route the magnetic reader through DMA channel 1.
+See the project runtime guide for the acceptance gates on these presets.
+
 Keep packages that contain local ROM inputs private. The ZIP includes no saved
 terminal memory, SIP credentials, or site data.
 
@@ -24,8 +32,9 @@ First INSTALL
 
 Keep CoinLine Server running while you install. The default NCC listener is
 127.0.0.1 TCP port 4000. Use a lab terminal record whose wire ID matches the
-10-digit line number you enter. Assign the validated ten-record lab table set,
-including the synthetic magstripe policy and the free-call screening entries.
+10-digit line number you enter. Assign the table set for the firmware's terminal
+family. The default MTR 1.9 lab set includes the synthetic magstripe policy and
+the free-call screening entries.
 If you already have the working lab assignment, reuse it. CoinLine configuration
 and service startup are managed separately from this emulator.
 
@@ -50,6 +59,11 @@ and service startup are managed separately from this emulator.
    vault Closed. It should show Please lift receiver. Later boots use the saved
    installation.
 
+Some later firmware has a separate smart-card test and two calibration coins
+followed by an escrow test. Use [ to insert or remove the smart card. A chip-card
+test may still report failure. Follow the firmware's continuation prompt.
+Allow the refund and collection tests to finish before pressing * again.
+
 Controls
 --------
 
@@ -63,6 +77,7 @@ Controls
   Y G J X Z            positions 6 through 10 on a ten-button profile
   K / C / A            lock / housing / cash vault, also clickable on the LEDs
   P or card reader     insert, read, and remove the synthetic magstripe card
+  [                    insert or remove the synthetic smart card
   V / B / M            insert nickel / dime / quarter
 
 Calls and troubleshooting
