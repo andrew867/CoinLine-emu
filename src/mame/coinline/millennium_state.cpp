@@ -2897,7 +2897,7 @@ void millennium_state::tp_process_front_panel_events(u32 keymatrix, u32 linectrl
 		} else if (hz != 0ULL) {
 			u64 const elapsed_cy = cy - m_tp_ui_repeat_hold_start_cy;
 			u64 const ms500_cy = hz / 2ULL;
-			u64 const ms150_cy = std::max(1ULL, hz * 150ULL / 1000ULL);
+			u64 const ms150_cy = std::max<u64>(1, hz * 150 / 1000);
 			if (elapsed_cy >= ms500_cy) {
 				u64 const after500 = elapsed_cy - ms500_cy;
 				unsigned const total_needed = 1U + unsigned(after500 / ms150_cy);
@@ -3205,7 +3205,7 @@ void millennium_state::write_display_port(u8 data, u16 port)
 		}
 	}
 	u64 const hz_vfd_diag = static_cast<u64>(m_maincpu->unscaled_clock());
-	u64 const m7c_diag_period = std::max(1ULL, hz_vfd_diag / 10U); // ~100 ms cadence vs prior 8M-cycle gaps
+	u64 const m7c_diag_period = std::max<u64>(1, hz_vfd_diag / 10U); // ~100 ms cadence vs prior 8M-cycle gaps
 	if (!m_telephony_ready_decision_trace_path.empty() && !m_m7c_logged
 		&& (cy - m_m7c_gate_diag_last_cycle) >= m7c_diag_period) {
 		m_m7c_gate_diag_last_cycle = cy;
@@ -7001,11 +7001,11 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			&& !m_tel_fw_boot_contract_satisfied;
 		if ((tel_health_keepalive_runtime || tel_health_keepalive_bootstrap) && !m_ipcomm_have_rx_byte
 			&& m_ipcomm_rx_prio_bytes.empty() && m_ipcomm_rx_bytes.empty()) {
-			u64 keepalive_period = std::max(1ULL, hz / 2U); // default 500 ms
+			u64 keepalive_period = std::max<u64>(1, hz / 2U); // default 500 ms
 			if (m_tel_response_policy == tel_response_policy::immediate)
-				keepalive_period = std::max(1ULL, hz / 10U); // 100 ms: matches script "immediate" intent
+				keepalive_period = std::max<u64>(1, hz / 10U); // 100 ms: matches script "immediate" intent
 			if (tel_health_keepalive_bootstrap)
-				keepalive_period = std::max(1ULL, hz / 20U); // 50 ms: converge boot contract before UI settles
+				keepalive_period = std::max<u64>(1, hz / 20U); // 50 ms: converge boot contract before UI settles
 			if (m_tel_last_runtime_keepalive_cycle == 0ULL || (cy - m_tel_last_runtime_keepalive_cycle) >= keepalive_period)
 				tel_queue_runtime_keepalive_c4_c0(cy);
 		}
