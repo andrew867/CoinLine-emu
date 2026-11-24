@@ -101,6 +101,9 @@ jobs:
           git clone --depth 1 --branch "$pin" https://github.com/mamedev/mame.git mame-build
           python3 tools/mingw64/build-portable.py --mame-root mame-build --output artifacts
           package=(artifacts/*-work/'CoinLine Emulator')
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            lipo -verify_arch arm64 "${package[0]}/bin/coinline-mame"
+          fi
           "${package[0]}/bin/coinline-mame" -listfull cl_millennium | grep cl_millennium
           "${package[0]}/start-oem.sh" --help
           (cd artifacts && shasum -a 256 -c ./*.sha256)

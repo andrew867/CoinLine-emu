@@ -51,7 +51,7 @@ private:
 	std::uint8_t m_last_chip_bank = 0xffU;
 	sound_stream *m_stream = nullptr;
 	std::vector<std::int16_t> m_phrase_pcm;
-	std::size_t m_phrase_pos = 0;
+	u64 m_phrase_pos = 0;
 	bool m_decoder_playing = false;
 	/// Latch: was the chip non-idle on the previous phrase-port read (for trace).
 	bool m_had_playback = false;
