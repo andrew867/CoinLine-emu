@@ -28,7 +28,8 @@ std::uint8_t read_detect_register(millennium_modem_model &modem)
 	return value;
 }
 
-char write_register(millennium_modem_model &modem, std::uint8_t address, std::uint8_t value)
+char write_register(millennium_modem_model &modem, std::uint8_t address, std::uint8_t value,
+	bool extended_address = false)
 {
 	constexpr std::uint8_t clock = 0x02U;
 	constexpr std::uint8_t read_inactive = 0x04U;
@@ -37,11 +38,11 @@ char write_register(millennium_modem_model &modem, std::uint8_t address, std::ui
 	for (unsigned bit = 0; bit < 8; ++bit) {
 		std::uint8_t const inverted_data = ((value >> bit) & 1U) ^ 1U;
 		std::uint8_t const level = base | write_inactive | inverted_data;
-		modem.ssi_pio_a_write(level | clock);
-		modem.ssi_pio_a_write(level);
+		modem.ssi_pio_a_write(level | clock, extended_address);
+		modem.ssi_pio_a_write(level, extended_address);
 	}
-	modem.ssi_pio_a_write(base | clock);
-	return modem.ssi_pio_a_write(base | write_inactive | clock);
+	modem.ssi_pio_a_write(base | clock, extended_address);
+	return modem.ssi_pio_a_write(base | write_inactive | clock, extended_address);
 }
 
 } // namespace
@@ -66,6 +67,7 @@ int main()
 		return 1;
 	}
 	if (write_register(modem, 3, 0x1aU) != 0
+		|| write_register(modem, 4, 0x02U, true) != 0
 		|| write_register(modem, 0, 0x02U) != '0'
 		|| write_register(modem, 0, 0x02U) != 0
 		|| write_register(modem, 0, 0x00U) != 0

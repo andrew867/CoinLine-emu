@@ -1,0 +1,42 @@
+diff --git a/src/devices/cpu/z180/z180.cpp b/src/devices/cpu/z180/z180.cpp
+--- a/src/devices/cpu/z180/z180.cpp
++++ b/src/devices/cpu/z180/z180.cpp
+@@ -1825,18 +1825,17 @@
+ 
+ int z180_device::check_interrupts()
+ {
+-	/* check for IRQs before each instruction */
+-	if (m_IFF1 && !m_after_EI)
+-	{
+-		if (m_irq_state[0] != CLEAR_LINE && (m_itc & Z180_ITC_ITE0) == Z180_ITC_ITE0)
+-			m_int_pending[Z180_INT_IRQ0] = 1;
+-
+-		if (m_irq_state[1] != CLEAR_LINE && (m_itc & Z180_ITC_ITE1) == Z180_ITC_ITE1)
+-			m_int_pending[Z180_INT_IRQ1] = 1;
+-
+-		if (m_irq_state[2] != CLEAR_LINE && (m_itc & Z180_ITC_ITE2) == Z180_ITC_ITE2)
+-			m_int_pending[Z180_INT_IRQ2] = 1;
+-
++	/* Sample the external interrupt levels at each instruction boundary. */
++	bool const maskable_enabled = m_IFF1 && !m_after_EI;
++	m_int_pending[Z180_INT_IRQ0] = maskable_enabled && m_irq_state[0] != CLEAR_LINE
++		&& (m_itc & Z180_ITC_ITE0) == Z180_ITC_ITE0;
++	m_int_pending[Z180_INT_IRQ1] = maskable_enabled && m_irq_state[1] != CLEAR_LINE
++		&& (m_itc & Z180_ITC_ITE1) == Z180_ITC_ITE1;
++	m_int_pending[Z180_INT_IRQ2] = maskable_enabled && m_irq_state[2] != CLEAR_LINE
++		&& (m_itc & Z180_ITC_ITE2) == Z180_ITC_ITE2;
++
++	if (maskable_enabled)
++	{
+ 		m_int_pending[Z180_INT_CSIO] = m_csio->check_interrupt();
+ 		m_int_pending[Z180_INT_ASCI0] = m_asci[0]->check_interrupt();
+ 		m_int_pending[Z180_INT_ASCI1] = m_asci[1]->check_interrupt();
+@@ -1845,6 +1844,8 @@
+ 	int cycles = 0;
+ 	for (int i = 0; i <= Z180_INT_MAX; i++)
+ 	{
++		if (i >= Z180_INT_IRQ0 && !maskable_enabled)
++			break;
+ 		if (m_int_pending[i])
+ 		{
+ 			cycles += take_interrupt(i);

@@ -16,7 +16,6 @@ public:
 	enum class tone_mode : std::uint8_t { none, dialtone, nis };
 
 	struct front_panel_result {
-		std::vector<std::uint8_t> tp_events;
 		std::vector<std::uint8_t> tp_bytes;
 		bool hook_changed = false;
 		bool hook_onhook = true;

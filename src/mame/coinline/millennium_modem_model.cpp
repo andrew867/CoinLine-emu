@@ -142,7 +142,7 @@ void millennium_modem_model::reset()
 	m_ncc_lab_hello_sent = false;
 	m_ncc_lab_hello_at = -1.0;
 	m_ncc_tx_pending.clear();
-	m_ssi_cr0 = m_ssi_cr1 = m_ssi_dr = m_ssi_tr = 0;
+	m_ssi_cr0 = m_ssi_cr1 = m_ssi_cr2 = m_ssi_cr3 = m_ssi_dr = m_ssi_tr = 0;
 	m_ssi_pio = 0;
 	m_ssi_shift = 0;
 	m_ssi_bit = -1;
@@ -485,9 +485,9 @@ void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 	refresh_detect_register();
 }
 
-char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a)
+char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a, bool extended_address)
 {
-	// Earlier-board PIO A modem bitbang (active-low RD/WR and LSB-first transfer).
+	// Modem PIO A uses active-low RD/WR and an LSB-first transfer.
 	std::uint8_t const prev = m_ssi_pio;
 	m_ssi_pio = pio_a;
 	bool const rd_prev = (prev & 0x04U) != 0U;
@@ -496,7 +496,7 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a)
 	bool const clk_now = (pio_a & 0x02U) != 0U;
 	bool const wr_prev = (prev & 0x08U) != 0U;
 	bool const wr_now = (pio_a & 0x08U) != 0U;
-	unsigned const addr = (pio_a >> 4) & 0x03U;
+	unsigned const addr = (pio_a >> 4) & (extended_address ? 0x07U : 0x03U);
 
 	auto reg_value = [&](unsigned a) -> std::uint8_t {
 		switch (a) {
@@ -504,6 +504,8 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a)
 		case 1: return m_ssi_cr1;
 		case 2: return m_ssi_dr;
 		case 3: return m_ssi_tr;
+		case 4: return m_ssi_cr2;
+		case 5: return m_ssi_cr3;
 		default: return 0;
 		}
 	};
@@ -513,6 +515,8 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a)
 		case 1: m_ssi_cr1 = v; break;
 		case 2: break;
 		case 3: m_ssi_tr = v; break;
+		case 4: m_ssi_cr2 = v; break;
+		case 5: m_ssi_cr3 = v; break;
 		default: break;
 		}
 	};

@@ -103,10 +103,15 @@ int main()
 		std::cerr << "validator reported incorrect slot numbers\n";
 		return 14;
 	}
-	m.uart_command('f');
+	m.uart_command('f', 100);
 	if (m.escrow_present()) {
 		std::cerr << "validator refund left coins in escrow\n";
 		return 15;
+	}
+	if (m.uart_command('r', 1100) != std::vector<std::uint8_t>{'B', 0, 0x08} ||
+		m.uart_command('r', 2100) != std::vector<std::uint8_t>{'B', 0, 0}) {
+		std::cerr << "validator refund position sensor did not show travel and completion\n";
+		return 16;
 	}
 
 	std::cout << "coin_validator_protocol_vectors ok\n";

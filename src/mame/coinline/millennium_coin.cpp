@@ -47,7 +47,7 @@ bool millennium_coin_device::begin_insert_cents(int cents, std::uint64_t cpu_cyc
 
 void millennium_coin_device::received_byte(u8 data)
 {
-	for (u8 const response : m_model.uart_command(data))
+	for (u8 const response : m_model.uart_command(data, machine().time().as_ticks(1000)))
 		transmit_byte(response);
 }
 

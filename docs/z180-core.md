@@ -7,6 +7,21 @@ This document specifies the CPU core expectations for `coinline-emu`. The MAME t
 - Hitachi HD64180 / Zilog Z180 datasheet (public).
 - MAME `cpu/z180/z180.cpp` (BSD-3-Clause within MAME's tree; see [`engine-selection.md`](engine-selection.md)).
 
+## Interrupt sampling
+
+The Z180 samples external interrupt inputs near the end of an instruction.
+IEF1 globally masks external and internal maskable sources. ITE0, ITE1 and
+ITE2 additionally control the three external inputs. The MAME overlay
+`z180-maskable-interrupt-sampling.patch` evaluates the external input levels
+at each instruction boundary and defers maskable service while the global
+mask or the EI instruction delay is active.
+
+A V1.1 coin-validator trace previously recorded an IRQ1 handler reading
+LSR `0x00` after the UART interrupt output had deasserted. The firmware
+reinitialized the UART and queued another escrow refund during calibration.
+The corrected sampling avoids servicing an obsolete external request.
+See pp. 68 and 81 to 83 of the [Zilog Z8018x Family MPU User Manual](https://www.zilog.com/docs/z180/um0050.pdf).
+
 ## Required functionality
 
 | Feature | Required | Notes |

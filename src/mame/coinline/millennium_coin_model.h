@@ -61,7 +61,7 @@ public:
 	unsigned protocol_timeout_count() const noexcept { return m_protocol_timeout_count; }
 	unsigned protocol_reset_pulse_count() const noexcept { return m_protocol_reset_pulse_count; }
 	bool uart_active() const noexcept { return m_uart_active; }
-	std::vector<std::uint8_t> uart_command(std::uint8_t byte);
+	std::vector<std::uint8_t> uart_command(std::uint8_t byte, std::uint64_t now_ms = 0);
 	std::optional<std::uint8_t> uart_insert(int cents);
 
 private:
@@ -85,6 +85,7 @@ private:
 	std::uint8_t m_uart_pending_command = 0U;
 	unsigned m_uart_address_bytes = 0U;
 	int m_uart_escrow_cents = 0;
+	std::uint64_t m_uart_escrow_motion_end_ms = 0;
 	bool m_uart_active = false;
 	bool m_uart_awake = true;
 	bool m_uart_accepting = false;

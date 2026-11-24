@@ -51,7 +51,7 @@ public:
 	void set_line_present(bool present) noexcept { m_line_present = present; }
 	void note_modem_relay(bool r1_active, double now_sec);
 	/// Earlier-board PIO A modem bitbang (address/clock/RD/WR).
-	char ssi_pio_a_write(std::uint8_t pio_a);
+	char ssi_pio_a_write(std::uint8_t pio_a, bool extended_address = false);
 	bool relay_active() const noexcept { return m_r1; }
 	/// STATUS_PORT_2 bit 4 (MPD) level while an SSI read is in progress.
 	bool ssi_mpd_level() const noexcept { return m_ssi_mpd; }
@@ -107,9 +107,11 @@ private:
 	double m_ncc_lab_hello_at = -1.0;
 	std::vector<std::uint8_t> m_ncc_tx_pending{};
 
-	// SSI modem (CR0/CR1/DR/TR) — earlier motherboard bitbang.
+	// SSI modem registers selected through the port A serial interface.
 	std::uint8_t m_ssi_cr0 = 0;
 	std::uint8_t m_ssi_cr1 = 0;
+	std::uint8_t m_ssi_cr2 = 0;
+	std::uint8_t m_ssi_cr3 = 0;
 	std::uint8_t m_ssi_dr = 0;
 	std::uint8_t m_ssi_tr = 0;
 	std::uint8_t m_ssi_pio = 0;

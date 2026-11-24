@@ -161,8 +161,9 @@ millennium_pcd3349a::front_panel_result millennium_pcd3349a::process_front_panel
 		if (!m_keypad_trace_path.empty() && v >= 0x20U && v < 0x60U)
 			append_trace(m_keypad_trace_path, "tp_key_event", cycle, v);
 	}
+	// UI observations mirror OUTL bytes, including bytes read during synchronous replies.
 	while (m_tp.has_ui_event())
-		r.tp_events.push_back(m_tp.pop_ui_event());
+		append_trace(m_keypad_trace_path, "tp_key_event", cycle, m_tp.pop_ui_event());
 	auto const note_hook_byte = [&r, this](std::uint8_t ev) {
 		if (ev == 0x6EU) {
 			r.hook_changed = true;
@@ -176,10 +177,6 @@ millennium_pcd3349a::front_panel_result millennium_pcd3349a::process_front_panel
 	};
 	for (std::uint8_t ev : r.tp_bytes)
 		note_hook_byte(ev);
-	for (std::uint8_t ev : r.tp_events)
-		note_hook_byte(ev);
-	for (std::uint8_t ev : r.tp_events)
-		append_trace(m_keypad_trace_path, "tp_key_event", cycle, ev);
 	return r;
 }
 

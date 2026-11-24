@@ -4,6 +4,8 @@
 
 namespace {
 
+constexpr std::uint64_t k_escrow_travel_ms = 2000;
+
 std::uint64_t us_to_cycles(unsigned us, std::uint64_t cpu_hz)
 {
 	return std::uint64_t(us) * (cpu_hz / 1000000ULL);
@@ -36,6 +38,7 @@ void millennium_coin_model::reset()
 	m_uart_pending_command = 0;
 	m_uart_address_bytes = 0;
 	m_uart_escrow_cents = 0;
+	m_uart_escrow_motion_end_ms = 0;
 	m_uart_active = false;
 	m_uart_awake = true;
 	m_uart_accepting = false;
@@ -215,7 +218,7 @@ void millennium_coin_model::protocol_note_timeout() noexcept
 	m_jam_latched = true;
 }
 
-std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte)
+std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte, std::uint64_t now_ms)
 {
 	m_uart_active = true;
 	if (m_uart_address_bytes) {
@@ -244,7 +247,9 @@ std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte)
 		return {};
 	switch (byte) {
 	case 'r':
-		return {'B', std::uint8_t(m_jam_latched ? 0x40 : 0), 0};
+		// The position sensor is obstructed while the escrow gate travels.
+		return {'B', std::uint8_t(m_jam_latched ? 0x40 : 0),
+			std::uint8_t(now_ms < m_uart_escrow_motion_end_ms ? 0x08 : 0)};
 	case 'x':
 	case 'a':
 		m_uart_accepting = true;
@@ -261,11 +266,16 @@ std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte)
 		break;
 	case 'f':
 	case 'c':
+		m_uart_escrow_motion_end_ms = now_ms + k_escrow_travel_ms;
+		m_uart_escrow_cents = 0;
+		break;
 	case 'n':
+		m_uart_escrow_motion_end_ms = now_ms + 250;
 		m_uart_escrow_cents = 0;
 		break;
 	case 'l':
 		m_uart_escrow_cents = 0;
+		m_uart_escrow_motion_end_ms = 0;
 		m_jam_latched = false;
 		break;
 	case 'k':

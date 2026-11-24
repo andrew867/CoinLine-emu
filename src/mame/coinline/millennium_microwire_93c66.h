@@ -32,8 +32,7 @@ public:
 	/// SK level change. Rising edge while CS is high shifts DI.
 	void notify_sk_edge(bool prev_sk_high, bool new_sk_high, bool di_bit);
 
-	/// Command field length after START. Later motherboard: 11. Earlier motherboard: 8
-	/// (two opcode bits and a six-bit word address).
+	/// Command field length after START: two opcode bits and either six or eight address bits.
 	void set_command_body_bits(unsigned bits);
 
 	/// Current DO line (high = pull-up / logical 1) while CS asserted.
@@ -68,8 +67,7 @@ private:
 		write_word_in,
 	};
 
-	void append_command_bit(bool di);
-	void accept_short_command();
+	void accept_command();
 	void begin_read_output(std::uint16_t word_addr);
 	void finish_write_word(std::uint16_t word_addr, std::uint16_t data_be);
 	void perform_erase_all_words();
@@ -84,7 +82,7 @@ private:
 	bool m_write_enabled = false;
 
 	phase m_phase = phase::idle;
-	unsigned m_command_body_bits = 11U;
+	unsigned m_command_body_bits = 10U;
 	std::uint32_t m_sr_bits = 0; // command_stream: START seeds bit 0, then m_command_body_bits DI bits
 	unsigned m_sr_len = 0;
 	std::uint16_t m_word_addr = 0;

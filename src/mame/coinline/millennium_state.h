@@ -3,6 +3,7 @@
 
 #include "emu.h"
 #include "cpu/z180/z180.h"
+#include "machine/ins8250.h"
 #include "rendfont.h"
 #include "screen.h"
 
@@ -106,6 +107,7 @@ public:
 	void mach_pio_w(offs_t offset, u8 data);
 	u8 external_uart_r(offs_t offset);
 	void external_uart_w(offs_t offset, u8 data);
+	void trace_external_uart_access(unsigned reg, char direction, u8 data, bool dlab);
 
 	u8 pio_port_g_r();
 	void pio_port_g_w(u8 data);
@@ -168,6 +170,7 @@ private:
 	required_device<millennium_smartcard_device> m_smartcard;
 	required_device<millennium_sam_device> m_sam;
 	required_device<millennium_coin_device> m_coin;
+	required_device<ns16550_device> m_coin_uart;
 	required_device<millennium_audio_device> m_audio;
 	required_device<millennium_voiceware_device> m_voiceware;
 	required_device<upd7759_device> m_voicew_upd;
@@ -368,6 +371,7 @@ private:
 	void try_boot_m8(u64 cycle);
 
 	void poll_card_ui();
+	u8 card_reader_signals() const;
 	void clock_magstripe();
 	void poll_coin_ui();
 
@@ -420,19 +424,14 @@ private:
 	std::size_t m_magstripe_index = 0;
 	u8 m_magstripe_signals = 0;
 	bool m_magstripe_clock = false;
+	bool m_card_uses_dma1 = false;
 	bool m_magstripe_withdrawing = false;
 	u32 m_coin_ui_last = 0;
 	std::uint8_t m_audio_dtmf_ascii = 0;
 
 	std::array<std::uint8_t, 4> m_mach_pio_shadow{};
 	std::array<std::uint8_t, 4> m_pio_8255_shadow{};
-	std::array<std::uint8_t, 8> m_ext_uart_shadow{};
-	/// Divisor latch bytes (DLAB=1); persist across THR/RBR and IER access when DLAB=0 (16550-style).
-	std::uint8_t m_ext_uart_dll = 0x80U;
-	std::uint8_t m_ext_uart_dlm = 0x02U;
-	std::deque<std::uint8_t> m_ext_uart_rx_queue;
-	bool m_ext_uart_boot_seeded = false;
-	bool m_ext_uart_tel_up_seen = false;
+	std::uint8_t m_ext_uart_lcr = 0;
 	bool m_tel_ip_link_enabled = false;
 	bool m_tel_boot_code_sent = false;
 	std::uint64_t m_tel_reset_cycle_start = 0ULL;
@@ -440,7 +439,6 @@ private:
 	std::uint64_t m_tel_boot_code_deadline_cycle = 0ULL;
 	/// When nonzero, CSI/O TP link arms after this cycle (post `PWR_FAIL_LINE` release + firmware delay).
 	std::uint64_t m_tel_ip_link_enable_deadline_cycle = 0ULL;
-	unsigned m_ext_uart_tx_count = 0U;
 
 	// External UART telephony bring-up (M7A/M7B): source-backed minimal response sequencing.
 	enum class tel_uart_phase : std::uint8_t {
@@ -506,7 +504,6 @@ private:
 	u32 m_last_secmask_state = 0U;
 	u32 m_last_linectrl_state = 0U;
 	u32 m_last_firmware_keymatrix_state = 0U;
-	u32 m_last_firmware_linectrl_state = 0U;
 	u32 m_last_tp_ui_keymatrix_state = 0U;
 	u32 m_last_tp_ui_linectrl_state = 0U;
 	std::uint32_t m_last_tp_ui_softkeys_state = 0U;
@@ -643,7 +640,8 @@ private:
 	void update_external_ringer();
 	static void line_pcm_thunk(void *ctx, std::int16_t mic, std::int16_t &line, bool &have);
 	void exchange_line_pcm(std::int16_t mic, std::int16_t &line, bool &have);
-	std::uint8_t with_ring_detect(std::uint8_t status) const;
+	std::uint8_t telephony_status() const;
+	void write_modem_pio(std::uint8_t data);
 	/// Earlier universal motherboard: PIO 0x40–0x43, control latch 0x60, status 0x80, display 0xA0.
 	/// Later motherboard: control/status 0x40, PIO 0x41–0x44, display 0x60.
 	bool m_earlier_motherboard = false;
