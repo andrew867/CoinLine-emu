@@ -50,12 +50,12 @@
 #include <string>
 #include <string_view>
 
+#include "modules/lib/osdlib.h"
+
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include "modules/lib/osdlib.h"
-
 #include <windows.h>
 #endif
 
@@ -5212,20 +5212,27 @@ void millennium_state::init_auxiliary_trace_sinks()
 		// Several device-side trace sinks (voiceware, audio_route, alerter, telephony audio,
 		// supervision, mute_route) read their env var at every write rather than caching a
 		// path member. Unset those env vars when they don't match `want` so they short-circuit.
-		// Use both osd_setenv and SetEnvironmentVariableA: the C runtime's environ is what
-		// osd_getenv returns; the Win32 env block is what GetEnvironmentVariableA returns.
 		auto unset_unless_match = [&](char const *envname) {
 			char const *v = osd_getenv(envname);
-			char w32v[1024] = {};
-			DWORD const wn2 = GetEnvironmentVariableA(envname, w32v, sizeof(w32v));
-			std::string const cur = (v && *v) ? std::string(v) : ((wn2 > 0 && wn2 < sizeof(w32v)) ? std::string(w32v) : std::string());
+			std::string cur = v ? v : "";
+#ifdef _WIN32
+			// Windows and the C runtime maintain separate views of the environment.
+			if (cur.empty()) {
+				char w32v[1024] = {};
+				DWORD const count = GetEnvironmentVariableA(envname, w32v, sizeof(w32v));
+				if (count > 0 && count < sizeof(w32v))
+					cur.assign(w32v, count);
+			}
+#endif
 			if (cur.empty())
 				return;
 			std::filesystem::path const cur_path(cur);
 			std::string const stem = cur_path.filename().string();
 			if (stem.find(want) == std::string::npos) {
 				osd_setenv(envname, "", 1);
+#ifdef _WIN32
 				SetEnvironmentVariableA(envname, nullptr);
+#endif
 			}
 		};
 		char const *const inline_env_vars[] = {

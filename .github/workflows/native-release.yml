@@ -78,7 +78,7 @@ jobs:
 
       - name: Install macOS build dependencies
         if: runner.os == 'macOS'
-        run: brew install sdl2 sdl2_ttf
+        run: brew install pkgconf sdl3
 
       - name: Build and test Windows package
         if: runner.os == 'Windows'

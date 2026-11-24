@@ -2,10 +2,11 @@ CoinLine Terminal Emulator
 =========================
 
 Extract the archive to a writable folder. Install Python 3.10 or newer and the
-SDL 2 runtime libraries for your platform.
+runtime libraries for your platform.
 
-  Ubuntu 24.04 x64: sudo apt install python3 libsdl2-2.0-0 libsdl2-ttf-2.0-0
-  macOS 15 or later, Apple Silicon: brew install python sdl2 sdl2_ttf
+  Ubuntu 24.04 x64:
+    sudo apt install python3 libsdl2-2.0-0 libsdl2-ttf-2.0-0 libfontconfig1 libxi6 libxinerama1
+  macOS 15 or later, Apple Silicon: brew install python sdl3
 
 Supply your authorized ROM images at these paths in the extracted folder.
 

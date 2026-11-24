@@ -206,7 +206,7 @@ def pack(args):
         f"{os_label} {cpu}, OEM firmware profile\nNative MAME base revision: {revision}\n"
         f"Local ROM inputs included: {'yes' if args.rom_input else 'no'}\n"
         + ("CPython 3.13.17, pyVoIP 1.6.8, audioop-lts 0.2.2, pylibsrtp 1.0.0\n" if windows
-           else "Local CO only. Requires system Python 3.10+ and SDL2.\n"),
+           else "Local CO only. See Quick Start.txt for the system runtime dependencies.\n"),
         encoding="ascii",
     )
     entries = sorted(path for path in bundle.rglob("*") if path.is_file())

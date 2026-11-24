@@ -20,7 +20,7 @@ The package includes the launcher, front panel, telephony-processor image, card 
 
 ## Linux x64 and macOS Apple Silicon
 
-Use the MAME revision in `config/mame-pinned.ref`. On Ubuntu 24.04 install `build-essential`, `python3`, `libsdl2-dev`, `libsdl2-ttf-dev`, `libfontconfig1-dev`, `libxi-dev`, and `libxinerama-dev`. On macOS 15 install Xcode Command Line Tools and the Homebrew `python`, `sdl2`, and `sdl2_ttf` packages.
+Use the MAME revision in `config/mame-pinned.ref`. On Ubuntu 24.04 install `build-essential`, `python3`, `libsdl2-dev`, `libsdl2-ttf-dev`, `libfontconfig1-dev`, `libxi-dev`, and `libxinerama-dev`. On macOS 15 install Xcode Command Line Tools and the Homebrew `python`, `pkgconf`, and `sdl3` packages.
 
 ```bash
 python3 tools/mingw64/build-portable.py --mame-root /path/to/mame
