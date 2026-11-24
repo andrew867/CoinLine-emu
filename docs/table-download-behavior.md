@@ -1,5 +1,9 @@
 # Table download behavior
 
+## Verified INSTALL transfer
+
+Both tested firmware builds dialed CoinLine over ASCI1, completed clock sync, and requested tables with MT44. The lab set carried MT21, MT22, MT26, MT31, MT50, MT62, MT73, MT92, MT93, and MT101. CoinLine segmented the large records, and the firmware acknowledged all ten at the application layer with MT14. The terminal committed its data and loaded flags to battery-backed SRAM. The [verification record](status/ncc-install-firmware-stx-handoff-2026-11-23.md) covers the cold install and warm readback.
+
 This document describes the firmware-driven flow for receiving downloaded tables from CoinLine Host and persisting them to the table-storage region.
 
 ## Purpose
@@ -19,7 +23,7 @@ firmware -> ack frame -> host bridge -> CoinLine Host
 
 ## Storage layout
 
-The table storage region (`tablestore` per [`memory-map.md`](memory-map.md)) holds one or more tables, each with a header and payload per the firmware's table convention. The exact internal layout is in the firmware evidence inventory.
+The table storage region (`tablestore` per [`memory-map.md`](memory-map.md)) holds one or more tables, each with a header and payload per the firmware's table convention. The exact internal layout is in [`internal/table-storage-source-map.md`](internal/table-storage-source-map.md).
 
 ## Persistence
 
@@ -51,7 +55,7 @@ Table storage is persisted along with NVRAM ([`nvram-and-table-storage.md`](nvra
 
 - Tables persist across reset.
 - Failure modes produce the firmware's expected behavior.
-- Round-trip with the host application's table-distribution flow succeeds.
+- Round-trip with CoinLine Host's table-distribution flow ([`../../coinline/docs/`](../../coinline/docs/) → table distribution) succeeds.
 
 ## Cross-references
 

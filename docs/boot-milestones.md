@@ -1,5 +1,7 @@
 # Boot milestones
 
+The [current MAME acceptance record](status/ncc-install-firmware-stx-handoff-2026-11-23.md) includes both firmware builds reaching in-service idle after a cold INSTALL and returning there on restart. Historical out-of-service captures document the earlier boot steps that precede INSTALL.
+
 This document defines the boot milestone ladder M0–M12 used by every test, scenario, and evidence bundle in `coinline-emu`. Milestones are observable events; each one corresponds to a verifiable trace signal and a deterministic test.
 
 ## Milestone table
@@ -16,7 +18,7 @@ This document defines the boot milestone ladder M0–M12 used by every test, sce
 | **M6** VFD write observed | Firmware writes a printable string or known command to the VFD | VFD device captures non-empty buffer | VFD device | `tests/devices/test_vfd_command_decode.cpp` | planned |
 | **M7** Keypad scan observed | Firmware reads the keypad matrix at expected cadence | Keypad device records reads | Keypad device | `tests/devices/test_keypad_scan.cpp` | planned |
 | **M8** UART/modem init observed | Firmware programs ASCI registers and asserts modem signals | ASCI register writes; modem state transitions to ready | Z180 ASCI + modem device | `tests/devices/test_modem_state_machine.cpp` | planned |
-| **M9** RTOS scheduler entry observed | Firmware enters its scheduler / main loop | PC enters the scheduler symbol (or the firmware's idle wait) | RTOS init source-map (``) | `tests/boot/test_rtos_entry.cpp` | planned |
+| **M9** RTOS scheduler entry observed | Firmware enters its scheduler or main loop | PC enters the scheduling loop or idle wait | CPU instruction trace | `tests/boot/test_rtos_entry.cpp` | planned |
 | **M10** Idle loop / display reached | Firmware's idle display matches `fixtures/display/vfd-*-idle.json` | VFD buffer matches reference; PC is in idle loop | All E0–E9 devices | `tests/integration/test_boot_to_idle.cpp` | planned |
 | **M11** Host call / session attempted | Firmware initiates a call via the modem; bytes appear at the host bridge | Modem state transitions; host-bridge transcript shows TX bytes | Modem + host bridge | `tests/integration/test_modem_connect.cpp` | planned |
 | **M12** Table / config storage accessed | Firmware reads or writes the table storage region | NVRAM/table-storage trace shows accesses; downloaded tables persisted | NVRAM device + table storage | `tests/integration/test_table_download_e2e.cpp` | planned |
@@ -83,15 +85,15 @@ If a milestone is not reached:
 | Failure | Likely cause | Fix path |
 | ------- | ------------ | -------- |
 | M0 missing | Firmware path wrong or hash mismatch | Verify `../firmware/flash.bin` (or `COINLINE_FIRMWARE`) and `firmware-hashes.json`. |
-| M1 missing | Reset vector address mismatch | Cross-check ``. |
+| M1 missing | Reset vector address mismatch | Compare the reset PC and flash address mapping. |
 | M2 missing | Reset-vector indirection (e.g. jump table) not modeled | Add MMU / banking support per `docs/z180-internal-peripherals.md`. |
 | M3 missing | RAM region not writable | Check memory map; verify wait-state config. |
-| M4 missing | Z180 internal-peripheral write decode wrong | Cross-check ``. |
+| M4 missing | Z180 internal-peripheral write decode wrong | Compare the decoded writes with the Z180 register map. |
 | M5 missing | First device's I/O ports not yet mapped | Add I/O map entry for the device per `docs/io-port-map.md`. |
-| M6 missing | VFD command decoding wrong | Cross-check ``. |
-| M7 missing | Keypad I/O mapping wrong | Cross-check ``. |
+| M6 missing | VFD command decoding wrong | Compare the display-port trace with the VFD command map. |
+| M7 missing | Keypad I/O mapping wrong | Compare the key matrix inputs and scan responses. |
 | M8 missing | ASCI register defaults wrong | Cross-check `docs/z180-internal-peripherals.md` (ASCI section). |
-| M9 missing | RTOS scheduler symbol unknown | Cross-check ``. |
+| M9 missing | RTOS scheduler entry unknown | Compare the instruction trace with the interrupt and idle transitions. |
 | M10 missing | Idle dependency missing | Diff `compatibility-validation-items.md` for any `pending` rows. |
 | M11 missing | Modem state machine or host-bridge transport bug | Replay `fixtures/modem/clean-connect.hex`; inspect host-bridge log. |
 | M12 missing | Table storage region not wired or NVRAM persistence broken | Cross-check `docs/nvram-and-table-storage.md`. |
@@ -99,5 +101,7 @@ If a milestone is not reached:
 ## Cross-references
 
 - [`architecture.md`](architecture.md) — how milestones map to subsystems.
+- [`internal/boot-vector-analysis.md`](internal/boot-vector-analysis.md) — internal evidence for M1/M2.
+- [`internal/rtos-boot-source-map.md`](internal/rtos-boot-source-map.md) — internal evidence for M9.
 - [`evidence-bundles.md`](evidence-bundles.md) — how trace signals are captured.
 - [`scenario-runner.md`](scenario-runner.md) — `wait_for_milestone` verb.

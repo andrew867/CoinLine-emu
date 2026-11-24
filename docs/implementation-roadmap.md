@@ -44,7 +44,7 @@ E0 -> E1 -> E2 -> E3 -> E4 -> E5 -> E6 -> E7 -> E8 -> E9 -> E10 -> E11 -> E12 ->
 
 ## Dependencies
 
-- E1 depends on access to `../firmware source tree`. Without that input, E1 is replaced by binary-only inventory (firmware binary inspection, modem capture analysis, hardware datasheets) and the public maps are still authored, marked **OPEN QUESTION** where evidence is missing.
+- E1 inventories firmware behavior, modem captures, and hardware datasheets. Mark public map entries **OPEN QUESTION** where evidence is missing.
 - E4 depends on `docs/images/terminal-unbranded.webp` for the artwork base. Without that input, the emulator runs headless until a substitute is supplied.
 - E12 depends on a deployable CoinLine Host instance.
 

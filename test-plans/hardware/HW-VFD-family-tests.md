@@ -31,7 +31,7 @@ Use **TP-VFD-003-*** / **TP-VFD-004-*** case IDs for gate evidence. Baseline row
 
 ```powershell
 # After overlay + build — see docs/status/remaining-work-estimate.md
-& '.\tools\windows\run-screenshot-capture.ps1' -FirmwareBinary '...\firmware source tree\flash.bin' -RunSeconds 180 -Screenshot ...
+& '.\tools\windows\run-screenshot-capture.ps1' -FirmwareBinary 'firmware/oem/flash.bin' -RunSeconds 180 -Screenshot ...
 & '.\tools\windows\validate-boot-milestones.ps1' -RunDir $out
 ```
 

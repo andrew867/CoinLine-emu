@@ -1,52 +1,19 @@
 # CI and release
 
-This document describes the CI matrix and release artifacts for `coinline-emu`.
+## Checked-in CI
 
-## CI matrix
+The public repository runs the C++ emulator tests and fixture validation. Licensed firmware and SIP configuration are operator inputs for lab acceptance runs.
 
-| Job | OS | Configuration | Purpose | Tier |
-| --- | -- | ------------- | ------- | ---- |
-| `unit-linux` | Ubuntu LTS | Debug | Unit + device tests | All PRs |
-| `unit-windows` | Windows Server | Debug | Unit + device tests | All PRs |
-| `integration-linux` | Ubuntu LTS | RelWithDebInfo | Boot + integration + scenarios | All PRs |
-| `nightly-acceptance` | Ubuntu LTS | Release | Full acceptance suite | Nightly |
-| `nightly-host-integration` | Ubuntu LTS | Release | CoinLine Host integration | Nightly |
-| `regression-replay` | Ubuntu LTS | Release | Saved-state replay against golden traces | Nightly |
+**Native emulator builds** compiles the pinned MAME subtarget on Windows x64, Ubuntu Linux x64, and macOS on Apple Silicon. Each job launches its packaged executable with `-listfull cl_millennium` and uploads an archive and SHA-256 checksum. Pull requests and pushes to `main` produce build artifacts under Actions. A `v*` tag publishes the three packages and a matching CoinLine and MAME source archive after the matrix passes.
 
-## Required jobs (must be green for merge)
+Public packages require operator-supplied firmware and voice ROMs. The source archive contains the pinned MAME source and the CoinLine overlay and build scripts. Extract both source folders and pass `--mame-root ../mame` from the `coinline` folder to reproduce the build on the selected platform.
 
-- `lint`
-- `unit-linux`
-- `unit-windows`
-- `integration-linux`
+## Windows local artifact
 
-## Release artifacts
+Run [the portable builder](../BUILDING.md) from MSYS2 MINGW64. Its Windows x64 ZIP includes the emulator, entry points, artwork, local CO sidecar, Python and SIP dependencies, and the quick start. The archive has a SHA-256 sidecar and an internal file manifest. Local ROMs are included only by explicit input and are marked in the package name.
 
-Per release:
+Before handing over a ZIP, extract it to a new writable path. Verify the manifest, run the OEM launcher's `--check`, and perform the headless boot smoke test. Test the windowed launch and retain its log. See [testing](../TESTING.md) for how the package smoke differs from the firmware acceptance.
 
-- Emulator binary (Linux / Windows / macOS where supported).
-- Tool binaries (`boot-trace-parser`, `io-trace-analyzer`, `evidence-bundle-export`).
-- `LICENSE`, `LICENSE-STRATEGY.md`, `README.md`, `BUILDING.md`, `RUNNING.md`, `TESTING.md`.
-- SHA-256 checksums of every artifact.
-- Optional: a source tarball under GPL-2.0-or-later.
+## Firmware and release evidence
 
-## Release procedure
-
-1. Tag the release in git.
-2. Trigger the release workflow.
-3. The workflow runs `lint`, `unit-linux`, `unit-windows`, `integration-linux`, and `nightly-acceptance` against the tag.
-4. On success, the workflow packages artifacts and produces an evidence bundle of the canonical scenario suite.
-5. Reviewer attaches the evidence bundle to the release.
-
-## License footers in releases
-
-Release notes include the GPL-2.0-or-later distribution notice and a pointer to the source tarball.
-
-## Versioning
-
-`MAJOR.MINOR.PATCH` semantic versioning. Versions follow the firmware-target compatibility table in [`compatibility-validation-items.md`](compatibility-validation-items.md): a `MINOR` bump when a new firmware version becomes supported; a `PATCH` bump for fixes.
-
-## Cross-references
-
-- [`build-plan.md`](build-plan.md) — what the CI builds.
-- [`acceptance-test-plan.md`](acceptance-test-plan.md) — what `nightly-acceptance` runs.
+The [firmware acceptance handoff](status/ncc-install-firmware-stx-handoff-2026-11-23.md) covers both complete INSTALL flows, restart, the answered demo SIP call, and the OEM spoken rate. Keep raw run captures with local build outputs. A distribution outside the local workspace requires the applicable MAME source and license terms. Keep local ROM images, credentials, and battery images out of a shareable artifact.

@@ -65,6 +65,39 @@ int main()
 		}
 	}
 
+	{
+		model reader;
+		std::string error;
+		if (!reader.parse_fixture_json(R"({"track":2,"payload_body":";12=34?"})", error)) {
+			std::cerr << "Track 2 fixture rejected: " << error << '\n';
+			return 7;
+		}
+		auto const bits = reader.track2_wire_bits();
+		if (bits.size() != 64U || bits[12] != 1U || bits[13] != 1U || bits[14] != 0U ||
+			bits[15] != 1U || bits[16] != 0U) {
+			std::cerr << "magnetic start sentinel does not use five bits, least significant first\n";
+			return 8;
+		}
+		unsigned lrc = 0;
+		for (std::size_t offset = 12; offset < bits.size() - 12; offset += 5) {
+			unsigned nibble = 0;
+			unsigned parity = bits[offset + 4];
+			for (unsigned i = 0; i < 4; ++i) {
+				nibble |= bits[offset + i] << i;
+				parity ^= bits[offset + i];
+			}
+			if (parity != 1) {
+				std::cerr << "magnetic symbol has even parity\n";
+				return 9;
+			}
+			lrc ^= nibble;
+		}
+		if (lrc != 0) {
+			std::cerr << "magnetic longitudinal checksum does not match\n";
+			return 10;
+		}
+	}
+
 	std::cout << "card_track2_decode_vectors ok\n";
 	return 0;
 }

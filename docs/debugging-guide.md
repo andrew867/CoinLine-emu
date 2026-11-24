@@ -83,7 +83,7 @@ Replay forces deterministic re-execution given the recorded inputs; useful to bi
 If the public docs do not provide enough information to triage:
 
 1. Open `` for evidence references.
-2. Cross-check against `../firmware source tree` paths cited in those documents.
+2. Compare the observed register and port values with the board maps.
 
 ## Cross-references
 

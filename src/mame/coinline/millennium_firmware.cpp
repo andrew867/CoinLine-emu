@@ -164,3 +164,29 @@ millennium_firmware_validate_result millennium_validate_firmware(std::vector<std
 	r.ok = true;
 	return r;
 }
+
+bool millennium_firmware_hash_is_earlier_motherboard(std::string const &firmware_hashes_json_text,
+	std::string const &sha256_hex)
+{
+	auto const sha = firmware_hashes_json_text.find(sha256_hex);
+	if (sha == std::string::npos || sha256_hex.empty())
+		return false;
+	auto const open = firmware_hashes_json_text.rfind('{', sha);
+	auto const close = firmware_hashes_json_text.find('}', sha);
+	if (open == std::string::npos || close == std::string::npos || close < open)
+		return false;
+	std::string const obj = firmware_hashes_json_text.substr(open, close - open);
+	auto const key = obj.find("\"motherboard\"");
+	if (key == std::string::npos)
+		return false;
+	auto const colon = obj.find(':', key);
+	if (colon == std::string::npos)
+		return false;
+	auto const q1 = obj.find('"', colon);
+	if (q1 == std::string::npos)
+		return false;
+	auto const q2 = obj.find('"', q1 + 1);
+	if (q2 == std::string::npos)
+		return false;
+	return obj.substr(q1 + 1, q2 - q1 - 1) == "earlier";
+}

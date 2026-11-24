@@ -207,11 +207,6 @@ bool millennium_nvram_model::load_envelope_json(std::string const &json_text, st
 	(void)parse_json_string(json_text, "\"data_b64\"", data_b64);
 
 	m_nvram.assign(size_t(size), 0);
-	if (data_b64.empty()) {
-		// Empty fixture payload means "factory defaults", not a literal all-zero EEPROM.
-		recover_default_cleared(error_out);
-		return true;
-	}
 	if (!data_b64.empty()) {
 		std::string b64_err;
 		if (!base64_decode(data_b64, m_nvram, b64_err)) {
@@ -246,7 +241,7 @@ bool millennium_nvram_model::load_envelope_json(std::string const &json_text, st
 		}
 		return true;
 	}
-	error_out = "unsupported checksum_algorithm";
+	error_out = "unsupported checksum_algorithm in NVRAM profile";
 	return false;
 }
 
@@ -337,23 +332,9 @@ bool millennium_nvram_model::verify_checksum(std::string &error_out) const
 	return compute_sum8(m_nvram) == m_envelope_sum8;
 }
 
-void millennium_nvram_model::recover_default_cleared(std::string &error_out)
+void millennium_nvram_model::clear_nvram()
 {
-	(void)error_out;
 	std::fill(m_nvram.begin(), m_nvram.end(), 0);
-	// Seed minimal EEPROM-valid defaults used by INITASK:
-	// - first_validity_flag  = 0xA5C4
-	// - terminal_installed   = 0x1F2E (EEPROM_ALL_INSTALLED)
-	// - last_validity_flag   = ~0xA5C4 = 0x5A3B
-	// Offsets match the terminal EEPROM layout consumed by the boot/init task.
-	if (m_nvram.size() >= 42U) {
-		m_nvram[0] = 0xc4U;
-		m_nvram[1] = 0xa5U;
-		m_nvram[30] = 0x2eU;
-		m_nvram[31] = 0x1fU;
-		m_nvram[40] = 0x3bU;
-		m_nvram[41] = 0x5aU;
-	}
 	m_checksum_failure = false;
 	m_use_sum8_envelope = true;
 	m_envelope_sum8 = compute_sum8(m_nvram);

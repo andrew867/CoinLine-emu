@@ -3,22 +3,16 @@
 
 #include <cstdint>
 
-/// Behavioural model of the 11-bit Microwire command body emitted by the terminal when
-/// driving the on-board 93C66 EEPROM. After the START bit the host shifts 10 DI bits — eight
-/// opcode/address-MSB bits derived from the upper byte (opcode high nibble OR'd with the high
-/// bits of the byte offset), then the two MSBs of the lower byte (remaining address bits) — and
-/// the serial decoder picks up an 11th bit as zero on the next SK rise, so
-/// \c body11 = (\c body10 << 1) & 0x7FF.
+/// Eleven-bit Microwire command body shifted after START on the later motherboard.
+/// Eight bits are the opcode byte merged with the word index, then two more address bits.
+/// One trailing clock with DI low follows, so the stored body is that 10-bit field shifted left by one.
 ///
-/// \p iodefs_opcode_byte The encoded EEPROM opcode byte: READ = 0x80, WRITE = 0x40,
-/// erase/write-enable = 0x30, etc. (Microwire opcode high nibble in the upper four bits.)
-/// \p byte_offset_c   Byte offset within the persistent-storage structure; supplies the
-/// low-order address bits before the rotate-through-carry sequence.
+/// \p opcode_byte READ is 0x80, WRITE is 0x40, write-enable is 0x30.
+/// \p byte_offset_c Byte offset of the 16-bit word (even addresses).
 ///
-/// The MAME Microwire device shifts START into its internal SR before the opcode bits,
-/// so the on-wire body11 it consumes is
-/// \c (0x400U | ((millennium_eprm_command_body11(op,c) >> 1) & 0x3FFU)).
-inline constexpr std::uint16_t millennium_eprm_command_body11(std::uint8_t iodefs_opcode_byte,
+/// The serial model shifts START into the SR before the opcode bits. The on-wire body for that
+/// decoder is \c (0x400U | ((millennium_eprm_command_body11(op,c) >> 1) & 0x3FFU)).
+inline constexpr std::uint16_t millennium_eprm_command_body11(std::uint8_t opcode_byte,
 	std::uint8_t byte_offset_c)
 {
 	std::uint8_t c = byte_offset_c;
@@ -42,7 +36,7 @@ inline constexpr std::uint16_t millennium_eprm_command_body11(std::uint8_t iodef
 		cy = (old_a & 1U) != 0;
 	}
 	std::uint8_t const l = a;
-	std::uint8_t h = static_cast<std::uint8_t>(iodefs_opcode_byte | c);
+	std::uint8_t h = static_cast<std::uint8_t>(opcode_byte | c);
 
 	std::uint16_t body10 = 0;
 	for (int i = 0; i < 8; ++i) {

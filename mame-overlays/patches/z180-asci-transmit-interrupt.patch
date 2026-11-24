@@ -1,0 +1,17 @@
+diff --git a/src/devices/cpu/z180/z180asci.h b/src/devices/cpu/z180/z180asci.h
+--- a/src/devices/cpu/z180/z180asci.h
++++ b/src/devices/cpu/z180/z180asci.h
+@@ -46,7 +46,12 @@ public:
+ 	void cka_wr(int state);
+ 
+ 	virtual void state_add(device_state_interface &parent) = 0;
+ 
+-	int check_interrupt() { return m_irq; }
++	int check_interrupt() const
++	{
++		// Transmit requests remain active while STAT.TIE and STAT.TDRE are both set.
++		constexpr u8 transmit_empty_irq = 0x03;
++		return m_irq || (m_asci_stat & transmit_empty_irq) == transmit_empty_irq;
++	}
+ 	void clear_interrupt() { m_irq = 0; }
+ protected:

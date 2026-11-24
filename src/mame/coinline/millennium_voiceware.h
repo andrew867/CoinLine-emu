@@ -29,7 +29,9 @@ public:
 	void write_hw_control(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
 	void write_bank(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
 	std::uint8_t read_phrase_port(std::uint16_t pc, std::uint64_t cpu_cycle);
-	void write_phrase(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
+	// Returns true when the decoder accepted a new playback request.
+	bool write_phrase(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
+	std::uint8_t bank() const noexcept { return m_bank; }
 
 	/// True while the board-format decoder still has PCM pending.
 	bool playing() const noexcept;

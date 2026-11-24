@@ -3,7 +3,6 @@
   "audit_date": "2026-05-04",
   "repo_path": "coinline-emu",
   "reference_firmware_sha256": "b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34",
-  "reference_run_folder": "C:\\\\src\\\\millennium\\\\coinline-emu\\\\build\\\\runs\\\\20260504T135115-post-mmu-boot-gate",
   "highest_boot_milestone_observed": "M5",
   "m6_reached": false,
   "m10_reached": false,
@@ -20,7 +19,7 @@
   "items": [
     {
       "id": "HW-CPU-001",
-      "hardware_item": "Z180 (Z80180) core \u2014 clock, reset, instruction set",
+      "hardware_item": "Z180 (Z80180) core — clock, reset, instruction set",
       "files": [
         "third-party/mame/src/devices/cpu/z180/* (upstream)",
         "src/mame/coinline/millennium.cpp",
@@ -41,7 +40,6 @@
       "missing_implementation": "None in overlay; core behavior is upstream MAME.",
       "missing_tests": "Full-chip gate-level tests N/A; integration covered indirectly.",
       "missing_traces": "CPU-level decode trace optional (not required for milestone proof).",
-      "firmware_evidence": "Z180 architecture; measured traces and stack/region behavior vs internal correlation notes",
       "mame_implementation_target": "z80180_device",
       "risk": "low",
       "priority": "P3",
@@ -51,7 +49,7 @@
     },
     {
       "id": "HW-MMU-001",
-      "hardware_item": "Z180 MMU \u2014 CBR/BBR/CBAR, logical\u2192physical translation",
+      "hardware_item": "Z180 MMU — CBR/BBR/CBAR, logical→physical translation",
       "files": [
         "src/mame/coinline/millennium_z180_mmu.cpp",
         "src/mame/coinline/millennium_memory.cpp",
@@ -72,7 +70,6 @@
       "missing_implementation": "Verify extended banking edge cases vs observed firmware MMU usage if uncommon CB combinations appear in traces.",
       "missing_tests": "Exhaustive bank permutation tests.",
       "missing_traces": "Optional: expand mmu-translation-trace sampling under heavy bank churn.",
-      "firmware_evidence": "memory-trace.jsonl + mmu-translation-trace.jsonl in reference runs",
       "mame_implementation_target": "millennium memory map + Z180 MMU registers",
       "risk": "medium",
       "priority": "P1",
@@ -98,7 +95,6 @@
       "missing_implementation": "Host-capable NLA1X05 alternate images not exercised in default harness.",
       "missing_tests": "Optional second ROM layout regression.",
       "missing_traces": "memory-trace under ROM-only boot",
-      "firmware_evidence": "reference firmware: flash.bin",
       "mame_implementation_target": "address_map flash region",
       "risk": "low",
       "priority": "P2",
@@ -107,7 +103,7 @@
     },
     {
       "id": "HW-MEM-002",
-      "hardware_item": "RAM \u2014 low overlay persistence, stack mapping",
+      "hardware_item": "RAM — low overlay persistence, stack mapping",
       "files": [
         "src/mame/coinline/millennium_memory.cpp"
       ],
@@ -122,7 +118,6 @@
       "missing_implementation": "Full RAM size parity vs production board if hardware differs.",
       "missing_tests": "Stress tests for long-run nvram-adjacent corruption.",
       "missing_traces": "Extended memory-trace under RTOS heap use",
-      "firmware_evidence": "Stack at logical 0x7FFE \u2192 phys 0x54FFE observed (implementation-status-audit.md)",
       "mame_implementation_target": "millennium_state RAM regions",
       "risk": "medium",
       "priority": "P1",
@@ -151,7 +146,6 @@
       "missing_implementation": "End-to-end flash programming simulation safety vs real hardware policy.",
       "missing_tests": "Class C MAME runs that prove download path without dangerous overwrite.",
       "missing_traces": "nvram-trace.jsonl in evidence bundles (optional path)",
-      "firmware_evidence": "firmware source tree table/download sources (internal maps)",
       "mame_implementation_target": "nvram_image + firmware handlers",
       "risk": "high",
       "priority": "P1",
@@ -160,7 +154,7 @@
     },
     {
       "id": "HW-INT-001",
-      "hardware_item": "Z180 interrupt controller \u2014 ITC/IL, IM, masks",
+      "hardware_item": "Z180 interrupt controller — ITC/IL, IM, masks",
       "files": [
         "src/mame/coinline/millennium_z180_internal.cpp",
         "src/mame/coinline/millennium_state.cpp"
@@ -178,7 +172,6 @@
       "missing_implementation": "Correlate sampled iff1=false / im=0 with firmware expectation for timer/ASCI IRQ enable.",
       "missing_tests": "Deterministic RETI/RETN trace vs hardware ICE if available.",
       "missing_traces": "interrupt-events.jsonl sustained proof of EI + IRQ delivery to application",
-      "firmware_evidence": "RTOS boot maps; remaining-work-estimate.md notes EI not observed in 5 ms samples",
       "mame_implementation_target": "Z180 internal + tracing hooks",
       "risk": "high",
       "priority": "P0",
@@ -207,7 +200,6 @@
       "missing_implementation": "Prove OS tick cadence matches firmware expectations under load.",
       "missing_tests": "Integration: timer IRQ drives scheduler as on hardware.",
       "missing_traces": "timer-trace.jsonl correlated with context switch (partial docs exist)",
-      "firmware_evidence": "docs/status/rtos-context-switch-source-correlation.md",
       "mame_implementation_target": "z180 PRT",
       "risk": "medium",
       "priority": "P1",
@@ -232,7 +224,6 @@
       "missing_implementation": "Unknown if firmware uses DMA for production paths on this terminal.",
       "missing_tests": "Firmware-triggered DMA transfer capture.",
       "missing_traces": "None required until firmware proves use",
-      "firmware_evidence": "TBD scan firmware source tree for DMA enable paths",
       "mame_implementation_target": "z180 DMA",
       "risk": "low",
       "priority": "P4",
@@ -241,7 +232,7 @@
     },
     {
       "id": "HW-ASCI-001",
-      "hardware_item": "ASCI UART \u2014 modem / host serial path",
+      "hardware_item": "ASCI UART — modem / host serial path",
       "files": [
         "src/mame/coinline/millennium_modem*.cpp",
         "millennium_hostbridge*.cpp"
@@ -261,7 +252,6 @@
       "missing_implementation": "Carrier/CTS/STAT semantics vs live modem pool; field_validation_pending for real PSTN.",
       "missing_tests": "Long-run NCC transcript parity with NLA1X05 host image.",
       "missing_traces": "asci-trace.jsonl + uart-transcript.log in every scenario bundle when modem active",
-      "firmware_evidence": "firmware source tree modem driver sources",
       "mame_implementation_target": "millennium_modem_device + hostbridge_tcp",
       "risk": "high",
       "priority": "P0",
@@ -270,7 +260,7 @@
     },
     {
       "id": "HW-MOD-001",
-      "hardware_item": "Modem line state \u2014 DCD, CTS, RTS, DTR, ring/answer simulation",
+      "hardware_item": "Modem line state — DCD, CTS, RTS, DTR, ring/answer simulation",
       "files": [
         "src/mame/coinline/millennium_modem_model.cpp"
       ],
@@ -284,9 +274,8 @@
       "fixtures": [],
       "status_category": "partial",
       "missing_implementation": "Busy/no-answer/timeouts vs measured modem chip if different from model.",
-      "missing_tests": "Hardware loopback comparison \u2014 blocked without bench capture.",
+      "missing_tests": "Hardware loopback comparison — blocked without bench capture.",
       "missing_traces": "modem line transitions in io-trace when wired",
-      "firmware_evidence": "Partial \u2014 model driven by fixtures",
       "mame_implementation_target": "modem_model",
       "risk": "medium",
       "priority": "P1",
@@ -312,7 +301,6 @@
       "missing_implementation": "Proof against production CoinLine Host protocol versions beyond harness defaults.",
       "missing_tests": "Automated CI with live Host on 127.0.0.1:5000 (environment-dependent).",
       "missing_traces": "host-bridge/transcript.jsonl in evidence bundles",
-      "firmware_evidence": "Requires running Host \u2014 docs/host-integration-plan.md",
       "mame_implementation_target": "hostbridge_tcp",
       "risk": "medium",
       "priority": "P1",
@@ -321,7 +309,7 @@
     },
     {
       "id": "HW-VFD-001",
-      "hardware_item": "2-line VFD \u2014 DISPLAY_PORT 0x60, command/data protocol",
+      "hardware_item": "2-line VFD — DISPLAY_PORT 0x60, command/data protocol",
       "files": [
         "src/mame/coinline/millennium_vfd*.cpp",
         "layout/millennium.lay"
@@ -338,10 +326,9 @@
         "fixtures/display/*.json"
       ],
       "status_category": "partial",
-      "missing_implementation": "First firmware-driven 0x60 write not observed \u2014 M6 absent (boot-milestone-status.json).",
+      "missing_implementation": "First firmware-driven 0x60 write not observed — M6 absent (boot-milestone-status.json).",
       "missing_tests": "Class C: M6/M10 screenshot proof from real run.",
       "missing_traces": "vfd_data milestone in boot-trace.jsonl",
-      "firmware_evidence": "VFD driver sources; reference run stops at M5",
       "mame_implementation_target": "millennium_vfd_device + screen_device",
       "risk": "high",
       "priority": "P0",
@@ -368,7 +355,6 @@
       "missing_implementation": "Firmware path to 11-line profile not proven in default flash run.",
       "missing_tests": "Scenario runner + screenshot with 11-line board profile.",
       "missing_traces": "vfd-trace.jsonl with 11-line layout",
-      "firmware_evidence": "Board profile fixture only until boot reaches mode",
       "mame_implementation_target": "vfd_model + board profile",
       "risk": "medium",
       "priority": "P2",
@@ -393,9 +379,8 @@
       "fixtures": [],
       "status_category": "complete_verified",
       "missing_implementation": "Electrical debounce constants vs measured hardware.",
-      "missing_tests": "Side-by-side timing capture vs logic analyzer \u2014 field_validation_pending.",
+      "missing_tests": "Side-by-side timing capture vs logic analyzer — field_validation_pending.",
       "missing_traces": "Keypad events in io-trace when enabled",
-      "firmware_evidence": "firmware source tree keypad sources",
       "mame_implementation_target": "keypad model + 0x41-0x44",
       "risk": "low",
       "priority": "P2",
@@ -421,9 +406,8 @@
       "fixtures": [],
       "status_category": "complete_verified",
       "missing_implementation": "None critical; hook drives audio route via integration.",
-      "missing_tests": "End-to-end call scenario with hook state \u2014 depends on M6+.",
+      "missing_tests": "End-to-end call scenario with hook state — depends on M6+.",
       "missing_traces": "hookswitch in audio/trace when COINLINE_TRACE_AUDIO",
-      "firmware_evidence": "KEYMATRIX bits documented in driver",
       "mame_implementation_target": "ioports + keypad_model",
       "risk": "low",
       "priority": "P2",
@@ -432,7 +416,7 @@
     },
     {
       "id": "HW-SEC-001",
-      "hardware_item": "Security inputs \u2014 lock, door, vault, service",
+      "hardware_item": "Security inputs — lock, door, vault, service",
       "files": [
         "src/mame/coinline/millennium_security*.cpp"
       ],
@@ -448,7 +432,6 @@
       "missing_implementation": "Physical switch bounce profiles.",
       "missing_tests": "FIELD: compare to hardware logging.",
       "missing_traces": "SECMASK-derived io entries",
-      "firmware_evidence": "firmware source tree security I/O",
       "mame_implementation_target": "security_model",
       "risk": "low",
       "priority": "P3",
@@ -457,7 +440,7 @@
     },
     {
       "id": "HW-MACH-001",
-      "hardware_item": "MACH PIO 0xC0\u20130xC3 \u2014 board status, cash, smartcard presence",
+      "hardware_item": "MACH PIO 0xC0–0xC3 — board status, cash, smartcard presence",
       "files": [
         "src/mame/coinline/millennium_mach_pio.cpp"
       ],
@@ -469,10 +452,9 @@
       ],
       "fixtures": [],
       "status_category": "partial",
-      "missing_implementation": "All firmware branches using STATUS_PORT_* verified only against traces \u2014 edge cases may remain.",
+      "missing_implementation": "All firmware branches using STATUS_PORT_* verified only against traces — edge cases may remain.",
       "missing_tests": "Regression when firmware revision changes bit meanings.",
       "missing_traces": "mach_pio_port_h in io-trace",
-      "firmware_evidence": "fixtures + STATUS_PORT traces",
       "mame_implementation_target": "mach_pio_r/w",
       "risk": "medium",
       "priority": "P1",
@@ -481,7 +463,7 @@
     },
     {
       "id": "HW-CARD-001",
-      "hardware_item": "Magnetic card reader \u2014 status/data ports 0x52/0x53",
+      "hardware_item": "Magnetic card reader — status/data ports 0x52/0x53",
       "files": [
         "src/mame/coinline/millennium_card*.cpp"
       ],
@@ -496,10 +478,9 @@
         "fixtures/card/*.json"
       ],
       "status_category": "partial",
-      "missing_implementation": "Track waveform fidelity vs head electronics \u2014 model-level only.",
-      "missing_tests": "Class C magstripe call completion \u2014 scenario-dependent.",
+      "missing_implementation": "Track waveform fidelity vs head electronics — model-level only.",
+      "missing_tests": "Class C magstripe call completion — scenario-dependent.",
       "missing_traces": "card-trace.jsonl if enabled in harness",
-      "firmware_evidence": "firmware source tree card stack",
       "mame_implementation_target": "card_device",
       "risk": "medium",
       "priority": "P2",
@@ -508,7 +489,7 @@
     },
     {
       "id": "HW-SC-001",
-      "hardware_item": "Smartcard \u2014 power/clock 0x63, MACH bits, ATR/APDU model",
+      "hardware_item": "Smartcard — power/clock 0x63, MACH bits, ATR/APDU model",
       "files": [
         "src/mame/coinline/millennium_smartcard*.cpp"
       ],
@@ -520,10 +501,9 @@
       ],
       "fixtures": [],
       "status_category": "partial",
-      "missing_implementation": "Full ISO7816 electrical layer \u2014 simplified model.",
-      "missing_tests": "Hardware ATR compare \u2014 field_validation_pending.",
+      "missing_implementation": "Full ISO7816 electrical layer — simplified model.",
+      "missing_tests": "Hardware ATR compare — field_validation_pending.",
       "missing_traces": "smartcard events in extended traces",
-      "firmware_evidence": "Partial",
       "mame_implementation_target": "smartcard_device",
       "risk": "high",
       "priority": "P2",
@@ -533,7 +513,7 @@
     },
     {
       "id": "HW-COIN-001",
-      "hardware_item": "Coin validator \u2014 0x54/0x55 pulse train model",
+      "hardware_item": "Coin validator — 0x54/0x55 pulse train model",
       "files": [
         "src/mame/coinline/millennium_coin*.cpp"
       ],
@@ -547,9 +527,8 @@
       "fixtures": [],
       "status_category": "partial",
       "missing_implementation": "Denomination map proof vs mechanical tester.",
-      "missing_tests": "Paid call scenario through modem \u2014 integration.",
+      "missing_tests": "Paid call scenario through modem — integration.",
       "missing_traces": "coin-trace.jsonl when harness emits",
-      "firmware_evidence": "firmware source tree coin handling",
       "mame_implementation_target": "coin_device",
       "risk": "medium",
       "priority": "P2",
@@ -558,7 +537,7 @@
     },
     {
       "id": "HW-NVRAM-001",
-      "hardware_item": "NVRAM persistence \u2014 file-backed image",
+      "hardware_item": "NVRAM persistence — file-backed image",
       "files": [
         "src/mame/coinline/millennium_nvram*.cpp"
       ],
@@ -572,9 +551,8 @@
       "fixtures": [],
       "status_category": "partial",
       "missing_implementation": "Wear/format parity with serial flash on real PCB.",
-      "missing_tests": "Long soak corruption \u2014 manual.",
+      "missing_tests": "Long soak corruption — manual.",
       "missing_traces": "nvram-trace optional",
-      "firmware_evidence": "Table checksum sources",
       "mame_implementation_target": "nvram_image",
       "risk": "medium",
       "priority": "P2",
@@ -583,7 +561,7 @@
     },
     {
       "id": "HW-SPK-001",
-      "hardware_item": "Alerter / GPIO tones \u2014 ports 0x58\u20130x5B",
+      "hardware_item": "Alerter / GPIO tones — ports 0x58–0x5B",
       "files": [
         "src/mame/coinline/millennium_audio*.cpp",
         "millennium_audio_model.cpp"
@@ -598,10 +576,9 @@
         "fixtures/audio/alerter-*.json"
       ],
       "status_category": "partial",
-      "missing_implementation": "Acoustic match to physical buzzer \u2014 not claimed.",
-      "missing_tests": "WAV capture vs hardware SPL \u2014 field_validation_pending.",
+      "missing_implementation": "Acoustic match to physical buzzer — not claimed.",
+      "missing_tests": "WAV capture vs hardware SPL — field_validation_pending.",
       "missing_traces": "alerter-trace.jsonl",
-      "firmware_evidence": "Port writes in firmware",
       "mame_implementation_target": "millennium_audio_device",
       "risk": "low",
       "priority": "P2",
@@ -610,7 +587,7 @@
     },
     {
       "id": "HW-VOIC-001",
-      "hardware_item": "Voiceware \u2014 uPD7759-style playback, phrase port 0x61",
+      "hardware_item": "Voiceware — uPD7759-style playback, phrase port 0x61",
       "files": [
         "src/mame/coinline/millennium_voiceware.cpp"
       ],
@@ -626,9 +603,8 @@
       ],
       "status_category": "partial",
       "missing_implementation": "Catalog parity for every phrase ID vs ROM dump tool.",
-      "missing_tests": "Class C WAV non-silent proof on demand \u2014 run-script dependent.",
+      "missing_tests": "Class C WAV non-silent proof on demand — run-script dependent.",
       "missing_traces": "voiceware-trace.jsonl, voiceware-output.wav",
-      "firmware_evidence": "U16/U26 ROMs; 0xB3 mapping docs/status/voiceware-phrase-0xB3-analysis.md",
       "mame_implementation_target": "millennium_voiceware_device",
       "risk": "medium",
       "priority": "P1",
@@ -637,7 +613,7 @@
     },
     {
       "id": "HW-VOIC-002",
-      "hardware_item": "Voice ROM U16/U16 banking \u2014 0x42, ROM regions",
+      "hardware_item": "Voice ROM U16/U16 banking — 0x42, ROM regions",
       "files": [
         "millennium.cpp ROM_LOAD",
         "millennium_voiceware.cpp"
@@ -650,10 +626,9 @@
       ],
       "fixtures": [],
       "status_category": "complete_unverified",
-      "missing_implementation": "On-hardware ROM checksum compare \u2014 same files as emulator.",
+      "missing_implementation": "On-hardware ROM checksum compare — same files as emulator.",
       "missing_tests": "ROM probe on bench",
       "missing_traces": "Bank switch in voiceware trace",
-      "firmware_evidence": "ROM CRC in mame.cpp",
       "mame_implementation_target": "ROM region voicew",
       "risk": "low",
       "priority": "P2",
@@ -662,7 +637,7 @@
     },
     {
       "id": "HW-AUD-001",
-      "hardware_item": "Audio routing \u2014 mic/earpiece/line/voice composite",
+      "hardware_item": "Audio routing — mic/earpiece/line/voice composite",
       "files": [
         "src/mame/coinline/millennium_audio_route*.cpp"
       ],
@@ -680,7 +655,6 @@
       "missing_implementation": "Analog sidetone levels vs measured handset.",
       "missing_tests": "Class C harness (several tests skip 77).",
       "missing_traces": "audio-route-trace.jsonl, mute-route-trace.jsonl",
-      "firmware_evidence": "Routing map JSON + traces when enabled",
       "mame_implementation_target": "millennium_audio_route_device",
       "risk": "medium",
       "priority": "P1",
@@ -689,7 +663,7 @@
     },
     {
       "id": "HW-TEL-001",
-      "hardware_item": "Telephony command decode \u2014 processor\u2194host bytes",
+      "hardware_item": "Telephony command decode — processor↔host bytes",
       "files": [
         "src/mame/coinline/millennium_telephony.cpp"
       ],
@@ -701,10 +675,9 @@
       ],
       "fixtures": [],
       "status_category": "partial",
-      "missing_implementation": "Full PSTN signaling \u2014 not in scope; decode table only.",
+      "missing_implementation": "Full PSTN signaling — not in scope; decode table only.",
       "missing_tests": "Live operator scenarios.",
       "missing_traces": "telephony-trace.jsonl",
-      "firmware_evidence": "Telephony task sources partial",
       "mame_implementation_target": "millennium_telephony_device",
       "risk": "medium",
       "priority": "P2",
@@ -713,7 +686,7 @@
     },
     {
       "id": "HW-SUP-001",
-      "hardware_item": "Disconnect supervision \u2014 status stream + modem carrier fusion",
+      "hardware_item": "Disconnect supervision — status stream + modem carrier fusion",
       "files": [
         "src/mame/coinline/millennium_supervision*.cpp"
       ],
@@ -731,7 +704,6 @@
       "missing_implementation": "CPC/loop/polarity hardware specifics if firmware expects wire-level detail.",
       "missing_tests": "Class C real call teardown capture.",
       "missing_traces": "supervision-trace.jsonl",
-      "firmware_evidence": "disconnect-supervision-map.json",
       "mame_implementation_target": "millennium_supervision_device",
       "risk": "medium",
       "priority": "P2",
@@ -756,7 +728,6 @@
       "missing_implementation": "Exact watchdog timeout vs external supervisor IC.",
       "missing_tests": "Hardware reset capture",
       "missing_traces": "reset-trace.jsonl when COINLINE_TRACE_RESET",
-      "firmware_evidence": "Incomplete \u2014 treat as compat-validation",
       "mame_implementation_target": "state machine + traces",
       "risk": "medium",
       "priority": "P3",
@@ -782,10 +753,9 @@
         "fixtures/board/io-port-map.json"
       ],
       "status_category": "complete_verified",
-      "missing_implementation": "None \u2014 policy is honest open bus defaults.",
-      "missing_tests": "Fuzz I/O space \u2014 optional.",
+      "missing_implementation": "None — policy is honest open bus defaults.",
+      "missing_tests": "Fuzz I/O space — optional.",
       "missing_traces": "unknown-ports.json",
-      "firmware_evidence": "Aggregated in internal register",
       "mame_implementation_target": "catch_all_io + logging",
       "risk": "low",
       "priority": "P3",
@@ -808,10 +778,9 @@
       ],
       "fixtures": [],
       "status_category": "partial",
-      "missing_implementation": "Clickable regions vs production bezel \u2014 partial.",
+      "missing_implementation": "Clickable regions vs production bezel — partial.",
       "missing_tests": "Visual regression suite.",
       "missing_traces": "N/A",
-      "firmware_evidence": "N/A",
       "mame_implementation_target": "layout + artwork zip",
       "risk": "low",
       "priority": "P4",
@@ -839,8 +808,7 @@
       "status_category": "partial",
       "missing_implementation": "Optional traces (cpu-trace, z180-register-trace) not always emitted.",
       "missing_tests": "Full matrix in hardware-validation-matrix.md",
-      "missing_traces": "Per PHASE 7 list \u2014 many optional paths",
-      "firmware_evidence": "Run folders under build/runs/",
+      "missing_traces": "Per PHASE 7 list — many optional paths",
       "mame_implementation_target": "coinline-mame + scripts",
       "risk": "low",
       "priority": "P2",
@@ -862,10 +830,9 @@
       ],
       "fixtures": [],
       "status_category": "complete_unverified",
-      "missing_implementation": "Headless CI PNG parity \u2014 environment-dependent.",
-      "missing_tests": "Automated pixel diff \u2014 optional.",
+      "missing_implementation": "Headless CI PNG parity — environment-dependent.",
+      "missing_tests": "Automated pixel diff — optional.",
       "missing_traces": "screenshots in run folder",
-      "firmware_evidence": "boot-normal-start.png in reference run",
       "mame_implementation_target": "script + MAME video",
       "risk": "low",
       "priority": "P3",
@@ -887,10 +854,9 @@
       ],
       "fixtures": [],
       "status_category": "partial",
-      "missing_implementation": "ITU frequency accuracy vs CO country specs \u2014 not claimed.",
-      "missing_tests": "Audio FFT vs hardware \u2014 field_validation_pending.",
+      "missing_implementation": "ITU frequency accuracy vs CO country specs — not claimed.",
+      "missing_tests": "Audio FFT vs hardware — field_validation_pending.",
       "missing_traces": "audio_trace cadence events",
-      "firmware_evidence": "Model-only",
       "mame_implementation_target": "audio_model",
       "risk": "low",
       "priority": "P4",
@@ -908,7 +874,6 @@
       "missing_implementation": "No evidence this terminal used ADSI on wire.",
       "missing_tests": "N/A until scope confirmed",
       "missing_traces": "N/A",
-      "firmware_evidence": "None located",
       "mame_implementation_target": "N/A",
       "risk": "low",
       "priority": "P5",
@@ -918,7 +883,7 @@
     },
     {
       "id": "HW-DTMF-001",
-      "hardware_item": "DTMF generation path (alerter ports 0x59\u20130x5A)",
+      "hardware_item": "DTMF generation path (alerter ports 0x59–0x5A)",
       "files": [
         "millennium_audio*.cpp"
       ],
@@ -933,7 +898,6 @@
       "missing_implementation": "Line injection vs speaker-only routing on hardware.",
       "missing_tests": "HW acoustic verification.",
       "missing_traces": "alerter_gpio_write events",
-      "firmware_evidence": "Port usage in sources",
       "mame_implementation_target": "millennium_audio_device",
       "risk": "low",
       "priority": "P4",

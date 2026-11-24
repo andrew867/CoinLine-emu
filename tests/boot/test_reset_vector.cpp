@@ -13,6 +13,7 @@ std::filesystem::path emu_root() { return std::filesystem::path(COINLINE_EMU_SOU
 
 int main()
 {
+	// Expected reset-vector prefix for the test image.
 	unsigned char const kCanonicalFirst = 0xf3;
 
 	std::filesystem::path const fw = emu_root().parent_path() / "firmware" / "flash.bin";

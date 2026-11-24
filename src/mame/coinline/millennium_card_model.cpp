@@ -2,6 +2,7 @@
 
 #include "millennium_card_model.h"
 
+
 #include <cctype>
 #include <sstream>
 
@@ -186,6 +187,33 @@ void millennium_card_model::rebuild_bits_from_track()
 		for (int b = 0; b < 8; ++b)
 			m_bits.push_back(static_cast<std::uint8_t>((uc >> b) & 1));
 	}
+}
+
+std::vector<std::uint8_t> millennium_card_model::track2_wire_bits() const
+{
+	if (m_fix.payload_track_ascii.empty())
+		return {};
+	std::vector<std::uint8_t> bits(12, 0);
+	unsigned lrc = 0;
+	auto append_symbol = [&bits](unsigned nibble, bool flip_parity) {
+		unsigned parity = !flip_parity;
+		for (unsigned i = 0; i < 4; ++i) {
+			unsigned const bit = (nibble >> i) & 1U;
+			bits.push_back(bit);
+			parity ^= bit;
+		}
+		bits.push_back(parity);
+	};
+	// The fixture stores an ASCII checksum for the byte-oriented interface.
+	// The magnetic head clocks four data bits and odd parity per Track 2 symbol.
+	for (std::size_t i = 0; i + 1 < m_fix.payload_track_ascii.size(); ++i) {
+		unsigned const nibble = static_cast<unsigned char>(m_fix.payload_track_ascii[i]) & 0x0fU;
+		lrc ^= nibble;
+		append_symbol(nibble, m_fix.force_parity_error && i == 1);
+	}
+	append_symbol(lrc ^ unsigned(m_fix.force_lrc_error), false);
+	bits.insert(bits.end(), 12, 0);
+	return bits;
 }
 
 void millennium_card_model::reset_session()

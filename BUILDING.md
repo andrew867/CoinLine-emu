@@ -1,82 +1,55 @@
-# Building CoinLine Terminal Emulator
+# Build and package the emulator
 
-This document describes the build prerequisites, supported toolchains, and command sequences for building `coinline-emu`. No build system is materialized yet — these instructions are forward-looking and apply once tranches E0–E2 are implemented.
+The public repository builds Windows x64, Ubuntu Linux x64, and macOS Apple Silicon packages in GitHub Actions. See [CI and release](docs/ci-and-release.md) for artifact and source downloads. SIP audio and microphone capture are available in the Windows build. Linux and macOS packages use the local central office and support terminal audio playback.
 
-## Prerequisites
+Before packaging from source, [assemble the original telephony controller model](tools/tp8048/). The CI workflow assembles this model and adds it to each package.
 
-| Tool | Minimum version | Notes |
-| ---- | --------------- | ----- |
-| C++ compiler | C++17 (clang 13+, gcc 10+, MSVC 19.30+) | MAME requires C++17. |
-| Python | 3.10+ | Build scripts and fixture tooling. |
-| Git | Recent | Submodule support if MAME is used as a submodule. |
-| GNU make / msys2 (Windows) | Recent | MAME's primary build system. |
-| SDL2 / SDL_ttf / SDL_image | Recent | Required by MAME for UI/artwork rendering. |
-| pkg-config | Recent | MAME dependency discovery on Linux/macOS. |
+## Windows x64
 
-If the **MIT-clean fallback track** ([`LICENSE-STRATEGY.md`](LICENSE-STRATEGY.md) → *Alternative MIT-clean implementation track*) is selected, the prerequisites simplify to a C++17 compiler and CMake 3.20+.
+The OEM Windows x64 package uses the MAME subtarget `coinline` and machine `cl_millennium`. Build it from an MSYS2 **MINGW64** shell. The existing bootstrap script prepares the compiler, build tools, and MAME checkout. Open the shell and change to the `coinline-emu` directory before running the commands below.
 
-## License posture
-
-Before running any build, confirm:
-
-- You are operating under the rules in [`LICENSE-STRATEGY.md`](LICENSE-STRATEGY.md).
-
-## MAME-based track (default)
-
-The MAME-based build is structured per [`docs/mame-driver-plan.md`](docs/mame-driver-plan.md) and [`docs/project-structure.md`](docs/project-structure.md). The high-level steps are:
-
-1. Obtain the MAME source tree under a path **outside this repository** — for example, alongside this project at `third-party/mame/`. Do not commit MAME source into this repository unless explicitly authorized.
-2. Place CoinLine machine driver sources at the location specified by [`docs/file-plan.md`](docs/file-plan.md) → `src/mame/coinline/` (planned).
-3. Register the driver in MAME's driver list per [`docs/mame-driver-plan.md`](docs/mame-driver-plan.md).
-4. Build MAME with the CoinLine driver included.
-
-Example command sketch (Linux/macOS, planned — exact recipe finalized in tranche E2):
+### Build a ZIP
 
 ```bash
-cd third-party/mame
-make SUBTARGET=coinline SOURCES=src/mame/coinline/millennium.cpp -j$(nproc)
+/usr/bin/python tools/mingw64/build-portable.py
 ```
 
-The resulting binary is named `coinline` (or `coinline.exe`) and is documented in [`RUNNING.md`](RUNNING.md).
+This builds the driver and prepares a ZIP in `build/dist/`, with its SHA-256 sidecar. Each invocation has a separate work directory and build log. It uses the MAME checkout under `third-party/mame`; pass `--mame-root` for a different prepared checkout. To package an existing Windows x64 CoinLine MAME binary, pass `--mame-exe /path/to/coinline-mame.exe`.
 
-## MIT-clean fallback track
+The package includes the launcher, front panel, telephony-processor image, card fixture, embedded Python, and central-office and SIP software. On the first build, the packager downloads pinned Windows Python and SIP wheels into `build/package-cache/` and checks their digests. Future builds can use that cache offline. It records the MAME base revision and hashes the packaged files.
 
-If [`docs/engine-selection.md`](docs/engine-selection.md) records a switch to the MIT-clean track, the build uses CMake:
+## Linux x64 and macOS Apple Silicon
+
+Use the MAME revision in `config/mame-pinned.ref`. On Ubuntu 24.04 install `build-essential`, `python3`, `libsdl2-dev`, `libsdl2-ttf-dev`, `libfontconfig1-dev`, `libxi-dev`, and `libxinerama-dev`. On macOS 15 install Xcode Command Line Tools and the Homebrew `python`, `sdl2`, and `sdl2_ttf` packages.
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build -j
+python3 tools/mingw64/build-portable.py --mame-root /path/to/mame
 ```
 
-The CMake project is structured per [`docs/project-structure.md`](docs/project-structure.md) .
+The build produces a `.tar.gz` package and a SHA-256 checksum. Use Python 3.11 or newer to build the packages.
 
-## Verifying the build
+## Include your local ROM inputs
 
-After a successful build:
+By default the ZIP leaves the terminal firmware and Voiceware files for the operator to add. To make a local, ready-to-launch copy, prepare a private input directory using these names and pass its path explicitly.
 
-- The emulator binary exists in the location reported by the build.
-- Running `<emulator> --version` prints the emulator version.
-- Running `<emulator> --list-machines` (MAME) lists `millennium` (or the chosen short-name from [`docs/mame-driver-plan.md`](docs/mame-driver-plan.md)).
-- Running [`TESTING.md`](TESTING.md) commands does not error out on environment misconfiguration.
+| File under the input directory | Size |
+| --- | --- |
+| `firmware/oem/flash.bin` | 256 KiB |
+| `roms/cl_millennium/voice_u16.bin` | 1 MiB |
+| `roms/cl_millennium/voice_u26.bin` | 1 MiB |
 
-## Build artifacts
+```bash
+/usr/bin/python tools/mingw64/build-portable.py --rom-input /path/to/local-roms
+```
 
-| Artifact | Location | Notes |
-| -------- | -------- | ----- |
-| Emulator binary | `build/coinline` (or platform equivalent) | Distributed only under the GPL track's source-availability terms (or under MIT terms in the clean-room track). |
-| Tool binaries | `build/tools/` | Boot trace parser, I/O trace analyzer, evidence bundle exporter (tranche E13). |
-| Test binaries | `build/tests/` | Unit, device, integration suites. |
-| Generated docs | n/a | None at build time — documentation is hand-authored. |
+This variant has `-local-roms` in its ZIP name. Keep it private and use only ROM images you are authorized to use. The OEM profile starts with empty battery state. The package carries no credentials or terminal data from the build machine.
 
-## CI builds
+## Build the executable only
 
-CI configuration is described in [`docs/ci-and-release.md`](docs/ci-and-release.md). The CI matrix includes Linux and Windows hosts in debug and release configurations.
+From PowerShell, the existing wrapper runs the compile inside MSYS2/MINGW64.
 
-## Troubleshooting
+```powershell
+.\tools\windows\build-mame-coinline.ps1
+```
 
-| Symptom | Likely cause | Fix |
-| ------- | ------------ | --- |
-| `fatal error: SDL.h: No such file or directory` | SDL2 dev package missing | Install SDL2/SDL_ttf/SDL_image dev packages. |
-| Linker error referencing `coinline_*` symbols | Out-of-tree host sources accidentally linked into the emulator binary | Remove any non-emulator source paths from include/link lists; see [`LICENSE-STRATEGY.md`](LICENSE-STRATEGY.md). |
-| Driver not discovered | Driver not registered in MAME driver list | Update the driver list per [`docs/mame-driver-plan.md`](docs/mame-driver-plan.md). |
-| `roms/` empty | Firmware binary not supplied | Populate `../firmware/flash.bin` per [`RUNNING.md`](RUNNING.md). |
+It places the binary at `build/bin/coinline-mame.exe`. See [toolchain setup](docs/building-on-windows-msys2.md), [runtime](RUNNING.md), and [tests](TESTING.md).

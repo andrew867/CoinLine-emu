@@ -1,5 +1,7 @@
 # Voice playback device emulation
 
+The current MAME path plays the firmware-selected sample from the active 128 KiB Voiceware ROM bank. On the earlier board, PIO B at `0x41` selects the bank with bits 1 through 3. The uPD7759 completion edge advances the next firmware segment. Both profiles produced handset audio. The OEM displayed and spoke a five-cent, one-minute quote and selects spoken cents in five-cent increments. See the [verification record](status/ncc-install-firmware-stx-handoff-2026-11-23.md).
+
 ## Purpose
 
 Emulate the **voice playback device** used for spoken prompts and tonal sequences (dial tone overlay, attention tone, coin feedback). Validated terminal behavior drives **bank selection**, **phrase code**, **reset sequencing**, and **interrupt-driven completion**.

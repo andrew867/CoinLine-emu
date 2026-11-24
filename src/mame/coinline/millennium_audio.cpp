@@ -4,6 +4,14 @@
 
 #include "millennium_audio_trace.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+
+void *coinline_mic_open();
+void coinline_mic_close(void *mic);
+float coinline_mic_read(void *mic);
+
 DEFINE_DEVICE_TYPE(MILLENNIUM_AUDIO, millennium_audio_device, "millennium_audio", "CoinLine Millennium alerter audio")
 
 namespace {
@@ -27,6 +35,7 @@ char const *cadence_kind_label(millennium_alerter_cadence_kind k)
 millennium_audio_device::millennium_audio_device(machine_config const &mconfig, char const *tag, device_t *owner,
 	u32 clock)
 	: device_t(mconfig, MILLENNIUM_AUDIO, tag, owner, clock)
+	, device_sound_interface(mconfig, *this)
 	, m_maincpu(*this, "^maincpu")
 {
 }
@@ -34,12 +43,95 @@ millennium_audio_device::millennium_audio_device(machine_config const &mconfig, 
 void millennium_audio_device::device_start()
 {
 	m_model.set_cpu_clock_hz(static_cast<double>(m_maincpu->unscaled_clock()));
+	m_stream = stream_alloc(0, 1, 48000);
+	m_model.prepare_high_fast_ringer(48000);
+	save_item(NAME(m_alerter_audible));
+	open_microphone();
+}
+
+void millennium_audio_device::set_external_ringer(bool on) noexcept
+{
+	if (on && !m_external_ringer)
+		m_model.reset_high_fast_ringer();
+	m_external_ringer = on;
+}
+
+void millennium_audio_device::set_hybrid_gates(bool tx_muted, bool rx_muted, bool sidetone_suppressed) noexcept
+{
+	if (m_stream)
+		m_stream->update();
+	m_tx_muted = tx_muted;
+	m_sidetone_suppressed = sidetone_suppressed;
+	m_model.set_receive_muted(rx_muted);
+}
+
+void millennium_audio_device::set_handset_gain(float gain)
+{
+	if (m_stream)
+		m_stream->update();
+	m_model.set_receive_gain(gain);
+}
+
+void millennium_audio_device::device_stop()
+{
+	close_microphone();
+}
+
+void millennium_audio_device::open_microphone()
+{
+	if (m_mic == nullptr)
+		m_mic = coinline_mic_open();
+}
+
+void millennium_audio_device::close_microphone()
+{
+	coinline_mic_close(m_mic);
+	m_mic = nullptr;
+}
+
+void millennium_audio_device::sound_stream_update(sound_stream &stream)
+{
+	double const t0 = machine().time().as_double();
+	double const step = 1.0 / 48000.0;
+	for (int i = 0; i < stream.samples(); ++i) {
+		bool const line_tick = ++m_pcm_div == 6U;
+		if (line_tick) {
+			m_pcm_div = 0;
+			m_mic_sample = std::clamp(coinline_mic_read(m_mic), -1.f, 1.f);
+		}
+		float const transmit = m_tx_muted ? 0.f : m_mic_sample;
+		double const t = t0 + step * double(i);
+		float s = m_alerter_audible ? m_model.alerter_speaker_sample(t) : m_model.handset_speaker_sample(t);
+		if (m_alerter_audible && m_external_ringer)
+			s += m_model.pull_high_fast_ringer();
+		else if (!m_alerter_audible && !m_sidetone_suppressed)
+			s += 0.12f * transmit;
+		if (line_tick && m_pcm_tap) {
+			std::int16_t line = 0;
+			bool have = false;
+			m_pcm_tap(m_pcm_ctx, static_cast<std::int16_t>(transmit * 32767.f), line, have);
+			if (have && !m_alerter_audible)
+				inject_handset_sample(static_cast<float>(line) / 32767.f);
+		}
+		if (m_alerter_audible && m_cadence_kind != millennium_alerter_cadence_kind::none && (m_cadence_edge_next & 1U) != 0U)
+			s += 0.35f * static_cast<float>(std::sin(2.0 * 3.14159265 * 1000.0 * t));
+		if (s > 1.f)
+			s = 1.f;
+		else if (s < -1.f)
+			s = -1.f;
+		int const pcm = int(s * 32767.f);
+		stream.put_int(0, i, pcm, 32768);
+	}
 }
 
 void millennium_audio_device::device_reset()
 {
 	device_t::device_reset();
 	cancel_cadence();
+	m_external_ringer = false;
+	m_tx_muted = false;
+	m_sidetone_suppressed = false;
+	m_mic_sample = 0.f;
 	m_model.reset();
 	emit_alerter_ready();
 }
@@ -156,7 +248,7 @@ void millennium_audio_device::write_tone_select(std::uint8_t data, std::uint64_t
 void millennium_audio_device::write_dtmf_digit(std::uint8_t ascii_digit, unsigned duration_ms, std::uint64_t cpu_cycle,
 	std::uint16_t pc)
 {
-	m_model.write_dtmf_digit(ascii_digit, duration_ms);
+	m_model.write_dtmf_digit(ascii_digit, duration_ms, machine().time().as_double());
 	emit_alerter_gpio(0x5a, static_cast<std::uint8_t>(duration_ms & 0xffU), cpu_cycle, pc);
 }
 

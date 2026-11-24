@@ -3,10 +3,26 @@
   "entries": [
     {
       "version_id": "reference-flash-default",
-      "friendly_name": "firmware source tree canonical flash image (1 MiB)",
+      "friendly_name": "reference flash image (1 MiB)",
       "sha256_hex": "b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34",
       "size_bytes": 1048576,
-      "notes": "1 MiB image from ../firmware/flash.bin + ../firmware/flash1.bin concatenated (or legacy monolithic ../firmware/flash.bin); relative to the repo root unless overridden by COINLINE_* env."
+      "notes": "1 MiB image from ../firmware/FLASH0.BIN + ../firmware/FLASH1.BIN concatenated (or legacy monolithic ../firmware/flash.bin); relative to coinline-emu root unless overridden by COINLINE_* env."
+    },
+    {
+      "version_id": "demo-universal-builtin-tables",
+      "friendly_name": "universal terminal demo image with built-in tables",
+      "motherboard": "earlier",
+      "sha256_hex": "859de05d89c1331a828ecd03214eaf8a70011b1264c3b3db7e762b06e56e3da3",
+      "size_bytes": 1048576,
+      "notes": "1 MiB split-flash image. Universal terminal with smart card and a second language. Compiled defaults populate SRAM at cold boot. The validated first INSTALL completed a manager call to download the assigned lab records."
+    },
+    {
+      "version_id": "mtr19-universal",
+      "friendly_name": "MTR 1.9 universal terminal",
+      "motherboard": "earlier",
+      "sha256_hex": "cac5d2ea9764fef1dabd91d8ca86d65b0e816658b32a88c5803c77a537fe329a",
+      "size_bytes": 1048576,
+      "notes": "256 KiB image placed in the low quarter of the 1 MiB window; the remainder is erased (0xFF). Same earlier universal motherboard decode as demo-universal-builtin-tables. Not stored in git."
     }
   ]
 }

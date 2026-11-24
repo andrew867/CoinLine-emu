@@ -1,0 +1,30 @@
+CoinLine Terminal Emulator
+=========================
+
+Extract the archive to a writable folder. Install Python 3.10 or newer and the
+SDL 2 runtime libraries for your platform.
+
+  Ubuntu 24.04 x64: sudo apt install python3 libsdl2-2.0-0 libsdl2-ttf-2.0-0
+  macOS 15 or later, Apple Silicon: brew install python sdl2 sdl2_ttf
+
+Supply your authorized ROM images at these paths in the extracted folder.
+
+  firmware/oem/flash.bin (256 KiB)
+  roms/cl_millennium/voice_u16.bin and voice_u26.bin (1 MiB each)
+
+From the extracted folder, run ./start-oem.sh --check and then ./start-oem.sh.
+The emulator includes a simulated central office. SIP audio and host microphone
+capture are currently supported by the Windows build. The Linux and macOS
+builds support the local CO and terminal audio playback.
+
+Run CoinLine Server separately for OEM INSTALL and downloads. The default
+NCC address is 127.0.0.1 and TCP port 4000. Copy coinline.example.ini to
+coinline.ini to configure a different NCC port. For operator instructions and
+front-panel controls, see docs/Running.md.
+
+Copy data/oem/nvram between packages to carry forward an installed terminal.
+Each run saves a display snapshot and logs under data/oem/logs. Use --headless
+--seconds 18 for a bounded boot check and --record for a local handset recording.
+
+Repository releases provide a matching source archive for this package.
+License notices are in licenses/. SHA256SUMS.txt lists the packaged file hashes.

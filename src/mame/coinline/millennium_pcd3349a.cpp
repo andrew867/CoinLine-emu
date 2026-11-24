@@ -3,6 +3,7 @@
 #include "millennium_pcd3349a.h"
 #include "millennium_debug.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <cstdio>
@@ -11,9 +12,11 @@
 namespace {
 
 constexpr std::size_t k_tp_rom_size = 4096U;
+constexpr std::uint32_t k_terminal21_hook_bit = 0x00080000U;
 
 std::array<std::uint8_t, k_tp_rom_size> make_placeholder_tp_rom()
 {
+	// The original telephony model and its assembler instructions are under tools/tp8048.
 	// as authority and execute this deterministic placeholder image through the 8048 contract for parity testing.
 	std::array<std::uint8_t, k_tp_rom_size> rom{};
 	for (std::size_t i = 0; i < rom.size(); ++i)
@@ -73,8 +76,10 @@ void millennium_pcd3349a::reset(bool onhook_initial)
 		char const *const env = std::getenv("COINLINE_TP8048_ROM");
 		if (env && *env && load_rom_file(std::filesystem::path(env), rom))
 			m_rom_source = std::string("rom:") + env;
-		else if (load_rom_file(std::filesystem::path("firmware/telephony_subprocessor.rom"), rom))
-			m_rom_source = "rom:firmware/telephony_subprocessor.rom";
+		else if (load_rom_file(std::filesystem::path("firmware/tp_pcd3349a_behavioural.rom"), rom))
+			m_rom_source = "rom:firmware/tp_pcd3349a_behavioural.rom";
+		else if (load_rom_file(std::filesystem::path("coinline-emu/firmware/tp_pcd3349a_behavioural.rom"), rom))
+			m_rom_source = "rom:coinline-emu/firmware/tp_pcd3349a_behavioural.rom";
 		else
 			m_rom_source = "placeholder";
 		m_rom_loaded = true;
@@ -83,17 +88,38 @@ void millennium_pcd3349a::reset(bool onhook_initial)
 	m_core.reset();
 	m_tp.load_firmware_rom(rom.data(), rom.size());
 	m_tp.reset();
-	// Idle on-hook P1 sample so behavioural firmware can emit POWER_ON_RESET vs POWER_ON_ACK correctly
-	// without consuming main-CPU cycle coupling (avoid run_until_cp_cycle before Z180 timebase exists).
+	// Sample the handset before the Z180 timebase exists (avoid run_until_cp_cycle).
+	// The first slice holds P1.7 low so the ROM emits POWER_ON_ACK; the rest settles on-hook.
+	//
+	// QUEUE_BOOT_ACK runs at START, before this primer. A multi-second head-start only
+	// advances the ROM health timer (TICK_1S / MISS_CNT) while no CP octet exists, and
+	// SERVICE_RUNTIME_HEALTH then latches F_FAULT before the query block. 400K cycles
+	// retires the boot-ACK echo and stays under that 1-second tick. Override with
+	// COINLINE_TP_BOOT_PRIMER_RAW_CYCLES when a longer self-test image needs it.
 	{
 		coinline::tp8048::tp_input_snapshot snap{};
-		snap.keymatrix = 0U;
-		snap.linectrl = 0x07U;
+		// P1.7 low for the power-on sample so QUEUE_BOOT_ACK emits POWER_ON_ACK (0x72).
+		// POWER_ON_RESET (0x70) suspends IP communications until an idle event that does not
+		// arrive before the init watchdog, so the CP never sends 0x30/0x33/0x38/0x31.
+		// After the ACK is queued, present on-hook so the later hook query reports 0x6C.
+		snap.keymatrix = k_terminal21_hook_bit;
 		m_tp.set_input_snapshot(snap);
-		m_tp.step_tp_cycles_raw(400000ULL);
+		std::uint64_t primer_raw_cycles = 400000ULL;
+		if (char const *const env = std::getenv("COINLINE_TP_BOOT_PRIMER_RAW_CYCLES")) {
+			char *end = nullptr;
+			unsigned long long const v = std::strtoull(env, &end, 0);
+			if (end && end != env && v > 0ULL)
+				primer_raw_cycles = static_cast<std::uint64_t>(v);
+		}
+		std::uint64_t const ack_cycles = std::min<std::uint64_t>(primer_raw_cycles, 32768ULL);
+		m_tp.step_tp_cycles_raw(ack_cycles);
+		snap.keymatrix = 0U;
+		m_tp.set_input_snapshot(snap);
+		if (primer_raw_cycles > ack_cycles)
+			m_tp.step_tp_cycles_raw(primer_raw_cycles - ack_cycles);
+		m_tp.flush_boot_tx_queue();
 	}
 	m_last_keymatrix = 0U;
-	m_last_linectrl = 0U;
 	m_last_softkeys = 0U;
 	m_hook_last_transition_cycle = 0ULL;
 	m_hook_onhook = onhook_initial;
@@ -118,13 +144,26 @@ millennium_pcd3349a::front_panel_result millennium_pcd3349a::process_front_panel
 	snap.voice_active = voice_active;
 	snap.cp_cycle = cycle;
 	snap.terminal_21_profile = profile;
+	bool const hook_delta = ((keymatrix ^ m_last_keymatrix) & k_terminal21_hook_bit) != 0U;
+	m_last_keymatrix = keymatrix;
 	m_tp.set_input_snapshot(snap);
 	m_tp.run_until_cp_cycle(cycle, m_cp_hz);
+	// Host-poll ticks are the only clock for deferred SERVICE_TX bytes (hook steady state).
+	m_tp.drain_tx_ring();
+	if (hook_delta)
+		m_tp.service_hook_timer_tail();
 	append_trace(m_runtime_trace_path, "input_snapshot", cycle, static_cast<std::uint8_t>(linectrl & 0xffU));
 	append_trace(m_port_trace_path, "port_sample_p1", cycle, static_cast<std::uint8_t>(keymatrix & 0xffU));
+	while (m_tp.has_tx_byte()) {
+		std::uint8_t const v = m_tp.pop_tx_byte();
+		r.tp_bytes.push_back(v);
+		append_trace(m_cp_protocol_trace_path, "tp_to_cp_byte", cycle, v);
+		if (!m_keypad_trace_path.empty() && v >= 0x20U && v < 0x60U)
+			append_trace(m_keypad_trace_path, "tp_key_event", cycle, v);
+	}
 	while (m_tp.has_ui_event())
 		r.tp_events.push_back(m_tp.pop_ui_event());
-	for (std::uint8_t ev : r.tp_events) {
+	auto const note_hook_byte = [&r, this](std::uint8_t ev) {
 		if (ev == 0x6EU) {
 			r.hook_changed = true;
 			r.hook_onhook = false;
@@ -134,7 +173,11 @@ millennium_pcd3349a::front_panel_result millennium_pcd3349a::process_front_panel
 			r.hook_onhook = true;
 			m_hook_onhook = true;
 		}
-	}
+	};
+	for (std::uint8_t ev : r.tp_bytes)
+		note_hook_byte(ev);
+	for (std::uint8_t ev : r.tp_events)
+		note_hook_byte(ev);
 	for (std::uint8_t ev : r.tp_events)
 		append_trace(m_keypad_trace_path, "tp_key_event", cycle, ev);
 	return r;
@@ -144,6 +187,8 @@ std::vector<std::uint8_t> millennium_pcd3349a::handle_cp_to_tp_byte(std::uint8_t
 {
 	(void)hook_onhook_stable;
 	m_tp.receive_cp_byte(byte);
+	// Reply bytes are OUTL'd by SERVICE_TX one main-loop pass after the handler queues them.
+	m_tp.drain_tx_ring();
 	append_trace(m_cp_protocol_trace_path, "cp_to_tp_byte", m_core.cycles(), byte);
 	std::vector<std::uint8_t> out;
 	while (m_tp.has_tx_byte()) {
@@ -156,6 +201,8 @@ std::vector<std::uint8_t> millennium_pcd3349a::handle_cp_to_tp_byte(std::uint8_t
 
 millennium_pcd3349a::tone_mode millennium_pcd3349a::compute_tone_mode(bool off_hook, bool rx_open, bool voice_active, bool oos_mode) const noexcept
 {
+	if (!off_hook || !rx_open || voice_active)
+		return tone_mode::none;
 	auto const obs = m_tp.observable();
 	switch (obs.tone) {
 	case coinline::tp8048::tp_tone_mode::nis:
@@ -166,12 +213,12 @@ millennium_pcd3349a::tone_mode millennium_pcd3349a::compute_tone_mode(bool off_h
 		return tone_mode::dialtone;
 	case coinline::tp8048::tp_tone_mode::dtmf:
 		append_trace(m_tone_trace_path, "tone_mode", m_core.cycles(), 0x03U);
-		return off_hook && rx_open ? tone_mode::dialtone : tone_mode::none;
+		return tone_mode::none;
 	default:
 		break;
 	}
 	// Fallback when observable has not run update_tone_mode yet: same policy — OOS NIS until CP seizes hook relay.
-	if (off_hook && rx_open && oos_mode && voice_active == false && !m_tp.relay_cp_seized())
+	if (oos_mode && !m_tp.relay_cp_seized())
 		return tone_mode::nis;
 	return tone_mode::none;
 }

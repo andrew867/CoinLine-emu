@@ -5,6 +5,7 @@
 #include "millennium_mach_port_f.h"
 
 #include <cmath>
+#include <cstdint>
 
 namespace {
 
@@ -74,11 +75,66 @@ void millennium_audio_model::configure(millennium_alerter_board_config const &cf
 		m_cpu_hz = m_cfg.cpu_clock_hz;
 }
 
+void millennium_audio_model::prepare_high_fast_ringer(std::uint32_t sample_rate)
+{
+	if (sample_rate < 8000U || sample_rate > 192000U)
+		return;
+	double constexpr k_pi = 3.14159265358979323846;
+	double constexpr k_freq[2] = {2000.0 / 3.0, 500.0};
+	std::uint32_t constexpr k_us[2] = {50000U, 50000U};
+	double constexpr k_duty = 0.50;
+	double const limit = std::fmin(5200.0, 0.45 * static_cast<double>(sample_rate));
+	std::uint32_t us = 0;
+	for (unsigned stage = 0; stage < 2U; ++stage) {
+		double const frequency = k_freq[stage];
+		m_ring_steps[stage] = static_cast<std::uint32_t>(frequency * 4294967296.0 / static_cast<double>(sample_rate) + 0.5);
+		us += k_us[stage];
+		m_ring_stage_ends[stage] = static_cast<std::uint32_t>((static_cast<std::uint64_t>(us) * sample_rate + 500000ULL) / 1000000ULL);
+		for (unsigned i = 0; i < 256U; ++i) {
+			double const position = static_cast<double>(i) / 256.0;
+			double sample = 0.0;
+			for (unsigned harmonic = 1; harmonic * frequency < limit; ++harmonic) {
+				double const taper = std::cos(k_pi * harmonic * frequency / (2.0 * limit));
+				double const amplitude = 4.0 * std::sin(k_pi * harmonic * k_duty) / (k_pi * harmonic);
+				sample += taper * amplitude * std::cos(2.0 * k_pi * harmonic * (position - k_duty / 2.0));
+			}
+			m_ring_table[stage][i] = static_cast<std::int16_t>(std::lround(sample * 6000.0));
+		}
+	}
+	m_ringer_ready = true;
+	reset_high_fast_ringer();
+}
+
+void millennium_audio_model::reset_high_fast_ringer() noexcept
+{
+	m_ring_phase = 0;
+	m_ring_elapsed = 0;
+	m_ring_stage = 0;
+}
+
+float millennium_audio_model::pull_high_fast_ringer() noexcept
+{
+	if (!m_ringer_ready)
+		return 0.f;
+	unsigned const index = m_ring_phase >> 24;
+	float const sample = static_cast<float>(m_ring_table[m_ring_stage][index]) / 32768.f;
+	m_ring_phase += m_ring_steps[m_ring_stage];
+	if (++m_ring_elapsed == m_ring_stage_ends[m_ring_stage]) {
+		if (++m_ring_stage == 2U) {
+			m_ring_stage = 0;
+			m_ring_elapsed = 0;
+		}
+	}
+	return sample;
+}
+
 void millennium_audio_model::reset()
 {
 	m_tone = 0;
 	m_volume = 255;
 	m_handset_loopback = false;
+	m_rx_muted = false;
+	m_rx_gain = 1.f;
 	m_handset = 0.f;
 	m_dtmf_end_t = -1.0;
 	m_dtmf_start_t = 0.0;
@@ -88,6 +144,7 @@ void millennium_audio_model::reset()
 	m_port_f_half_period_cycles = 0;
 	m_port_f_phase_origin_cycle = 0;
 	m_port_f_have_half_period = false;
+	reset_high_fast_ringer();
 }
 
 void millennium_audio_model::notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, std::uint64_t cpu_cycle,
@@ -146,11 +203,11 @@ void millennium_audio_model::write_tone_select(std::uint8_t value)
 	m_tone = value & 0x0fU;
 }
 
-void millennium_audio_model::write_dtmf_digit(std::uint8_t ascii_digit, unsigned duration_ms)
+void millennium_audio_model::write_dtmf_digit(std::uint8_t ascii_digit, unsigned duration_ms, double now_sec)
 {
 	m_dtmf_digit = ascii_digit;
-	m_dtmf_start_t = 0.0;
-	m_dtmf_end_t = double(duration_ms) / 1000.0;
+	m_dtmf_start_t = now_sec;
+	m_dtmf_end_t = now_sec + double(duration_ms) / 1000.0;
 }
 
 void millennium_audio_model::write_volume(std::uint8_t value)
@@ -278,6 +335,27 @@ float millennium_audio_model::progress_tone_sample(double t_sec) const
 	default:
 		return 0.f;
 	}
+}
+
+float millennium_audio_model::alerter_speaker_sample(double t_sec) const
+{
+	float const g = float(m_volume) / 255.f;
+	return clampf(mach_port_f_square_sample(t_sec) * g, -1.f, 1.f);
+}
+
+float millennium_audio_model::handset_speaker_sample(double t_sec) const
+{
+	bool const dtmf = m_dtmf_end_t > 0.0 && t_sec >= m_dtmf_start_t && t_sec < m_dtmf_end_t;
+	float y = 0.f;
+	if (dtmf)
+		y = dtmf_sample(t_sec - m_dtmf_start_t);
+	else if (!m_rx_muted)
+		y = progress_tone_sample(t_sec);
+	float const g = float(m_volume) / 255.f;
+	y *= g;
+	if (!m_rx_muted && !dtmf)
+		y += m_handset * 0.5f;
+	return clampf(y * m_rx_gain, -1.f, 1.f);
 }
 
 float millennium_audio_model::output_sample(double t_sec) const

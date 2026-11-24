@@ -1,5 +1,7 @@
 # Artwork and layout
 
+The [portable Windows ZIP](../BUILDING.md) stages its MAME layout and front-panel PNG together under `artwork/cl_millennium/`. The launcher supplies the artwork path and starts a window by default. Use the [keyboard controls](../RUNNING.md#controls) for the INSTALL sequence.
+
 This document specifies the MAME `.lay` artwork file and how it is composed against the supplied terminal front-panel image.
 
 ## Inputs
@@ -7,7 +9,7 @@ This document specifies the MAME `.lay` artwork file and how it is composed agai
 | Input | Source | Target |
 | ----- | ------ | ------ |
 | Front-panel image | `docs/images/terminal-unbranded.webp` | `artwork/millennium-terminal-front.png` |
-| MAME `.lay` file | authored | `artwork/millennium.lay` |
+| MAME `.lay` file | [layout generator](../tools/layout/generate_millennium_layout.py) | `artwork/millennium.lay` and `src/mame/layout/millennium.lay` |
 
 The image at `docs/images/terminal-unbranded.webp` is the base reference. The large black display area accommodates the **2-line VFD** (the common variant) and the **optional 11-line VFD**, selected by the active board profile.
 
@@ -24,22 +26,18 @@ The `.lay` file declares:
 
 | Region | MAME element | Behavior | Mapped device |
 | ------ | ------------ | -------- | -------------- |
-| Handset / hookswitch | `handset` | Click toggles on-hook / off-hook | `hookswitch` (in keypad device) |
-| Numeric keypad (0–9, *, #) | `key_<n>` | Click sends matrix press | keypad |
-| Quick-access keys (per profile) | `qa_<name>` | Click sends discrete signal | keypad |
-| Volume up | `vol_up` | Click sends discrete signal | keypad |
-| Volume down | `vol_down` | Click sends discrete signal | keypad |
-| Language | `lang` | Click sends discrete signal | keypad |
-| Card slot | `card_slot` | Click triggers magstripe swipe | card |
-| Smart-card slot | `smartcard_slot` | Click inserts smart card | smartcard |
-| Coin input | `coin_in` | Click triggers coin pulse (denomination from selected fixture) | coin |
-| Coin return | `coin_return` | Click triggers return | coin |
-| Lock | `lock` | Toggles lock state | security |
-| Door | `door` | Toggles door state | security |
-| Vault | `vault` | Toggles vault state | security |
-| Service switch | `service` | Toggles service state | security |
+| Handset | `handset_state` | Click toggles the hookswitch | `KEYMATRIX` |
+| Numeric keypad | `hit_num` | Click sends 0 through 9, star, or pound | `KEYMATRIX` |
+| Quick-access buttons | `hit_quick` | Five buttons, positions 1 through 5 from left to right | `KEYMATRIX` |
+| Volume up and down | `hit_up`, `hit_down` | Click changes handset volume | `KEYMATRIX` |
+| Language and New Call | `hit_lang`, `hit_newcall` | Click sends the selected keypad input | `KEYMATRIX` |
+| Card reader | `hit_misc` | Insert, read, and remove the magstripe test card | `CARDUI` |
+| Coin slot | `hit_coin` | Click triggers a coin insertion | `COINUI` |
+| Lock | `hit_misc` | Click toggles the cabinet lock | `SECMASK` |
 
-Each region has an `<inputtag>` and `<inputmask>` that connects it to the input port declared in [`mame-driver-plan.md`](mame-driver-plan.md).
+Each region's `inputtag` and `inputmask` attributes connect it to a device input. The five panel buttons use the same positions as the first five inputs on the ten-button profile. Service and line-test switches are keyboard controls.
+
+The lower-left LED panel reads the housing, lock, and coin-vault switches. Green shows closed or locked. Amber shows open or unlocked. Click anywhere in a row to toggle the corresponding switch.
 
 ## Display overlays
 

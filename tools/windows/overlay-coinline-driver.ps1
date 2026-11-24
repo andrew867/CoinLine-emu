@@ -29,6 +29,12 @@ $dest = Join-Path $MameRoot 'src\mame\coinline'
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
 $manifest = [ordered]@{ copied = @(); timestamp_utc = (Get-Date).ToUniversalTime().ToString('o') }
+$asciPatch = Join-Path $EmuRoot 'mame-overlays\patches\z180-asci-transmit-interrupt.patch'
+& git -C $MameRoot apply --reverse --check $asciPatch 2>$null
+if ($LASTEXITCODE -ne 0) {
+    & git -C $MameRoot apply $asciPatch
+    if ($LASTEXITCODE -ne 0) { throw 'Could not apply the Z180 ASCI interrupt correction.' }
+}
 Get-ChildItem -LiteralPath $src -File | ForEach-Object {
     $target = Join-Path $dest $_.Name
     Copy-Item -LiteralPath $_.FullName -Destination $target -Force

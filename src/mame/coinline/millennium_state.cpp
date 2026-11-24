@@ -2,6 +2,11 @@
 
 #include "millennium_state.h"
 
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+
 #include "millennium_debug.h"
 #include "millennium_vfd.h"
 #include "millennium_firmware.h"
@@ -15,14 +20,6 @@
 #include "millennium_board_hwinit.h"
 #include "millennium_voiceware_config.h"
 
-namespace {
-
-attotime voicew_int0_poll_delay()
-{
-	return coinline_voiceware_upd7759_core_from_env() ? attotime::from_usec(10) : attotime::from_usec(100);
-}
-
-} // namespace
 #include "millennium_vfd_gfxfont.h"
 #include "millennium_vfd_cell_utf8.h"
 
@@ -34,6 +31,7 @@ attotime voicew_int0_poll_delay()
 #include "bitmap.h"
 #include "util/unicode.h"
 #include "speaker.h"
+#include "emuopts.h"
 #include "machine/rescap.h"
 #include "sound/beep.h"
 #include "sound/flt_rc.h"
@@ -343,92 +341,6 @@ bool parse_user_io_harness_input_text(std::string const &text, user_io_harness_i
 
 // Text rendering uses the same glyph walk as layout_element::component::draw_text (rendlay.cpp),
 // kept local because that helper is not publicly exposed from MAME headers.
-inline void coinline_alpha_blend_u32(u32 &dest, u32 a, u32 r, u32 g, u32 b, u32 inva)
-{
-	rgb_t const dpix(dest);
-	u32 const da(dpix.a());
-	u32 const finala((a * 255) + (da * inva));
-	u32 const finalr(r + (u32(dpix.r()) * da * inva));
-	u32 const finalg(g + (u32(dpix.g()) * da * inva));
-	u32 const finalb(b + (u32(dpix.b()) * da * inva));
-	dest = rgb_t(finala / 255, finalr / finala, finalg / finala, finalb / finala);
-}
-
-inline void coinline_alpha_blend_color(u32 &dest, render_color const &c, float fill)
-{
-	u32 const a(u32(c.a * fill * 255.0F));
-	if (a) {
-		u32 const r(u32(c.r * (255.0F * 255.0F)) * a);
-		u32 const g(u32(c.g * (255.0F * 255.0F)) * a);
-		u32 const b(u32(c.b * (255.0F * 255.0F)) * a);
-		coinline_alpha_blend_u32(dest, a, r, g, b, 255 - a);
-	}
-}
-
-void coinline_draw_text(render_font &font, bitmap_argb32 &dest, rectangle const &bounds, std::string_view str, int align,
-	render_color const &color)
-{
-	s32 width = font.string_width(bounds.height(), 1.0f, str);
-	float aspect = 1.0f;
-	if ((align == 3) || (width > bounds.width())) {
-		if (width != 0)
-			aspect = float(bounds.width()) / float(width);
-		width = bounds.width();
-	}
-	float curx = 0.0f;
-	switch (align) {
-	case 1:
-		curx = float(bounds.left());
-		break;
-	case 2:
-		curx = float(bounds.left() + bounds.width() - width);
-		break;
-	case 3:
-		curx = float(bounds.left());
-		break;
-	default:
-		curx = float(bounds.left()) + (float(bounds.width()) - float(width)) / 2.0f;
-		break;
-	}
-	bitmap_argb32 tempbitmap(dest.width(), dest.height());
-	while (!str.empty()) {
-		char32_t schar = 0;
-		int const scharcount = uchar_from_utf8(&schar, str);
-		if (scharcount == -1)
-			break;
-		rectangle chbounds;
-		font.get_scaled_bitmap_and_bounds(tempbitmap, bounds.height(), aspect, schar, chbounds);
-		for (int y = 0; y < chbounds.height(); y++) {
-			int const effy = bounds.top() + y;
-			if (effy >= bounds.top() && effy <= bounds.bottom()) {
-				u32 const *const src = &tempbitmap.pix(y);
-				u32 *const d = &dest.pix(effy);
-				for (int x = 0; x < chbounds.width(); x++) {
-					int const effx = int(curx) + x + chbounds.left();
-					if (effx >= bounds.left() && effx <= bounds.right()) {
-						u32 const spix = rgb_t(src[x]).a();
-						if (spix != 0)
-							coinline_alpha_blend_color(d[effx], color, float(spix) / 255.0f);
-					}
-				}
-			}
-		}
-		curx += font.char_width(bounds.height(), aspect, schar);
-		str.remove_prefix(scharcount);
-	}
-}
-
-inline void coinline_blend_argb_on_rgb32(bitmap_rgb32 &bitmap, bitmap_argb32 const &src, rectangle const &cliprect)
-{
-	for (int py = cliprect.min_y; py <= cliprect.max_y && py < src.height(); ++py) {
-		for (int px = cliprect.min_x; px <= cliprect.max_x && px < src.width(); ++px) {
-			rgb_t const t(src.pix(py, px));
-			if (t.a() != 0)
-				bitmap.pix(py, px) = t;
-		}
-	}
-}
-
 std::string opcode_hex_byte(u8 b)
 {
 	char buf[16];
@@ -596,13 +508,15 @@ void millennium_state::millennium(machine_config &config)
 	MILLENNIUM_KEYPAD(config, m_keypad, 0);
 	MILLENNIUM_SECURITY(config, m_security, 0);
 	MILLENNIUM_MODEM(config, m_modem, 0);
-	m_maincpu->rts0_wr_callback().set([this](int state) { m_modem->model().set_rts(state != 0); });
+	m_maincpu->txa1_wr_callback().set(m_modem, FUNC(millennium_modem_device::rxd_w));
 	MILLENNIUM_HOSTBRIDGE(config, m_hostbridge, 0);
 	MILLENNIUM_NVRAM(config, m_nvram, 0);
 	MILLENNIUM_CARD(config, m_card, 0);
 	MILLENNIUM_SMARTCARD(config, m_smartcard, 0);
 	MILLENNIUM_SAM(config, m_sam, 0);
 	MILLENNIUM_COIN(config, m_coin, 0);
+	m_maincpu->txa0_wr_callback().set(m_coin, FUNC(millennium_coin_device::rxd_w));
+	m_coin->txd_handler().set(m_maincpu, FUNC(z180_device::rxa0_w));
 	MILLENNIUM_AUDIO(config, m_audio, 0);
 	SPEAKER(config, "vwspk").front_center();
 	UPD7759(config, m_voicew_upd, upd7759_device::STANDARD_CLOCK);
@@ -614,6 +528,7 @@ void millennium_state::millennium(machine_config &config)
 	m_voicew_upd->add_route(ALL_OUTPUTS, "vw_upd_filter", 1.0);
 	m_vw_upd_filter->add_route(ALL_OUTPUTS, "vwspk", coinline_voiceware_analog_route_gain_from_env());
 	SPEAKER(config, "telspk").front_center();
+	m_audio->add_route(ALL_OUTPUTS, "telspk", 0.35);
 	// North American dial-tone style dual frequency mix (350 Hz + 440 Hz).
 	BEEP(config, m_earpiece_tone_a, 350);
 	m_earpiece_tone_a->add_route(ALL_OUTPUTS, "telspk", 0.09);
@@ -668,9 +583,9 @@ void millennium_state::load_firmware_and_emit_m0()
 	char const *fw1 = osd_getenv("COINLINE_FIRMWARE_FLASH1");
 	bool const explicit_firmware_env =
 			(fw && *fw) || (fw0 && *fw0) || (fw1 && *fw1);
-	std::string const rel_flash0("../firmware/flash.bin");
-	std::string const rel_flash1("../firmware/flash1.bin");
-	std::string const rel_legacy_flash("../firmware/flash-legacy.bin");
+	std::string const rel_flash0("../firmware/FLASH0.BIN");
+	std::string const rel_flash1("../firmware/FLASH1.BIN");
+	std::string const rel_legacy_flash("../firmware/flash.bin");
 
 	std::string path0;
 	if (fw0 && *fw0)
@@ -714,6 +629,15 @@ void millennium_state::load_firmware_and_emit_m0()
 		fw_bytes.insert(fw_bytes.end(), tail.begin(), tail.end());
 	}
 
+	// A 256 KiB MTR 1.9 image occupies the low quarter of the 1 MiB window. The rest reads erased.
+	{
+		std::size_t rom_size = 0;
+		std::string rom_err;
+		if (millennium_board_parse_rom_size(m_board_profile_json, rom_size, rom_err)
+			&& rom_size > fw_bytes.size() && fw_bytes.size() == 262144U)
+			fw_bytes.resize(rom_size, 0xffU);
+	}
+
 	if (m_board_profile_json.empty())
 		throw emu_fatalerror("millennium: internal error: board profile not loaded");
 
@@ -732,6 +656,30 @@ void millennium_state::load_firmware_and_emit_m0()
 		throw emu_fatalerror("millennium: flash region too small");
 	std::memcpy(rom->base(), fw_bytes.data(), fw_bytes.size());
 	m_firmware_sha256_hex = vr.sha256_hex;
+	// Earlier universal motherboard (PIO base 0x40) is selected by the hash list, unless overridden.
+	m_earlier_motherboard = millennium_firmware_hash_is_earlier_motherboard(hashes_text, m_firmware_sha256_hex);
+	if (char const *const mb = osd_getenv("COINLINE_MOTHERBOARD")) {
+		bool match = true;
+		char const *lit = "earlier";
+		for (char const *p = mb; *lit; ++p, ++lit) {
+			if (*p != *lit) {
+				match = false;
+				break;
+			}
+		}
+		if (match && mb[7] == '\0')
+			m_earlier_motherboard = true;
+		lit = "later";
+		match = true;
+		for (char const *p = mb; *lit; ++p, ++lit) {
+			if (*p != *lit) {
+				match = false;
+				break;
+			}
+		}
+		if (match && mb[5] == '\0')
+			m_earlier_motherboard = false;
+	}
 
 	std::string const ts = millennium_boot_trace_timestamp_utc();
 	std::string const line = millennium_boot_trace_m0(ts, m_firmware_sha256_hex, std::uint64_t(fw_bytes.size()));
@@ -742,11 +690,18 @@ void millennium_state::driver_start()
 {
 	driver_device::driver_start();
 
+	char const *diagnostics = osd_getenv("COINLINE_DIAGNOSTICS");
+	bool const diagnostic_defaults = !diagnostics || std::strcmp(diagnostics, "0") != 0;
 	char const *bt = osd_getenv("COINLINE_BOOT_TRACE");
-	m_boot_trace_path = (bt && *bt) ? std::filesystem::path(bt) : std::filesystem::path("boot-trace.jsonl");
+	if (bt && *bt)
+		m_boot_trace_path = bt;
+	else if (diagnostic_defaults)
+		m_boot_trace_path = "boot-trace.jsonl";
 	char const *up = osd_getenv("COINLINE_UNKNOWN_PORT_LOG");
-	m_unknown_port_path =
-		(up && *up) ? std::filesystem::path(up) : std::filesystem::path("unknown-port.jsonl");
+	if (up && *up)
+		m_unknown_port_path = up;
+	else if (diagnostic_defaults)
+		m_unknown_port_path = "unknown-port.jsonl";
 	char const *iot = osd_getenv("COINLINE_IO_TRACE");
 	m_io_trace_path = (iot && *iot) ? std::filesystem::path(iot) : std::filesystem::path();
 	char const *memt = osd_getenv("COINLINE_MEMORY_TRACE");
@@ -755,26 +710,21 @@ void millennium_state::driver_start()
 	m_cpu_trace_path = (cput && *cput) ? std::filesystem::path(cput) : std::filesystem::path();
 	char const *z18 = osd_getenv("COINLINE_Z180_REG_TRACE");
 	m_z180_reg_trace_path = (z18 && *z18) ? std::filesystem::path(z18) : std::filesystem::path();
+	// Cheap two-line live VFD for prompt-driven Lua (INSTALL / craft). Not a JSONL trace.
+	char const *vlive = osd_getenv("COINLINE_VFD_LIVE");
+	m_vfd_live_path = (vlive && *vlive) ? std::filesystem::path(vlive) : std::filesystem::path();
+	m_vfd_live_last.clear();
 	m_trace_profile = parse_trace_profile();
 	m_tel_response_policy = parse_tel_response_policy_env();
-#if COINLINE_ENABLE_TP8048_BACKEND
 	m_tp_backend_kind = tp_backend_kind::pcd3349a;
-#else
-	m_tp_backend_kind = tp_backend_kind::legacy;
-#endif
 	if (char const *tb = osd_getenv("COINLINE_TP_BACKEND"); tb && *tb) {
 		std::string const sel(tb);
-		if (sel == "legacy")
-			m_tp_backend_kind = tp_backend_kind::legacy;
-#if COINLINE_ENABLE_TP8048_BACKEND
-		else if (sel == "pcd3349a" || sel == "8048" || sel == "pcd3349a_8048")
+		if (sel == "pcd3349a" || sel == "8048" || sel == "pcd3349a_8048")
 			m_tp_backend_kind = tp_backend_kind::pcd3349a;
-#endif
+		else
+			osd_printf_warning("millennium: ignoring COINLINE_TP_BACKEND=%s; PCD3349A backend is required\n", tb);
 	}
-	if (m_tp_backend_kind == tp_backend_kind::pcd3349a)
-		m_tp_pcd3349a = std::make_unique<millennium_pcd3349a>();
-	else
-		m_tp_pcd3349a.reset();
+	m_tp_pcd3349a = std::make_unique<millennium_pcd3349a>();
 	m_trace_capture_full_io = (m_trace_profile == trace_profile::full);
 	m_trace_capture_full_cpu = (m_trace_profile == trace_profile::full);
 	// Fault-context capture (vector probe + rings) is expensive; keep it off for the common 30s UART bring-up run
@@ -787,8 +737,10 @@ void millennium_state::driver_start()
 		|| m_trace_profile == trace_profile::tp_timing);
 
 	char const *uioh = osd_getenv("COINLINE_USER_IO_HARNESS_TRACE");
-	m_user_io_harness_trace_path =
-		(uioh && *uioh) ? std::filesystem::path(uioh) : std::filesystem::path("user-io-trace.jsonl");
+	if (uioh && *uioh)
+		m_user_io_harness_trace_path = uioh;
+	else if (diagnostic_defaults)
+		m_user_io_harness_trace_path = "user-io-trace.jsonl";
 	if (!m_user_io_harness_trace_path.empty()) {
 		std::filesystem::path const out_dir = m_user_io_harness_trace_path.parent_path();
 		if (out_dir.empty()) {
@@ -1002,6 +954,23 @@ static bool millennium_recognized_tp_to_cp_single_byte_model(std::uint8_t v)
 	return v >= 0x90U && v <= 0x9BU;
 }
 
+static bool millennium_tp_csio_rx_resyncs_on_ui_byte(std::uint8_t v)
+{
+	// C0/C4 payload may include 0x00; keypad/hook/status opcodes cannot be mid-frame data.
+	if (v >= 0xC0U)
+		return false;
+	if (v >= 0x20U && v <= 0x5EU)
+		return true;
+	switch (v) {
+	case 0x60U: case 0x62U: case 0x64U: case 0x66U: case 0x68U: case 0x6AU:
+	case 0x6CU: case 0x6EU:
+	case 0x70U: case 0x72U: case 0x7AU: case 0x7CU:
+		return true;
+	default:
+		return false;
+	}
+}
+
 void millennium_state::poll_voice_segment_done_pulse_int0()
 {
 	// `millennium_voiceware_device::playing()` is grounded in software PCM or `upd7759_device::busy_r()` per env.
@@ -1025,7 +994,10 @@ void millennium_state::poll_voice_segment_done_pulse_int0()
 			millennium_boot_trace_append_line(m_voiceware_trace_path, buf);
 		}
 	}
-	m_voicew_prev_upd_idle = idle;
+	if (m_voicew_prev_upd_idle != idle) {
+		m_voicew_prev_upd_idle = idle;
+		update_handset_routing();
+	}
 }
 
 void millennium_state::clear_voice_segment_int0(char const *reason)
@@ -1047,6 +1019,9 @@ void millennium_state::clear_voice_segment_int0(char const *reason)
 void millennium_state::machine_start()
 {
 	driver_device::machine_start();
+	m_voicew_irq_timer = timer_alloc(FUNC(millennium_state::driver_timer_cb), this);
+	save_item(NAME(m_voicew_prev_upd_idle));
+	save_item(NAME(m_voicew_int0_asserted));
 #ifdef _WIN32
 	// init_auxiliary_trace_sinks runs in driver_start(); on some Windows launch chains the Win32
 	// environment block is not yet visible to the same probes the driver uses, leaving JSONL paths
@@ -1076,7 +1051,9 @@ void millennium_state::machine_start()
 		refresh_path_env("COINLINE_NVRAM_STORAGE_TRACE", m_nvram_storage_trace_path);
 	}
 #endif
-	if (!coinline_voiceware_upd7759_core_from_env())
+	bool const use_upd7759 = coinline_voiceware_upd7759_core_from_env();
+	m_voicew_irq_poll_period = attotime::from_usec(use_upd7759 ? 10 : 100);
+	if (!use_upd7759)
 		patch_voicew_rom_headers_for_upd7759_master(memregion("voicew"), *this);
 	else
 		logerror("millennium: uPD7759 core path active — skipping voicew ROM header patch (disable with COINLINE_VOICEWARE_UPD7759_CORE=0)\n");
@@ -1096,6 +1073,7 @@ void millennium_state::machine_start()
 			return;
 		(void)m_nvram->model().write_nvram(byte_offset, static_cast<u8>((word_be >> 8) & 0xffU), err);
 		(void)m_nvram->model().write_nvram(byte_offset + 1U, static_cast<u8>(word_be & 0xffU), err);
+		m_battery_dirty = true;
 	});
 	if (!m_microwire_trace_path.empty()) {
 		m_microwire_93c66.set_access_trace_cb([this](char const *op, std::uint16_t word_addr, std::uint16_t word_be) {
@@ -1138,8 +1116,28 @@ void millennium_state::machine_reset()
 			static_cast<unsigned long long>(m_maincpu->total_cycles()));
 		millennium_boot_trace_append_line(m_reset_trace_path, rbuf);
 	}
-	std::fill(m_phys_ram.begin(), m_phys_ram.end(), 0xff);
-	std::fill(m_phys_low_valid.begin(), m_phys_low_valid.end(), 0U);
+	// Battery SRAM and serial EEPROM survive a reset. A cold board starts
+	// with blank SRAM and the initial EEPROM image.
+	if (!m_battery_live) {
+		if (!restore_battery_image()) {
+			std::fill(m_phys_ram.begin(), m_phys_ram.end(), 0xff);
+			std::fill(m_phys_low_valid.begin(), m_phys_low_valid.end(), 0U);
+			// The common RAM window sits on top of flash. Bytes left invalid
+			// read back as the firmware image, which the retention and alarm
+			// lists treat as live data. A cold battery is a blank window.
+			for (std::uint32_t phys = 0x40000U; phys < 0x48000U && phys < m_phys_low_overlay.size(); ++phys) {
+				m_phys_low_valid[phys] = 1U;
+				m_phys_low_overlay[phys] = 0;
+			}
+			sync_microwire_from_nvram();
+			std::fprintf(stderr, "battery clear\n");
+		}
+		else {
+			std::fprintf(stderr, "battery load\n");
+		}
+		m_battery_live = true;
+		m_battery_dirty = true;
+	}
 	m_ram_write_events = 0;
 	m_stack_trace_remaining = 100U;
 	m_ram_init_trace_remaining = 2000U;
@@ -1150,10 +1148,15 @@ void millennium_state::machine_reset()
 	m_m5c_logged = false;
 	m_voicew_chip_was_active = false;
 	m_voicew_prev_upd_idle = true;
+	m_voicew_irq_timer->reset();
+	m_vfd_last_drawn_dots.clear();
 	m_voicew_int0_asserted = false;
 	m_maincpu->set_input_line(Z180_INPUT_LINE_IRQ0, CLEAR_LINE);
+	// External interrupt 2 is level-sensitive and held active. The 10 ms tick is
+	// taken when that source is enabled, then the enable is cleared until the
+	// next 1.25 ms period requests it again.
+	m_maincpu->set_input_line(Z180_INPUT_LINE_IRQ2, ASSERT_LINE);
 	m_last_modem_dcd = false;
-	sync_modem_asci_lines();
 	m_m6_logged = false;
 	m_m7_logged = false;
 	m_m7a_logged = false;
@@ -1183,6 +1186,11 @@ void millennium_state::machine_reset()
 	}
 	// Bit 7: CSIO clock (SCLK); bit 5: PWR_FAIL_LINE — start released (high) so first firmware pulse is assert-low.
 	m_hw_cntl_port_image = 0xa0U;
+	m_loop_seized = false;
+	m_tp_loop_seized = false;
+	m_handset_dial_tone = false;
+	m_handset_gates = 0xffU;
+	m_handset_gain_step = 0xffU;
 	m_vector_event_budget = VECTOR_EVENT_BUDGET_MAX;
 	m_vecprobe_last_pc = 0xffffU;
 	m_vecprobe_last_op0 = 0xffU;
@@ -1198,6 +1206,10 @@ void millennium_state::machine_reset()
 	m_last_stack_write_json.clear();
 	m_last_memory_write_by_phys.clear();
 	m_card_ui_last = 0;
+	m_magstripe_bits.clear();
+	m_magstripe_signals = 0;
+	m_magstripe_clock = false;
+	m_maincpu->set_input_line(Z180_INPUT_LINE_DREQ0, CLEAR_LINE);
 	m_coin_ui_last = 0;
 	m_audio_dtmf_ascii = '5';
 	m_ext_uart_dll = 0x80U;
@@ -1412,7 +1424,7 @@ void millennium_state::machine_reset()
 				char rb[520];
 				std::snprintf(rb, sizeof(rb),
 					"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"event\":\"rtos_task_catalog_fallback\","
-					"\"event_area\":\"startup_task_metadata\",\"reason\":\"metadata_unavailable_or_invalid\"}",
+					"\"sanitized_source_area\":\"startup_task_metadata\",\"reason\":\"metadata_unavailable_or_invalid\"}",
 					static_cast<unsigned long long>(m_maincpu->total_cycles()), unsigned(m_maincpu->pc() & 0xffffU));
 				millennium_boot_trace_append_line(m_rtos_signal_trace_path, rb);
 			}
@@ -1425,7 +1437,10 @@ void millennium_state::machine_reset()
 	// Leave Z180 ITC at the CPU reset default.  The board driver must not mask
 	// Keep reset-time INT0 ownership with firmware execution flow.
 	schedule_driver_timer(TID_M3_FALLBACK, attotime::from_msec(50));
-	schedule_driver_timer(TID_CPU_TRACE, attotime::from_msec(5));
+	if (!m_cpu_trace_path.empty() || !m_z180_reg_trace_path.empty() || !m_interrupt_trace_path.empty()
+		|| !m_timer_trace_path.empty() || !m_asci_trace_path.empty() || !m_reset_trace_path.empty()
+		|| !m_mmu_translation_trace_path.empty())
+		schedule_driver_timer(TID_CPU_TRACE, attotime::from_msec(5));
 	schedule_driver_timer(TID_HOST_POLL, attotime::from_msec(5));
 	schedule_driver_timer(TID_CARD_UI, attotime::from_msec(25));
 	schedule_driver_timer(TID_COIN_UI, attotime::from_msec(25));
@@ -1437,8 +1452,131 @@ void millennium_state::machine_reset()
 			: attotime::from_usec(1000);
 		schedule_driver_timer(TID_VECTOR_PROBE, probe_interval);
 	}
-	schedule_driver_timer(TID_VOICE_INT0, voicew_int0_poll_delay());
+	schedule_driver_timer(TID_MODEM_LINK, attotime::from_msec(1));
+	schedule_driver_timer(TID_BATTERY_FLUSH, attotime::from_seconds(2));
 	sync_microwire_from_nvram();
+	m_line.open_from_env();
+	m_audio->set_line_pcm_tap(&millennium_state::line_pcm_thunk, this);
+}
+
+std::string millennium_state::battery_image_path() const
+{
+	std::string dir = machine().options().nvram_directory();
+	if (dir.empty())
+		dir = "nvram";
+	std::filesystem::path path(dir);
+	path /= machine().basename();
+	path /= "battery";
+	return path.string();
+}
+
+bool millennium_state::restore_battery_image()
+{
+	std::filesystem::path const path(battery_image_path());
+	std::error_code ec;
+	if (!std::filesystem::is_regular_file(path, ec))
+		return false;
+	std::ifstream in(path, std::ios::binary);
+	if (!in)
+		return false;
+	std::vector<unsigned char> buf((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	if (buf.size() < 22U || std::memcmp(buf.data(), "CLBAT1", 6) != 0)
+		return false;
+	auto read_u32 = [&](std::size_t off) -> std::uint32_t {
+		return std::uint32_t(buf[off]) | (std::uint32_t(buf[off + 1U]) << 8)
+			| (std::uint32_t(buf[off + 2U]) << 16) | (std::uint32_t(buf[off + 3U]) << 24);
+	};
+	if (read_u32(6) != 1U)
+		return false;
+	std::uint32_t const eeprom_len = read_u32(10);
+	std::uint32_t const sram_len = read_u32(14);
+	std::uint32_t const entries = read_u32(18);
+	std::size_t off = 22U;
+	if (eeprom_len != millennium_microwire_93c66::k_capacity_bytes || sram_len != m_phys_ram.size())
+		return false;
+	if (off + std::size_t(eeprom_len) + std::size_t(sram_len) + std::size_t(entries) * 5U > buf.size())
+		return false;
+	std::array<std::uint8_t, millennium_microwire_93c66::k_capacity_bytes> eeprom{};
+	std::memcpy(eeprom.data(), buf.data() + off, eeprom.size());
+	off += eeprom.size();
+	m_microwire_93c66.reset();
+	m_microwire_93c66.set_command_body_bits(m_earlier_motherboard ? 8U : 11U);
+	m_microwire_93c66.load_from_span(eeprom.data(), eeprom.size());
+	m_microwire_93c66.set_chip_select((m_hw_cntl_port_image & 0x40U) != 0U);
+	std::string err;
+	for (std::size_t i = 0; i < eeprom.size(); ++i)
+		(void)m_nvram->model().write_nvram(static_cast<std::uint32_t>(i), eeprom[i], err);
+	std::memcpy(m_phys_ram.data(), buf.data() + off, m_phys_ram.size());
+	off += m_phys_ram.size();
+	std::fill(m_phys_low_valid.begin(), m_phys_low_valid.end(), 0U);
+	for (std::uint32_t n = 0; n < entries; ++n) {
+		std::uint32_t const phys = read_u32(off);
+		std::uint8_t const value = buf[off + 4U];
+		off += 5U;
+		if (phys < m_phys_low_overlay.size()) {
+			m_phys_low_valid[phys] = 1U;
+			m_phys_low_overlay[phys] = value;
+		}
+	}
+	return true;
+}
+
+void millennium_state::flush_battery_image()
+{
+	if (!m_battery_live)
+		return;
+	std::array<std::uint8_t, millennium_microwire_93c66::k_capacity_bytes> eeprom{};
+	m_microwire_93c66.store_to_span(eeprom.data(), eeprom.size());
+	std::string err;
+	for (std::size_t i = 0; i < eeprom.size(); ++i)
+		(void)m_nvram->model().write_nvram(static_cast<std::uint32_t>(i), eeprom[i], err);
+	std::uint32_t entries = 0;
+	for (std::uint8_t valid : m_phys_low_valid) {
+		if (valid)
+			++entries;
+	}
+	std::vector<unsigned char> buf;
+	buf.reserve(22U + eeprom.size() + m_phys_ram.size() + std::size_t(entries) * 5U);
+	auto push_u32 = [&](std::uint32_t v) {
+		buf.push_back(static_cast<unsigned char>(v & 0xffU));
+		buf.push_back(static_cast<unsigned char>((v >> 8) & 0xffU));
+		buf.push_back(static_cast<unsigned char>((v >> 16) & 0xffU));
+		buf.push_back(static_cast<unsigned char>((v >> 24) & 0xffU));
+	};
+	buf.insert(buf.end(), {'C', 'L', 'B', 'A', 'T', '1'});
+	push_u32(1U);
+	push_u32(static_cast<std::uint32_t>(eeprom.size()));
+	push_u32(static_cast<std::uint32_t>(m_phys_ram.size()));
+	push_u32(entries);
+	buf.insert(buf.end(), eeprom.begin(), eeprom.end());
+	buf.insert(buf.end(), m_phys_ram.begin(), m_phys_ram.end());
+	for (std::size_t i = 0; i < m_phys_low_valid.size(); ++i) {
+		if (!m_phys_low_valid[i])
+			continue;
+		push_u32(static_cast<std::uint32_t>(i));
+		buf.push_back(m_phys_low_overlay[i]);
+	}
+	std::filesystem::path const path(battery_image_path());
+	std::error_code ec;
+	std::filesystem::create_directories(path.parent_path(), ec);
+	std::filesystem::path const tmp = path.string() + ".tmp";
+	{
+		std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+		if (!out)
+			return;
+		out.write(reinterpret_cast<char const *>(buf.data()), static_cast<std::streamsize>(buf.size()));
+		if (!out)
+			return;
+	}
+	std::filesystem::remove(path, ec);
+	std::filesystem::rename(tmp, path, ec);
+	if (ec)
+		return;
+	m_battery_dirty = false;
+	if (!m_battery_flushed) {
+		std::fprintf(stderr, "battery flush\n");
+		m_battery_flushed = true;
+	}
 }
 
 void millennium_state::sync_microwire_from_nvram()
@@ -1447,6 +1585,7 @@ void millennium_state::sync_microwire_from_nvram()
 	for (std::size_t i = 0; i < buf.size(); ++i)
 		buf[i] = m_nvram->model().read_nvram(static_cast<std::uint32_t>(i));
 	m_microwire_93c66.reset();
+	m_microwire_93c66.set_command_body_bits(m_earlier_motherboard ? 8U : 11U);
 	m_microwire_93c66.load_from_span(buf.data(), buf.size());
 	m_microwire_93c66.set_chip_select((m_hw_cntl_port_image & 0x40U) != 0U);
 }
@@ -1612,8 +1751,10 @@ void millennium_state::trace_tp_cp_keypad_delivered(std::uint64_t cycle, std::ui
 	case 0x30U: digit = '8'; break;
 	default: break;
 	}
-	if (digit != '\0')
+	if (digit != '\0') {
 		m_cp_install_key_buffer_model.push_back(digit);
+		note_craft_entry_key(byte, cycle);
+	}
 	// CP-side install buffer can complete after the TP craft-entry window idles out; trace detection here so
 	// craft-entry-gate JSONL stays aligned with CSI/O-delivered digits (acceptance reads this file).
 	if (!m_craft_code_detected_traced && m_tel_ready_sequence_completed) {
@@ -2328,8 +2469,49 @@ void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, s
 		m_voiceware->playing(), m_keypad_board.terminal_21_profile, cycle, m_maincpu->unscaled_clock());
 	if (res.hook_changed)
 		set_tel_hook_state(res.hook_onhook, cycle, "pcd3349a_hook_transition");
-	for (std::uint8_t ev : res.tp_events)
-		tp_enqueue_ui_event(ev, "pcd3349a_front_panel");
+	tp_backend_queue_response_bytes(res.tp_bytes, "pcd3349a_async");
+	for (std::uint8_t ev : res.tp_events) {
+		bool already_on_tx = false;
+		for (std::uint8_t b : res.tp_bytes) {
+			if (b == ev) {
+				already_on_tx = true;
+				break;
+			}
+		}
+		// ROM OUTL bytes are already on the CSI/O queue via tp_bytes. Do not enqueue them again.
+		if (!already_on_tx)
+			tp_enqueue_ui_event(ev, "pcd3349a_front_panel");
+	}
+
+	auto const hook_byte_on_wire = [&res](std::uint8_t hb) {
+		for (std::uint8_t b : res.tp_bytes)
+			if (b == hb)
+				return true;
+		for (std::uint8_t b : res.tp_events)
+			if (b == hb)
+				return true;
+		return false;
+	};
+	// Craft harness drives hookswitch on KEYMATRIX bit 19; ROM may not emit RESP_HOOK bytes before keypad.
+	u32 const km_prof = keymatrix & terminal21_keymatrix_applied_mask(m_keypad_board.terminal_21_profile);
+	bool const offhook_now = (km_prof & k_terminal21_hook_bit) != 0U;
+	bool const offhook_old = (m_last_tp_ui_keymatrix_state & k_terminal21_hook_bit) != 0U;
+	if (offhook_now != offhook_old) {
+		set_tel_hook_state(!offhook_now, cycle, "pcd3349a_keymatrix_hook");
+		if (offhook_now) {
+			if (!hook_byte_on_wire(0x62U))
+				tp_enqueue_ui_event(0x62U, "pcd3349a_keymatrix_offhook");
+			if (!hook_byte_on_wire(0x6EU))
+				tp_enqueue_ui_event(0x6EU, "pcd3349a_keymatrix_offhook");
+		} else {
+			if (!hook_byte_on_wire(0x60U))
+				tp_enqueue_ui_event(0x60U, "pcd3349a_keymatrix_onhook");
+			if (!hook_byte_on_wire(0x6CU))
+				tp_enqueue_ui_event(0x6CU, "pcd3349a_keymatrix_onhook");
+		}
+	}
+	tp_enqueue_line_transitions(linectrl);
+	m_last_tp_ui_keymatrix_state = km_prof;
 
 	bool const off_hook = !m_tel_hook_onhook;
 	bool const voice_active = m_voiceware->playing();
@@ -2344,6 +2526,12 @@ void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, s
 		m_earpiece_tone_b->set_state(0);
 		break;
 	case millennium_pcd3349a::tone_mode::dialtone:
+		if (!m_handset_dial_tone || m_line.line_connected()) {
+			m_earpiece_tone_mode = earpiece_tone_mode::none;
+			m_earpiece_tone_a->set_state(0);
+			m_earpiece_tone_b->set_state(0);
+			break;
+		}
 		m_earpiece_tone_mode = earpiece_tone_mode::dialtone;
 		m_earpiece_tone_a->set_clock(350);
 		m_earpiece_tone_b->set_clock(440);
@@ -2360,31 +2548,78 @@ void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, s
 	}
 }
 
-bool millennium_state::tp_backend_handle_cp_byte(std::uint8_t byte)
+void millennium_state::tp_backend_queue_response_bytes(std::vector<std::uint8_t> const &bytes, char const *reason)
 {
-	if (m_tp_backend_kind != tp_backend_kind::pcd3349a || !m_tp_pcd3349a)
-		return false;
-	auto const resp = m_tp_pcd3349a->handle_cp_to_tp_byte(byte, m_tel_hook_onhook_stable);
-	// PCD3349A/TP8048 is the sole source of TP→CP CSI/O octets: never fall through to the
-	// host-modeled opcode catalog in \c ipcomm_complete_csio_tx_byte.
-	for (std::size_t i = 0; i < resp.size(); ++i) {
-		std::uint8_t const b = resp[i];
-		ipcomm_queue_rx_byte(b, b >= 0xC0U);
+	// One ROM burst stays on one FIFO. Per-byte priority (b >= 0xC0) drains the opcode
+	// and checksum before the length and payload, so C4/C0 frames fail checksum.
+	bool framed = false;
+	for (std::uint8_t b : bytes) {
+		if (b >= 0xC0U)
+			framed = true;
+	}
+	for (std::size_t i = 0; i < bytes.size(); ++i) {
+		std::uint8_t const b = bytes[i];
+		if (b == 0x64U || b == 0x66U || b == 0x68U || b == 0x6AU)
+			std::fprintf(stderr, "line sense %02x\n", unsigned(b));
+		if (!m_telephony_board_trace_path.empty() && millennium_tp_csio_rx_resyncs_on_ui_byte(b)) {
+			unsigned const q_before = ipcomm_pending_rx_count();
+			char tb[620];
+			std::snprintf(tb, sizeof(tb),
+				"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"sp\":\"0x%04X\",\"event\":\"telephony_tp_ui_event\","
+				"\"tp_to_cp\":\"0x%02X\",\"reason\":\"%s\",\"cp_policy_rule\":\"\",\"cp_expected_consumer\":\"\","
+				"\"cp_policy_absorb\":false,\"ui_queue_before\":%u,\"ui_queue_after\":%u,\"ip_rts_asserted\":%s}\n",
+				static_cast<unsigned long long>(m_maincpu->total_cycles()), unsigned(m_maincpu->pc() & 0xffffU),
+				unsigned(m_maincpu->state_int(Z180_SP) & 0xffffU), unsigned(b), reason ? reason : "",
+				q_before, q_before + 1U, m_ipcomm_rts_asserted ? "true" : "false");
+			millennium_boot_trace_append_line(m_telephony_board_trace_path, std::string(tb));
+		}
+		ipcomm_queue_rx_byte(b, framed);
+		// Off-hook dial-pad opcodes are the digits the telephony processor accepted.
+		// Play local keypad feedback in the handset.
+		if (!framed && !m_tel_hook_onhook) {
+			if (b == 0x54U || b == 0x56U)
+				apply_handset_command(b == 0x54U ? 0x24U : 0x25U);
+			char digit = 0;
+			switch (b) {
+			case 0x22: digit = '1'; break;
+			case 0x24: digit = '2'; break;
+			case 0x26: digit = '3'; break;
+			case 0x28: digit = '4'; break;
+			case 0x2A: digit = '5'; break;
+			case 0x2C: digit = '6'; break;
+			case 0x2E: digit = '7'; break;
+			case 0x30: digit = '8'; break;
+			case 0x32: digit = '9'; break;
+			case 0x34: digit = '0'; break;
+			case 0x36: digit = '*'; break;
+			case 0x38: digit = '#'; break;
+			default: break;
+			}
+			if (digit != 0) {
+				m_handset_dial_tone = false;
+				if (m_pad_dtmf_n < sizeof(m_pad_dtmf_q))
+					m_pad_dtmf_q[m_pad_dtmf_n++] = digit;
+			}
+		}
 		if (b == 0x70U || b == 0x72U) {
 			m_tel_boot_power_ack_seen = true;
 			m_tel_boot_code_sent = true;
 		}
+		// Keypad wire opcodes are even bytes 0x20..0x3E from the ROM scan, not idle PIO reads.
+		// Framed bursts (C0/C2/C4) legally contain those values as payload, including dialed digits.
+		if (!framed && b >= 0x20U && b <= 0x3EU && (b & 1U) == 0U)
+			try_boot_m5_keypad_only(m_maincpu->total_cycles());
 		if (b == 0x6cU || b == 0x6eU)
 			m_tel_boot_hook_state_seen = true;
-		if (b == 0x7aU)
+		if (b == 0x7aU || b == 0x7cU)
 			m_tel_boot_power_status_seen = true;
 		if (b == 0xc4U)
 			m_tel_boot_error_report_seen = true;
 		if (b == 0xc0U)
 			m_tel_boot_status_seen = true;
-		if (b == 0xc4U && i + 3U < resp.size())
+		if (b == 0xc4U && i + 3U < bytes.size())
 			m_csio_error_report_ok = true;
-		if (b == 0xc0U && i + 7U < resp.size())
+		if (b == 0xc0U && i + 7U < bytes.size())
 			m_csio_status_frame_ok = true;
 	}
 	if (m_tel_boot_power_ack_seen && m_tel_boot_error_report_seen && m_tel_boot_status_seen) {
@@ -2394,17 +2629,78 @@ bool millennium_state::tp_backend_handle_cp_byte(std::uint8_t byte)
 		m_alarm_tel_not_responding_cleared = true;
 		m_termfg_telephony_up_inferred = true;
 		if (!m_tp_readiness_sequence_trace_path.empty()) {
-			char b[320];
+			char b[360];
 			std::snprintf(b, sizeof(b),
 				"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"sp\":\"0x%04X\",\"event\":\"tp_readiness_sequence_complete\","
-				"\"backend\":\"pcd3349a_8048\"}",
+				"\"backend\":\"pcd3349a_8048\",\"reason\":\"%s\"}",
 				static_cast<unsigned long long>(m_maincpu->total_cycles()), unsigned(m_maincpu->pc() & 0xffffU),
-				unsigned(m_maincpu->state_int(Z180_SP) & 0xffffU));
+				unsigned(m_maincpu->state_int(Z180_SP) & 0xffffU), reason ? reason : "");
 			millennium_boot_trace_append_line(m_tp_readiness_sequence_trace_path, b);
 		}
 	}
+}
+
+void millennium_state::apply_handset_command(std::uint8_t byte)
+{
+	char const *label = nullptr;
+	char const *effect = nullptr;
+	if (coinline::audio_route::lookup_command(byte, label, effect)) {
+		u64 const cy = m_maincpu->total_cycles();
+		u16 const pc = u16(m_maincpu->pc() & 0xffffU);
+		m_audio_route->apply_telephony_effect(effect, byte, cy, pc, label);
+		update_handset_routing();
+	}
+}
+
+bool millennium_state::tp_backend_handle_cp_byte(std::uint8_t byte, bool frame_payload)
+{
+	if (m_tp_backend_kind != tp_backend_kind::pcd3349a || !m_tp_pcd3349a)
+		return false;
+	if (!frame_payload) {
+		if (byte == 0x3dU || byte == 0x3cU) {
+			m_tp_loop_seized = byte == 0x3dU;
+			update_line_seizure();
+		} else if (byte >= 0x10U && byte <= 0x1cU) {
+			m_handset_dial_tone = false;
+			static char const k_dtmf[] = "A1234567890*#";
+			char const digit = k_dtmf[byte - 0x10U];
+			// Record the command. Tone playback is deferred so it cannot run inside the keypad scan.
+			if (m_pad_dtmf_n < sizeof(m_pad_dtmf_q))
+				m_pad_dtmf_q[m_pad_dtmf_n++] = digit;
+			if (!m_earlier_motherboard || !m_modem->model().relay_active()) {
+				char const note[] = {'D', digit, '\n', 0};
+				m_line.send_line(note);
+			}
+		}
+		apply_handset_command(byte);
+	}
+	auto const resp = m_tp_pcd3349a->handle_cp_to_tp_byte(byte, m_tel_hook_onhook_stable);
+	// PCD3349A/TP8048 is the sole source of TP→CP CSI/O octets: never fall through to the
+	// host-modeled opcode catalog in \c ipcomm_complete_csio_tx_byte.
+	tp_backend_queue_response_bytes(resp, "pcd3349a_cp_byte");
 	trace_tp_command_accepted(byte, !resp.empty(), "pcd3349a", "pcd3349a_backend");
 	return true;
+}
+
+void millennium_state::tp_enqueue_line_transitions(u32 linectrl)
+{
+	bool const line_connected_now = (linectrl & 0x01U) != 0U;
+	bool const line_connected_old = (m_last_tp_ui_linectrl_state & 0x01U) != 0U;
+	if (line_connected_now != line_connected_old)
+		tp_enqueue_ui_event(line_connected_now ? 0x66U : 0x64U, line_connected_now ? "line_connection" : "line_interruption");
+
+	bool const line_reversal_suppressed = (linectrl & 0x08U) != 0U;
+	if (!line_reversal_suppressed) {
+		bool const lr0_now = (linectrl & 0x02U) != 0U;
+		bool const lr0_old = (m_last_tp_ui_linectrl_state & 0x02U) != 0U;
+		if (lr0_now && !lr0_old)
+			tp_enqueue_ui_event(0x68U, "line_reversal_0_pulse");
+		bool const lr1_now = (linectrl & 0x04U) != 0U;
+		bool const lr1_old = (m_last_tp_ui_linectrl_state & 0x04U) != 0U;
+		if (lr1_now && !lr1_old)
+			tp_enqueue_ui_event(0x6AU, "line_reversal_1_pulse");
+	}
+	m_last_tp_ui_linectrl_state = linectrl;
 }
 
 void millennium_state::tp_process_front_panel_events(u32 keymatrix, u32 linectrl, u32 softkeys_raw)
@@ -2585,22 +2881,7 @@ void millennium_state::tp_process_front_panel_events(u32 keymatrix, u32 linectrl
 		}
 	}
 
-	bool const line_connected_now = (linectrl & 0x01U) != 0U;
-	bool const line_connected_old = (m_last_tp_ui_linectrl_state & 0x01U) != 0U;
-	if (line_connected_now != line_connected_old)
-		tp_enqueue_ui_event(line_connected_now ? 0x66U : 0x64U, line_connected_now ? "line_connection" : "line_interruption");
-
-	bool const line_reversal_suppressed = (linectrl & 0x08U) != 0U; // terminal_21 line_supervision_gating
-	if (!line_reversal_suppressed) {
-		bool const lr0_now = (linectrl & 0x02U) != 0U;
-		bool const lr0_old = (m_last_tp_ui_linectrl_state & 0x02U) != 0U;
-		if (lr0_now && !lr0_old)
-			tp_enqueue_ui_event(0x68U, "line_reversal_0_pulse");
-		bool const lr1_now = (linectrl & 0x04U) != 0U;
-		bool const lr1_old = (m_last_tp_ui_linectrl_state & 0x04U) != 0U;
-		if (lr1_now && !lr1_old)
-			tp_enqueue_ui_event(0x6AU, "line_reversal_1_pulse");
-	}
+	tp_enqueue_line_transitions(linectrl);
 
 	// terminal_22_user_io_timing: repeat while one dial/rep key held; stop under terminal_24 dial suppress.
 	if (!m_craft_entry_window_active) {
@@ -2632,7 +2913,6 @@ void millennium_state::tp_process_front_panel_events(u32 keymatrix, u32 linectrl
 	}
 
 	m_last_tp_ui_keymatrix_state = km;
-	m_last_tp_ui_linectrl_state = linectrl;
 	m_last_tp_ui_softkeys_state = sk_logical;
 }
 
@@ -2698,6 +2978,11 @@ void millennium_state::update_earpiece_tone_output(std::uint64_t cycle, std::uin
 
 u8 millennium_state::vfd_status_r()
 {
+	// Earlier motherboard: 0x60 is the control latch, not the display.
+	if (m_earlier_motherboard) {
+		emit_io_trace_line("board_status", 0x60, 'r', m_hw_cntl_port_image);
+		return m_hw_cntl_port_image;
+	}
 	// VFD chip-select active low on PIO B bit 6; when high, 0x60 decodes to external UART path (not modeled here).
 	if ((m_pio_8255_shadow[1] & 0x40U) != 0U) {
 		emit_io_trace_line("vfd_status", 0x60, 'r', 0xffU);
@@ -2772,11 +3057,20 @@ void millennium_state::emit_io_trace_line(char const *tag, std::uint16_t port, c
 
 void millennium_state::vfd_display_w(u8 data)
 {
+	if (m_earlier_motherboard) {
+		write_hw_cntl(data);
+		return;
+	}
+	write_display_port(data, 0x60);
+}
+
+void millennium_state::write_display_port(u8 data, u16 port)
+{
 	u64 const cy = m_maincpu->total_cycles();
 	int const cursor_before_row = m_vfd->buffer().cursor_row();
 	int const cursor_before_col = m_vfd->buffer().cursor_col();
 	bool const vfd_cmd = (m_pio_8255_shadow[1] & 0x20U) != 0U;
-	maybe_io_trace(vfd_cmd ? "vfd_cmd" : "vfd_data", 0x60, 'w', data);
+	maybe_io_trace(vfd_cmd ? "vfd_cmd" : "vfd_data", port, 'w', data);
 	m_vfd->write_port(data, cy, m_pio_8255_shadow[1]);
 	auto normalize = [](std::string s) -> std::string {
 		for (char &c : s) {
@@ -2788,6 +3082,15 @@ void millennium_state::vfd_display_w(u8 data)
 	{
 		std::string const n0 = normalize(vfd_row_text(0));
 		std::string const n1 = normalize(vfd_row_text(1));
+		if (!m_vfd_live_path.empty()) {
+			std::string const live = vfd_row_text(0) + "\n" + vfd_row_text(1) + "\n";
+			if (live != m_vfd_live_last) {
+				m_vfd_live_last = live;
+				std::ofstream ft(m_vfd_live_path, std::ios::binary | std::ios::trunc);
+				if (ft)
+					ft << live;
+			}
+		}
 		bool const blank = n0.find_first_not_of(' ') == std::string::npos && n1.find_first_not_of(' ') == std::string::npos;
 		bool const oos = (n0.find("out of service") != std::string::npos) || (n1.find("out of service") != std::string::npos)
 			|| (n0.find("not in service") != std::string::npos) || (n1.find("not in service") != std::string::npos);
@@ -2819,8 +3122,8 @@ void millennium_state::vfd_display_w(u8 data)
 			telephony_runtime_trace_event("vfd_not_responding_seen", "", "", true, "vfd_update");
 		}
 	}
-	// M7C: ready when CSIO-modeled telephony framing sees a checksum-valid TELEPHONY_STATUS / error report path
-	// and firmware leaves the persistent "telephony board is not responding" banner.
+	// M7C: checksum-valid telephony frames, and the VFD is on the install prompt without the
+	// not-responding stall (or the stall was shown and then replaced).
 	if (!m_m7c_logged && (m_csio_status_frame_ok || m_csio_error_report_ok)) {
 		millennium_display_profile const &dp = m_vfd->display_profile();
 		std::vector<char> const &cells = m_vfd->vfd_cells();
@@ -2831,7 +3134,16 @@ void millennium_state::vfd_display_w(u8 data)
 			std::string const n1 = normalize(row1);
 			bool const not_resp = (n0.find("telephony") != std::string::npos && n1.find("not respo") != std::string::npos)
 				|| n1.find("not respo") != std::string::npos;
-			if (m_tel_fw_boot_contract_satisfied && m_not_responding_display_seen && !not_resp) {
+			bool const install_prompt = n0.find("install") != std::string::npos || n1.find("install") != std::string::npos;
+			// Pass when a valid status frame is up and the firmware is on the install prompt
+			// without ever painting the not-responding stall. Also pass if that stall was shown
+			// and then replaced.
+			bool const install_without_stall = install_prompt && !not_resp && !m_not_responding_display_seen;
+			bool const left_stall = m_not_responding_display_seen && !not_resp;
+			if (m_tel_fw_boot_contract_satisfied && (install_without_stall || left_stall)) {
+				char const *const m7c_reason = install_without_stall
+					? "csio_frames_ok_and_install_prompt_without_not_responding"
+					: "csio_status_or_error_frame_ok_and_vfd_left_not_responding";
 				if (!m_tp_readiness_sequence_trace_path.empty()) {
 					char b2[520];
 					std::snprintf(b2, sizeof(b2),
@@ -2847,10 +3159,11 @@ void millennium_state::vfd_display_w(u8 data)
 				char b[420];
 				std::snprintf(b, sizeof(b),
 					"{\"milestone\":\"M7C\",\"ts\":\"%s\",\"event\":\"M7C_TELEPHONY_READY\","
-					"\"reason\":\"csio_status_or_error_frame_ok_and_vfd_left_not_responding\","
-					"\"csio_status_frame_ok\":%s,\"csio_error_report_ok\":%s}",
-					ts.c_str(), m_csio_status_frame_ok ? "true" : "false",
-					m_csio_error_report_ok ? "true" : "false");
+					"\"reason\":\"%s\","
+					"\"csio_status_frame_ok\":%s,\"csio_error_report_ok\":%s,"
+					"\"line0\":\"%s\",\"line1\":\"%s\"}",
+					ts.c_str(), m7c_reason, m_csio_status_frame_ok ? "true" : "false",
+					m_csio_error_report_ok ? "true" : "false", row0.c_str(), row1.c_str());
 				millennium_boot_trace_append_line(m_boot_trace_path, b);
 				m_m7c_logged = true;
 				if (!m_telephony_ready_decision_trace_path.empty()) {
@@ -2875,7 +3188,7 @@ void millennium_state::vfd_display_w(u8 data)
 					char sx[420];
 					std::snprintf(sx, sizeof(sx),
 						"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"event\":\"service_display_task_exit\","
-						"\"event_area\":\"service_display_refresh\",\"reason\":\"vfd_message_replaced\"}",
+						"\"sanitized_source_area\":\"service_display_refresh\",\"reason\":\"vfd_message_replaced\"}",
 						static_cast<unsigned long long>(cy), unsigned(m_maincpu->pc() & 0xffffU));
 					millennium_boot_trace_append_line(m_service_display_trace_path, sx);
 				}
@@ -2883,7 +3196,7 @@ void millennium_state::vfd_display_w(u8 data)
 					char vm[560];
 					std::snprintf(vm, sizeof(vm),
 						"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"event\":\"vfd_exited_not_responding\","
-						"\"event_area\":\"out_of_service_message_check\","
+						"\"sanitized_source_area\":\"out_of_service_message_check\","
 						"\"previous_vfd_text\":\"telephony_not_responding\",\"current_vfd_text\":\"%s|%s\"}",
 						static_cast<unsigned long long>(cy), unsigned(m_maincpu->pc() & 0xffffU), row0.c_str(), row1.c_str());
 					millennium_boot_trace_append_line(m_vfd_message_state_trace_path, vm);
@@ -2925,7 +3238,7 @@ void millennium_state::vfd_display_w(u8 data)
 			char vm[420];
 			std::snprintf(vm, sizeof(vm),
 				"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"event\":\"vfd_still_not_responding\","
-				"\"event_area\":\"out_of_service_message_check\",\"current_vfd_text\":\"telephony_not_responding\"}",
+				"\"sanitized_source_area\":\"out_of_service_message_check\",\"current_vfd_text\":\"telephony_not_responding\"}",
 				static_cast<unsigned long long>(cy), unsigned(m_maincpu->pc() & 0xffffU));
 			millennium_boot_trace_append_line(m_vfd_message_state_trace_path, vm);
 		}
@@ -2957,6 +3270,20 @@ void millennium_state::vfd_display_w(u8 data)
 		int const cursor_after_col = m_vfd->buffer().cursor_col();
 		u16 const pc = u16(m_maincpu->pc() & 0xffffU);
 		u16 const sp = u16(m_maincpu->state_int(Z180_SP) & 0xffffU);
+		std::uint8_t const cbr = u8(m_maincpu->state_int(Z180_CBR) & 0xff);
+		std::uint8_t const bbr = u8(m_maincpu->state_int(Z180_BBR) & 0xff);
+		std::uint8_t const cbar = u8(m_maincpu->state_int(Z180_CBAR) & 0xff);
+		auto const phys_byte = [&](u16 logical) {
+			return read_physical_debug_byte(millennium_z180_mmu_translate20(logical, cbr, bbr, cbar));
+		};
+		u16 const ret = static_cast<u16>(phys_byte(sp) | (unsigned(phys_byte(static_cast<u16>(sp + 1U))) << 8));
+		u16 const ret2 = static_cast<u16>(phys_byte(static_cast<u16>(sp + 2U))
+			| (unsigned(phys_byte(static_cast<u16>(sp + 3U))) << 8));
+		u8 const hook_flag = phys_byte(0xF5FAU);
+		u8 const ad_mode = phys_byte(0x8950U);
+		u16 const hl = u16(m_maincpu->state_int(Z180_HL) & 0xffffU);
+		u16 const de = u16(m_maincpu->state_int(Z180_DE) & 0xffffU);
+		u16 const bc = u16(m_maincpu->state_int(Z180_BC) & 0xffffU);
 		char char_buf[8];
 		char cmd_buf[32];
 		char line0[64];
@@ -2995,11 +3322,15 @@ void millennium_state::vfd_display_w(u8 data)
 		}
 		char buf[1024];
 		std::snprintf(buf, sizeof(buf),
-			"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"sp\":\"0x%04X\",\"port\":\"0x0060\",\"byte\":\"0x%02X\","
+			"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"sp\":\"0x%04X\",\"ret\":\"0x%04X\",\"ret2\":\"0x%04X\","
+			"\"hl\":\"0x%04X\",\"de\":\"0x%04X\",\"bc\":\"0x%04X\",\"hook\":\"0x%02X\",\"mode\":\"0x%02X\","
+			"\"port\":\"0x0060\",\"byte\":\"0x%02X\","
 			"\"raw_byte\":\"0x%02X\",\"event_type\":\"%s\",\"char\":\"%s\",\"command_name\":\"%s\","
 			"\"cursor_before\":{\"row\":%d,\"col\":%d},\"cursor_after\":{\"row\":%d,\"col\":%d},"
 			"\"display_after\":{\"line0\":\"%s\",\"line1\":\"%s\"},\"notes\":\"firmware_vfd_write\"}",
-			static_cast<unsigned long long>(cy), unsigned(pc), unsigned(sp), unsigned(data), unsigned(data), event_buf,
+			static_cast<unsigned long long>(cy), unsigned(pc), unsigned(sp), unsigned(ret), unsigned(ret2),
+			unsigned(hl), unsigned(de), unsigned(bc), unsigned(hook_flag), unsigned(ad_mode),
+			unsigned(data), unsigned(data), event_buf,
 			char_buf, cmd_buf, cursor_before_row, cursor_before_col, cursor_after_row, cursor_after_col, line0, line1);
 		millennium_boot_trace_append_line(m_vfd_trace_path, buf);
 		if (!m_vfd_snapshots_path.empty()) {
@@ -3040,6 +3371,12 @@ void millennium_state::vfd_display_w(u8 data)
 
 u8 millennium_state::board_status_r()
 {
+	// Earlier motherboard: 0x40 is PIO port A (output latch). Serial data in is bit 0.
+	if (m_earlier_motherboard) {
+		u8 const r = m_pio_8255_shadow[0];
+		emit_io_trace_line("pio_port_a", 0x40, 'r', r);
+		return r;
+	}
 	u64 const cy = m_maincpu->total_cycles();
 	// 93LC66 Microwire (board): CS from HW_CNTL 0x40 write bit 6; SK from PIO-B 0x42 bit 7 (rising edges);
 	// DI from 8255 port A (0x41) bit 0; DO muxed into this status read (0x40) bit 3 when EEPROM CS is asserted.
@@ -3101,7 +3438,7 @@ void millennium_state::trace_hw_cntl_telephony_relays(u8 prev, u8 data, u64 cy, 
 		char const *role = "";
 		switch (idx) {
 		case 1:
-			role = "R1 modem relay (DATAJACK.C): CO line to internal NCC modem when active";
+			role = "R1 modem relay: CO line to internal NCC modem when active";
 			break;
 		case 2:
 			role = "R2 talk-path relay: supplementary +24VDC to telephony when active; "
@@ -3183,11 +3520,11 @@ void millennium_state::trace_pio_port_c_telephony_routing(u8 prev, u8 data, u64 
 		"\"data_jack_relay_bit_after\":%s,\"data_jack_network_bit_after\":%s,\"mutdtmf_bit_after\":%s,"
 		"\"r4_laptop_relay_active_before\":%s,\"r5_network_relay_active_before\":%s,"
 		"\"r4_laptop_relay_active_after\":%s,\"r5_network_relay_active_after\":%s,"
-		"\"r4_r5_derive_profile\":\"DATAJACK.C_get_relay_status_else\","
+		"\"r4_r5_derive_profile\":\"two_bit_network_select\","
 		"\"semantics\":{\"data_jack_relay_0x40\":\"Physical DATA_JACK_RELAY_MASK on PIO-C (pairs with 0x80 for R4/R5)\","
 		"\"data_jack_network_0x80\":\"Physical DATA_JACK_NETWORK_MASK — laptop vs network chip routing\","
-		"\"mutdtmf_0x10\":\"MUTDTMF — DTMF mute / far-end detect path (COIFRC.C predial, DATAJACK.C)\","
-		"\"r4_r5\":\"DATAJACK.C names R4 laptop relay and R5 network relay; combination decode is build-specific\"}}",
+		"\"mutdtmf_0x10\":\"MUTDTMF — DTMF mute and far-end detection path\","
+		"\"r4_r5\":\"R4 selects the laptop path and R5 selects the network path according to the board revision\"}}",
 		static_cast<unsigned long long>(cy), unsigned(pc), unsigned(sp),
 		unsigned(prev), unsigned(data), unsigned(PIO_C_TELEPHONY_RELAY_MASK),
 		dj_rb ? "true" : "false", dj_nb ? "true" : "false", mut_b ? "true" : "false",
@@ -3199,10 +3536,109 @@ void millennium_state::trace_pio_port_c_telephony_routing(u8 prev, u8 data, u64 
 
 void millennium_state::board_status_w(u8 data)
 {
+	if (m_earlier_motherboard) {
+		m_pio_8255_shadow[0] = data;
+		emit_io_trace_line("pio_port_a", 0x40, 'w', data);
+		if (m_modem) {
+			auto &modem = m_modem->model();
+			if (char const digit = modem.ssi_pio_a_write(data)) {
+				char const note[] = {'D', digit, '\n', 0};
+				m_line.send_line(note);
+				modem.note_outpulse_digit(digit, machine().time().as_double());
+			}
+		}
+		return;
+	}
+	write_hw_cntl(data);
+}
+
+void millennium_state::update_external_ringer()
+{
+	bool const enring = (m_hw_cntl_port_image & 0x10U) != 0U;
+	bool const gate = enring && m_line.ring_present() && m_tel_hook_onhook_stable;
+	m_audio->set_external_ringer(gate);
+}
+
+void millennium_state::update_line_seizure()
+{
+	bool const seized = m_tp_loop_seized || (m_hw_cntl_port_image & 1U) != 0U;
+	if (seized != m_loop_seized) {
+		m_loop_seized = seized;
+		m_line.send_line(seized ? "S\n" : "X\n");
+		update_handset_routing();
+	}
+}
+
+void millennium_state::update_handset_routing()
+{
+	auto const &rs = m_audio_route->route_state();
+	bool const speech = !m_voicew_prev_upd_idle && !m_handset_dial_tone;
+	bool const rx_muted = rs.rx_muted || speech || !m_loop_seized;
+	u8 const gates = (rs.tx_muted ? 1U : 0U) | (rx_muted ? 2U : 0U) | (rs.sidetone_suppressed ? 4U : 0U);
+	if (gates != m_handset_gates) {
+		m_handset_gates = gates;
+		m_audio->set_hybrid_gates(rs.tx_muted, rx_muted, rs.sidetone_suppressed);
+	}
+	if (speech && m_earpiece_tone_mode != earpiece_tone_mode::none) {
+		m_earpiece_tone_mode = earpiece_tone_mode::none;
+		m_earpiece_tone_a->set_state(0);
+		m_earpiece_tone_b->set_state(0);
+	}
+
+	if (rs.rx_gain_step != m_handset_gain_step) {
+		// The receive amplifier has four nominal steps across a 20 dB range.
+		static constexpr float gain[] = { 0.100f, 0.216f, 0.462f, 1.000f };
+		m_handset_gain_step = rs.rx_gain_step;
+		float const level = gain[std::min<unsigned>(m_handset_gain_step, 3U)];
+		m_audio->set_handset_gain(level);
+		m_voiceware->set_output_gain(0, level);
+		m_vw_upd_filter->set_output_gain(0, level);
+		m_earpiece_tone_a->set_output_gain(0, level);
+		m_earpiece_tone_b->set_output_gain(0, level);
+	}
+}
+
+void millennium_state::line_pcm_thunk(void *ctx, std::int16_t mic, std::int16_t &line, bool &have)
+{
+	static_cast<millennium_state *>(ctx)->exchange_line_pcm(mic, line, have);
+}
+
+void millennium_state::exchange_line_pcm(std::int16_t mic, std::int16_t &line, bool &have)
+{
+	// On-hook the microphone stays off the jack. The earpiece only exists off-hook,
+	// and the audio device ignores a sample it was not given.
+	if (!m_tel_hook_onhook_stable)
+		m_line.push_outgoing_pcm(mic);
+	std::int16_t sample = 0;
+	(void)m_line.take_incoming_pcm(sample);
+	line = m_line.co_dial_tone() && !m_handset_dial_tone ? 0 : sample;
+	have = true;
+}
+
+std::uint8_t millennium_state::with_ring_detect(std::uint8_t status) const
+{
+	if (m_line.ring_present())
+		return static_cast<std::uint8_t>(status | 0x80U);
+	return static_cast<std::uint8_t>(status & ~0x80U);
+}
+
+void millennium_state::write_hw_cntl(u8 data)
+{
 	u8 const prev = m_hw_cntl_port_image;
 	m_hw_cntl_port_image = data;
 	m_microwire_93c66.set_chip_select((data & 0x40U) != 0U);
-	emit_io_trace_line("board_status", 0x40, 'w', data);
+	if (((prev ^ data) & 0x01U) != 0U && m_modem) {
+		bool const r1 = (data & 0x01U) != 0U;
+		m_modem->model().note_modem_relay(r1, machine().time().as_double());
+		update_line_seizure();
+	}
+	if (((prev ^ data) & 0x10U) != 0U) {
+		bool const en = (data & 0x10U) != 0U;
+		m_line.send_line(en ? "E1\n" : "E0\n");
+		update_external_ringer();
+	}
+	u16 const ctl_port = m_earlier_motherboard ? u16(0x60) : u16(0x40);
+	emit_io_trace_line("board_status", ctl_port, 'w', data);
 	u64 const cy = m_maincpu->total_cycles();
 	u16 const pc = u16(m_maincpu->pc() & 0xffffU);
 	u16 const sp = u16(m_maincpu->state_int(Z180_SP) & 0xffffU);
@@ -3230,24 +3666,29 @@ void millennium_state::board_status_w(u8 data)
 	if (prev_sclk != sclk) {
 		u8 const cntr_before_edge = static_cast<u8>(m_maincpu->state_int(Z180_CNTR) & 0xffU);
 		u8 const trdr_before_edge = static_cast<u8>(m_maincpu->state_int(Z180_TRDR) & 0xffU);
+		// CSI/O samples RXS on the rising edge. The bit has to be stable before that edge;
+		// driving it afterwards shifts the byte by one and mixes in the previous pin state.
+		if (sclk && m_ipcomm_have_rx_byte) {
+			int const bit = (m_ipcomm_rx_shift >> m_ipcomm_rx_bit) & 1;
+			m_maincpu->rxs_cts1_w(bit);
+		}
 		m_maincpu->cks_w(sclk ? 1 : 0);
 		u8 const cntr_after_edge = static_cast<u8>(m_maincpu->state_int(Z180_CNTR) & 0xffU);
+		u8 const trdr_after_edge = static_cast<u8>(m_maincpu->state_int(Z180_TRDR) & 0xffU);
 		if (!m_tp_csio_raw_trace_path.empty()) {
-			char b[520];
+			char b[560];
 			std::snprintf(b, sizeof(b),
 				"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"sp\":\"0x%04X\",\"event\":\"csio_clock_edge\","
-				"\"cntr_before\":\"0x%02X\",\"cntr_after\":\"0x%02X\",\"trdr\":\"0x%02X\","
+				"\"cntr_before\":\"0x%02X\",\"cntr_after\":\"0x%02X\",\"trdr\":\"0x%02X\",\"trdr_after\":\"0x%02X\","
 				"\"sclk_before\":%s,\"sclk_after\":%s,\"ready_state_before\":%s,\"ready_state_after\":%s}",
 				static_cast<unsigned long long>(cy), unsigned(pc), unsigned(m_maincpu->state_int(Z180_SP) & 0xffffU),
 				unsigned(cntr_before_edge), unsigned(cntr_after_edge), unsigned(trdr_before_edge),
+				unsigned(trdr_after_edge),
 				prev_sclk ? "true" : "false", sclk ? "true" : "false",
 				m_tel_ready_sequence_completed ? "true" : "false", m_tel_ready_sequence_completed ? "true" : "false");
 			millennium_boot_trace_append_line(m_tp_csio_raw_trace_path, b);
 		}
-		// Provide the next RX bit ahead of the rising edge so CSIO samples correct data.
 		if (sclk && m_ipcomm_have_rx_byte) {
-			int const bit = (m_ipcomm_rx_shift >> m_ipcomm_rx_bit) & 1;
-			m_maincpu->rxs_cts1_w(bit);
 			m_ipcomm_rx_bit = (m_ipcomm_rx_bit + 1) & 7;
 			if (m_ipcomm_rx_bit == 0) {
 				std::uint8_t const delivered = m_ipcomm_rx_shift;
@@ -3264,6 +3705,10 @@ void millennium_state::board_status_w(u8 data)
 				// Finished a byte; clear RTS if no more queued bytes.
 				m_ipcomm_have_rx_byte = false;
 				prime_ipcomm_rx_shift_from_queues();
+				// Idle the receive pin high when the queue is empty so the next transfer
+				// does not sample the last data bit.
+				if (!m_ipcomm_have_rx_byte)
+					m_maincpu->rxs_cts1_w(1);
 			}
 		}
 		// Decode control-processor→telephony CSI/O bytes from TRDR when an octet finishes shifting out.
@@ -3327,8 +3772,15 @@ void millennium_state::board_status_w(u8 data)
 		}
 		m_ipcomm_last_sclk = sclk;
 	}
-	if ((data & 0x08U) == 0U)
+	if ((data & 0x08U) == 0U) {
+		m_handset_dial_tone = false;
 		clear_voice_segment_int0("voice_reset_asserted");
+		if (!m_voicew_prev_upd_idle) {
+			m_voicew_irq_timer->reset();
+			m_voicew_prev_upd_idle = true;
+			update_handset_routing();
+		}
+	}
 	m_voiceware->write_hw_control(data, pc, cy);
 }
 
@@ -3464,6 +3916,13 @@ void millennium_state::telephony_note_csio_rx_byte(u8 b)
 	};
 
 	auto const on_var_len_byte = [this, &note_boot_contract_progress, cy, pc](u8 v) {
+		if (m_csio_rx_in_frame && millennium_tp_csio_rx_resyncs_on_ui_byte(v)) {
+			m_csio_rx_in_frame = false;
+			m_csio_rx_code = 0U;
+			m_csio_rx_len = 0U;
+			m_csio_rx_sum = 0U;
+			m_csio_rx_remaining = 0U;
+		}
 		if (!m_csio_rx_in_frame) {
 			if (v >= 0xc0U) {
 				m_csio_rx_in_frame = true;
@@ -3537,7 +3996,7 @@ void millennium_state::telephony_note_csio_rx_byte(u8 b)
 					char sr[520];
 					std::snprintf(sr, sizeof(sr),
 						"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"sp\":\"0x%04X\",\"event\":\"service_refresh_signal\","
-						"\"event_area\":\"rtos_signal\",\"reason\":\"telephony_status_frame_accepted\"}",
+						"\"sanitized_source_area\":\"rtos_signal\",\"reason\":\"telephony_status_frame_accepted\"}",
 						static_cast<unsigned long long>(m_maincpu->total_cycles()), unsigned(m_maincpu->pc() & 0xffffU),
 						unsigned(m_maincpu->state_int(Z180_SP) & 0xffffU));
 					millennium_boot_trace_append_line(m_service_refresh_trace_path, sr);
@@ -3620,7 +4079,7 @@ void millennium_state::telephony_note_csio_rx_byte(u8 b)
 					char se[480];
 					std::snprintf(se, sizeof(se),
 						"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"event\":\"service_display_task_enter\","
-						"\"event_area\":\"service_display_refresh\",\"reason\":\"alarm_clear_after_latch\"}",
+						"\"sanitized_source_area\":\"service_display_refresh\",\"reason\":\"alarm_clear_after_latch\"}",
 						static_cast<unsigned long long>(m_maincpu->total_cycles()), unsigned(m_maincpu->pc() & 0xffffU));
 					millennium_boot_trace_append_line(m_service_display_trace_path, se);
 				}
@@ -3689,6 +4148,12 @@ void millennium_state::ipcomm_queue_rx_byte(u8 data, bool priority)
 
 void millennium_state::ipcomm_complete_csio_tx_byte(std::uint8_t byte)
 {
+	static constexpr std::uint8_t VAR_LEN_MSG_LOWER_LIMIT = 0xc0U;
+	static constexpr std::uint8_t k_cfg_download_hdr = 0xc0U;
+	static constexpr std::uint8_t k_cfg_download_total_len = 126U;
+	static constexpr std::uint8_t k_cfg_download_ack = 0x74U;
+	static constexpr std::uint8_t k_var_len_max_len = 126U;
+
 	if (!m_tel_ip_link_enabled) {
 		if (!m_telephony_runtime_conversation_trace_path.empty()) {
 			char b[320];
@@ -3710,16 +4175,46 @@ void millennium_state::ipcomm_complete_csio_tx_byte(std::uint8_t byte)
 			unsigned(m_maincpu->state_int(Z180_SP) & 0xffffU), unsigned(byte));
 		millennium_boot_trace_append_line(m_telephony_handshake_trace_path, tb);
 	}
-	if (tp_backend_handle_cp_byte(byte))
+	// Track CP variable-length framing before Backend B consumes the byte. This state is
+	// used by qualify_cp_to_tp_csio_byte() so the config length/payload octets are not
+	// rejected as idle non-catalog bytes; the PCD3349A backend still owns all responses.
+	bool const frame_payload = m_ip_tx_need_length_byte || m_ip_tx_skip_remain != 0U;
+	if (m_ip_tx_skip_remain > 0U) {
+		m_ip_tx_skip_remain--;
+		if (m_ip_tx_skip_remain == 0U) {
+			m_ip_tx_var_hdr = 0U;
+			m_ip_tx_declared_len = 0U;
+		}
+	} else if (m_ip_tx_need_length_byte) {
+		m_ip_tx_need_length_byte = false;
+		if (byte >= 3U && byte <= k_var_len_max_len) {
+			m_ip_tx_declared_len = byte;
+			m_ip_tx_skip_remain = unsigned(byte) - 2U;
+		} else {
+			m_ip_tx_var_hdr = 0U;
+			m_ip_tx_declared_len = 0U;
+			m_ip_tx_skip_remain = 0U;
+		}
+	} else if (byte >= VAR_LEN_MSG_LOWER_LIMIT) {
+		m_ip_tx_var_hdr = byte;
+		m_ip_tx_need_length_byte = true;
+		m_ip_tx_declared_len = 0U;
+	}
+	if (tp_backend_handle_cp_byte(byte, frame_payload))
 		return;
+	if (!m_telephony_phase_trace_path.empty()) {
+		char ub[320];
+		std::snprintf(ub, sizeof(ub),
+			"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"event\":\"tp_backend_missing\",\"tx\":\"0x%02X\","
+			"\"action\":\"ignored_no_legacy_fallback\"}",
+			static_cast<unsigned long long>(m_maincpu->total_cycles()), unsigned(m_maincpu->pc() & 0xffffU),
+			unsigned(byte));
+		millennium_boot_trace_append_line(m_telephony_phase_trace_path, ub);
+	}
+	return;
 	// Variable-length host TX: octets at or above 0xC0 start a framed message; embedded payload must not be parsed as
 	// standalone host opcodes. A full 0xC0 / length-126 configuration download is ACKed with 0x74 toward the host
 	// immediately after that frame's checksum octet completes on CSI/O TX.
-	static constexpr std::uint8_t VAR_LEN_MSG_LOWER_LIMIT = 0xc0U;
-	static constexpr std::uint8_t k_cfg_download_hdr = 0xc0U;
-	static constexpr std::uint8_t k_cfg_download_total_len = 126U;
-	static constexpr std::uint8_t k_cfg_download_ack = 0x74U;
-	static constexpr std::uint8_t k_var_len_max_len = 126U;
 	auto const queue_raw_frame = [this](std::uint8_t code, std::initializer_list<std::uint8_t> payload, std::uint8_t len) {
 		std::uint8_t chk = std::uint8_t(code + len);
 		std::vector<std::uint8_t> emitted;
@@ -3869,7 +4364,7 @@ void millennium_state::ipcomm_complete_csio_tx_byte(std::uint8_t byte)
 		trace_tp_command_accepted(byte, true, "0x6C_or_0x6E", "query_hook_status");
 		note_init_dialogue_progress(byte);
 		ipcomm_queue_rx_byte(m_tel_hook_onhook_stable ? 0x6C : 0x6E, true);
-		trace_tp_response_emitted({ m_tel_hook_onhook_stable ? 0x6CU : 0x6EU }, "hook_status", true);
+		trace_tp_response_emitted({ u8(m_tel_hook_onhook_stable ? 0x6CU : 0x6EU) }, "hook_status", true);
 		break;
 	case 0x31:
 		trace_tp_command_accepted(byte, true, "0xC0_len8", "query_telephony_status");
@@ -3931,10 +4426,16 @@ void millennium_state::ipcomm_complete_csio_tx_byte(std::uint8_t byte)
 		// CLEAR_TELEPHONY_STATUS: modeled as side-effect only (no direct reply byte/frame).
 		break;
 	case 0x37:
-		trace_tp_command_accepted(byte, true, "0x80", "query_line_status");
-		// QUERY_CO_LINE_STATUS: return a deterministic nominal line-state code.
-		ipcomm_queue_rx_byte(0x80, true);
-		trace_tp_response_emitted({ 0x80U }, "line_status", true);
+		// QUERY_CO_LINE_STATUS → IPCODES 0x80/82/84/86. Craft install CO check
+		// (CFTIFERR_CO_NO_CONNECTION = 0x41) requires STATUS_3 (0x84) or STATUS_4 (0x86).
+		{
+			std::uint8_t const st = m_line.line_connected() ? 0x84U : 0x80U;
+			char resp_lab[8];
+			std::snprintf(resp_lab, sizeof(resp_lab), "0x%02X", unsigned(st));
+			trace_tp_command_accepted(byte, true, resp_lab, "query_line_status");
+			ipcomm_queue_rx_byte(st, true);
+			trace_tp_response_emitted({ st }, "line_status", true);
+		}
 		break;
 	case 0x38:
 		trace_tp_command_accepted(byte, true, "0xC4_len4", "query_error_report");
@@ -4004,7 +4505,7 @@ void millennium_state::ipcomm_complete_csio_tx_byte(std::uint8_t byte)
 				matrix_active = true;
 			}
 			ipcomm_queue_rx_byte(matrix_active ? 0x8A : 0x88);
-			trace_tp_response_emitted({ matrix_active ? 0x8AU : 0x88U }, "key_matrix", true);
+		trace_tp_response_emitted({ u8(matrix_active ? 0x8AU : 0x88U) }, "key_matrix", true);
 			if (matrix_active) {
 				m_tel_stuck_key_counter++;
 				if (m_tel_stuck_key_counter >= 30U)
@@ -4023,7 +4524,7 @@ void millennium_state::ipcomm_complete_csio_tx_byte(std::uint8_t byte)
 			m_tel_handset_ok = false;
 		}
 		ipcomm_queue_rx_byte(m_tel_handset_ok ? 0x8C : 0x8E);
-		trace_tp_response_emitted({ m_tel_handset_ok ? 0x8CU : 0x8EU }, "handset_continuity", true);
+		trace_tp_response_emitted({ u8(m_tel_handset_ok ? 0x8CU : 0x8EU) }, "handset_continuity", true);
 		if (m_tel_handset_ok) {
 			m_tel_handset_bad_counter = 0U;
 			m_alarm_handset_discont = false;
@@ -4068,10 +4569,25 @@ void millennium_state::ipcomm_complete_csio_tx_byte(std::uint8_t byte)
 
 u8 millennium_state::pio_keypad_r(offs_t offset)
 {
+	// Earlier motherboard map is 0x41=B, 0x42=C, 0x43=command. Reads return the output latch
+	// so a read-modify-write of the serial clock (PIO B bit 0) keeps the other bits.
+	if (m_earlier_motherboard) {
+		unsigned const off = unsigned(offset & 3);
+		if (off >= 3U) {
+			emit_io_trace_line("pio_unmapped", u16(0x41U + off), 'r', 0xffU);
+			return 0xffU;
+		}
+		u8 const r = m_pio_8255_shadow[off + 1U];
+		char const *const tags[] = { "pio_port_b", "pio_port_c", "pio_command" };
+		emit_io_trace_line(tags[off], u16(0x41U + off), 'r', r);
+		return r;
+	}
 	// 8255 ports A/C: **not** connected to the physical keypad/hook in production; those are TP-sensed.
 	// `millennium_keypad_device::read` returns an idle matrix on A/C; port B is the latched strobe/bank image.
 	u64 const cy = m_maincpu->total_cycles();
 	u8 r = m_keypad->read(cy, offset);
+	if (!m_earlier_motherboard && (offset & 3) == 0)
+		r = with_ring_detect(r);
 	m_pio_8255_shadow.at(std::size_t(offset & 3)) = r;
 	char const *tag = "pio_8255";
 	switch (offset & 3) {
@@ -4158,6 +4674,26 @@ u8 millennium_state::pio_keypad_r(offs_t offset)
 
 void millennium_state::pio_keypad_w(offs_t offset, u8 data)
 {
+	// Earlier motherboard: PIO B bit 0 is the EEPROM clock; DI is PIO A bit 0.
+	if (m_earlier_motherboard) {
+		unsigned const off = unsigned(offset & 3);
+		if (off >= 3U) {
+			emit_io_trace_line("pio_unmapped", u16(0x41U + off), 'w', data);
+			return;
+		}
+		std::size_t const idx = std::size_t(off + 1U);
+		u8 const prev = m_pio_8255_shadow[idx];
+		m_pio_8255_shadow[idx] = data;
+		char const *const tags[] = { "pio_port_b", "pio_port_c", "pio_command" };
+		emit_io_trace_line(tags[off], u16(0x41U + off), 'w', data);
+		if (idx == 1U) {
+			bool const di = (m_pio_8255_shadow[0] & 1U) != 0U;
+			m_microwire_93c66.notify_sk_edge((prev & 1U) != 0U, (data & 1U) != 0U, di);
+			m_voiceware->write_bank(static_cast<u8>((data >> 1) & 0x07U),
+				u16(m_maincpu->pc() & 0xffffU), m_maincpu->total_cycles());
+		}
+		return;
+	}
 	u64 const cy = m_maincpu->total_cycles();
 	u16 const pc = u16(m_maincpu->pc() & 0xffffU);
 	std::size_t const idx = std::size_t(offset & 3);
@@ -4213,6 +4749,14 @@ void millennium_state::pio_keypad_w(offs_t offset, u8 data)
 
 u8 millennium_state::external_uart_r(offs_t offset)
 {
+	// Earlier motherboard: 0xE0 is STATUS_PORT_2. Bit 6 = /RTS; bit 4 = MPD (SSI read data).
+	if (m_earlier_motherboard && (offset & 7U) == 0U) {
+		u8 r = with_ring_detect(m_ipcomm_rts_asserted ? u8(0x00) : u8(0x40));
+		if (m_modem && m_modem->model().ssi_mpd_level())
+			r = static_cast<u8>(r | 0x10U);
+		emit_io_trace_line("status_port", 0xE0, 'r', r);
+		return r;
+	}
 	std::size_t const reg = std::size_t(offset & 7U);
 	u8 data = m_ext_uart_shadow[reg];
 	bool const dlab = (m_ext_uart_shadow[3] & 0x80U) != 0U;
@@ -4279,6 +4823,10 @@ u8 millennium_state::external_uart_r(offs_t offset)
 
 void millennium_state::external_uart_w(offs_t offset, u8 data)
 {
+	if (m_earlier_motherboard && (offset & 7U) == 0U) {
+		emit_io_trace_line("status_port", 0xE0, 'w', data);
+		return;
+	}
 	std::size_t const reg = std::size_t(offset & 7U);
 	bool const dlab = (m_ext_uart_shadow[3] & 0x80U) != 0U;
 	auto const recompute_iir = [this]() -> u8 {
@@ -4961,6 +5509,7 @@ void millennium_state::phys_low_w(offs_t offset, u8 data)
 		return;
 	m_phys_low_valid[offset] = 1U;
 	m_phys_low_overlay[offset] = data;
+	m_battery_dirty = true;
 	++m_ram_write_events;
 	remember_memory_write(static_cast<std::uint32_t>(offset), data, "low_overlay");
 	append_memory_trace_line(static_cast<std::uint32_t>(offset), data);
@@ -4977,6 +5526,7 @@ void millennium_state::phys_ram_w(offs_t offset, u8 data)
 	if (dec.route != millennium_mach_phys_ram_route::sram_chip)
 		return;
 	m_phys_ram[dec.chip_byte_index] = data;
+	m_battery_dirty = true;
 	++m_ram_write_events;
 	remember_memory_write(static_cast<std::uint32_t>(offset), data, "sram_512k_banked");
 	append_memory_trace_line(static_cast<std::uint32_t>(offset), data);
@@ -5107,6 +5657,10 @@ void millennium_state::audio_dtmf_duration_w(u8 data)
 	u16 const pc = u16(m_maincpu->pc() & 0xffffU);
 	emit_io_trace_line("audio_dtmf_duration", 0x5a, 'w', data);
 	m_audio->write_dtmf_digit(m_audio_dtmf_ascii, unsigned(data), cy, pc);
+	if (m_audio_dtmf_ascii >= '0' && m_audio_dtmf_ascii <= '9')
+		m_modem->model().note_outpulse_digit(char(m_audio_dtmf_ascii), machine().time().as_double());
+	else if (m_audio_dtmf_ascii == '#' || m_audio_dtmf_ascii == '*')
+		m_modem->model().note_outpulse_digit(char(m_audio_dtmf_ascii), machine().time().as_double());
 }
 
 void millennium_state::audio_vol_w(u8 data)
@@ -5119,6 +5673,8 @@ void millennium_state::audio_vol_w(u8 data)
 
 u8 millennium_state::mach_pio_r(offs_t offset)
 {
+	if (m_earlier_motherboard && offset == 0)
+		return voiceware_phrase_r();
 	u64 const cy = m_maincpu->total_cycles();
 	std::uint8_t const base = m_mach_pio_shadow.at(std::size_t(offset));
 	u8 r;
@@ -5140,6 +5696,11 @@ u8 millennium_state::mach_pio_r(offs_t offset)
 
 void millennium_state::mach_pio_w(offs_t offset, u8 data)
 {
+	// Earlier motherboard: 0xC0 is the voice phrase port, not the later remap block.
+	if (m_earlier_motherboard && offset == 0) {
+		voiceware_phrase_w(data);
+		return;
+	}
 	u64 const cy = m_maincpu->total_cycles();
 	if (offset == 0)
 		emit_io_trace_line("mach_pio_port_h", u16(0xc0), 'w', data);
@@ -5169,15 +5730,21 @@ void millennium_state::poll_card_ui()
 	u64 const cy = m_maincpu->total_cycles();
 	u64 const hz = static_cast<u64>(m_maincpu->unscaled_clock());
 	std::string err;
-	if (rise & 1U) {
+	if ((rise & 1U) && m_magstripe_bits.empty()) {
 		std::string const p = resolve_relative_path(
 			(osd_getenv("COINLINE_MAG_CARD") && *osd_getenv("COINLINE_MAG_CARD"))
 				? std::string(osd_getenv("COINLINE_MAG_CARD"))
 				: std::string("fixtures/cards/magcard-valid.json"));
-		if (m_card->reload_fixture_from_path(p, err))
+		if (m_card->reload_fixture_from_path(p, err)) {
 			m_card->arm_swipe(cy, hz);
-		else
+			m_magstripe_bits = m_card->model().track2_wire_bits();
+			m_magstripe_index = 0;
+			m_magstripe_signals = 0x02U;
+			m_magstripe_withdrawing = false;
+			schedule_driver_timer(TID_CARD_SHIFT, attotime::from_msec(150));
+		} else {
 			osd_printf_warning("millennium: mag card reload failed: %s\n", err.c_str());
+		}
 	}
 	if (rise & 2U) {
 		std::string const p = resolve_relative_path(
@@ -5191,6 +5758,41 @@ void millennium_state::poll_card_ui()
 	}
 }
 
+void millennium_state::clock_magstripe()
+{
+	if (m_magstripe_bits.empty())
+		return;
+	attotime const half_period = attotime::from_hz(2U * m_card->model().bit_rate());
+	if (m_magstripe_clock) {
+		m_maincpu->set_input_line(Z180_INPUT_LINE_DREQ0, CLEAR_LINE);
+		m_magstripe_clock = false;
+		schedule_driver_timer(TID_CARD_SHIFT, half_period);
+		return;
+	}
+	if (m_magstripe_index < m_magstripe_bits.size()) {
+		std::size_t const index = m_magstripe_withdrawing
+			? m_magstripe_bits.size() - 1U - m_magstripe_index : m_magstripe_index;
+		m_magstripe_signals = u8((m_magstripe_signals & 0x06U) | m_magstripe_bits[index]);
+		++m_magstripe_index;
+		m_maincpu->set_input_line(Z180_INPUT_LINE_DREQ0, ASSERT_LINE);
+		m_magstripe_clock = true;
+		schedule_driver_timer(TID_CARD_SHIFT, half_period);
+		return;
+	}
+	if (m_magstripe_withdrawing) {
+		m_magstripe_signals = 0;
+		m_magstripe_bits.clear();
+	} else if ((m_magstripe_signals & 0x04U) == 0U) {
+		m_magstripe_signals = 0x06U;
+		schedule_driver_timer(TID_CARD_SHIFT, attotime::from_msec(500));
+	} else {
+		m_magstripe_signals = 0x02U;
+		m_magstripe_withdrawing = true;
+		m_magstripe_index = 0;
+		schedule_driver_timer(TID_CARD_SHIFT, attotime::from_msec(150));
+	}
+}
+
 void millennium_state::poll_coin_ui()
 {
 	u32 const v = m_coinui->read();
@@ -5200,7 +5802,14 @@ void millennium_state::poll_coin_ui()
 		return;
 	u64 const cy = m_maincpu->total_cycles();
 	u64 const hz = static_cast<u64>(m_maincpu->unscaled_clock());
-	if (rise & 1U) {
+	if (rise & 0x38U) {
+		int cents = 25;
+		if (rise & 0x08U)
+			cents = 5;
+		else if (rise & 0x10U)
+			cents = 10;
+		(void)m_coin->begin_insert_cents(cents, cy, hz);
+	} else if (rise & 1U) {
 		int cents = 25;
 		char const *const e = osd_getenv("COINLINE_COIN_DENOM");
 		if (e && *e)
@@ -5310,10 +5919,49 @@ void millennium_state::emit_boot_m3_m4_snapshot(char const *m3_trigger)
 u8 millennium_state::catch_all_io_r(offs_t offset)
 {
 	u16 const port = u16(offset & 0xffffU);
+	if (!m_earlier_motherboard && (port & 0xffU) == 0x80U && !millennium_z180_port_is_internal_window(*m_maincpu, port)) {
+		u8 const r = u8((m_unknown_default & 0xf8U) | m_magstripe_signals);
+		emit_io_trace_line("status_port", 0x80, 'r', r);
+		return r;
+	}
+	if (m_earlier_motherboard && !millennium_z180_port_is_internal_window(*m_maincpu, port)) {
+		u16 const lo = u16(port & 0xffU);
+		if (lo == 0x80U) {
+			// Bit 3 is EEPROM DO while chip-select is asserted; idle DO is high.
+			// Bits 4–7 idle high: set present, housing shut, cash-box cover shut, cash box present.
+			// SECMASK bit 0 opens the lock (set removed), bit 1 opens the housing, bit 2 opens the vault.
+			u8 r = 0xF0U;
+			if (!m_microwire_93c66.chip_select() || m_microwire_93c66.serial_out())
+				r = static_cast<u8>(r | 0x08U);
+			u8 const sec = static_cast<u8>(m_security->read(m_maincpu->total_cycles()) & 0x0fU);
+			if ((sec & 0x01U) != 0U)
+				r = static_cast<u8>(r & static_cast<u8>(~0x10U));
+			if ((sec & 0x02U) != 0U)
+				r = static_cast<u8>(r & static_cast<u8>(~0x20U));
+			if ((sec & 0x04U) != 0U)
+				r = static_cast<u8>(r & static_cast<u8>(~0x40U));
+			r |= m_magstripe_signals;
+			emit_io_trace_line("status_port", 0x80, 'r', r);
+			return r;
+		}
+		if (lo == 0xA0U) {
+			if ((m_pio_8255_shadow[1] & 0x40U) != 0U) {
+				emit_io_trace_line("vfd_status", 0xA0, 'r', 0xffU);
+				return 0xffU;
+			}
+			u8 const r = m_vfd->read_status(m_maincpu->total_cycles());
+			emit_io_trace_line("vfd_status", 0xA0, 'r', r);
+			return r;
+		}
+	}
 	bool const internal = millennium_z180_port_is_internal_window(*m_maincpu, port);
 	u8 const data = internal ? millennium_z180_trace_read_byte(*m_maincpu, port) : m_unknown_default;
 	char const *const tag = internal ? millennium_z180_internal_trace_tag(std::uint8_t(port & 0x3fU)) : "catch_all_unmapped";
 	emit_io_trace_line(tag, port, 'r', data);
+	if (internal && (port & 0x3fU) == 0x09U && m_modem && m_modem->dcd_line()) {
+		if (char const *const trace = osd_getenv("COINLINE_MODEM_TRACE"); trace && trace[0] == '1')
+			std::fprintf(stderr, "modem rx 0x%02X\n", unsigned(data));
+	}
 	// M7A: a modeled power-on response was observed arriving over CSIO (TRDR readback), not via external UART.
 	if (internal && !m_m7a_logged && (port & 0x3fU) == 0x0bU && (data == 0x70U || data == 0x72U)) {
 		std::string const ts = millennium_boot_trace_timestamp_utc();
@@ -5333,9 +5981,17 @@ u8 millennium_state::catch_all_io_r(offs_t offset)
 void millennium_state::catch_all_io_w(offs_t offset, u8 data)
 {
 	u16 const port = u16(offset & 0xffffU);
+	if (m_earlier_motherboard && !millennium_z180_port_is_internal_window(*m_maincpu, port)
+		&& (port & 0xffU) == 0xA0U) {
+		write_display_port(data, 0xA0);
+		return;
+	}
 	bool const internal = millennium_z180_port_is_internal_window(*m_maincpu, port);
 	char const *const tag = internal ? millennium_z180_internal_trace_tag(std::uint8_t(port & 0x3fU)) : "catch_all_unmapped";
 	emit_io_trace_line(tag, port, 'w', data);
+	// In external-clock mode the modem drives clock edges itself.
+	if (internal && (port & 0x3fU) == 0x07U && m_modem && !m_modem->samples_terminal_tx())
+		m_modem->model().note_tx(data);
 	if (!internal)
 		log_unknown_external_port(port, true, data);
 }
@@ -5357,7 +6013,7 @@ u8 millennium_state::voiceware_phrase_r()
 		}
 	}
 	m_voicew_chip_was_active = !chip_idle;
-	emit_io_trace_line("voice_phrase", 0x61, 'r', r);
+	emit_io_trace_line("voice_phrase", m_earlier_motherboard ? u16(0xC0) : u16(0x61), 'r', r);
 	if (!m_voiceware_trace_path.empty()) {
 		std::string const line = millennium_format_voiceware_trace_line(m_maincpu->total_cycles(), 'r', r,
 			u16(m_maincpu->pc() & 0xffffU), u16(m_maincpu->state_int(Z180_SP) & 0xffffU), m_hw_cntl_port_image,
@@ -5371,9 +6027,18 @@ void millennium_state::voiceware_phrase_w(u8 data)
 {
 	u64 const cy = m_maincpu->total_cycles();
 	u16 const pc = u16(m_maincpu->pc() & 0xffffU);
-	emit_io_trace_line("voice_phrase", 0x61, 'w', data);
+	emit_io_trace_line("voice_phrase", m_earlier_motherboard ? u16(0xC0) : u16(0x61), 'w', data);
 	clear_voice_segment_int0("voice_phrase_write");
-	m_voiceware->write_phrase(data, pc, cy);
+	bool const started = m_voiceware->write_phrase(data, pc, cy);
+	// Voiceware bank zero has a dial-tone request at sample 0x12.
+	m_handset_dial_tone = (m_voiceware->bank() == 0U && data == 0x12U);
+	if (started) {
+		// The start pin is applied on scheduler synchronization. Wait for BUSY to
+		// release before raising the completion interrupt.
+		m_voicew_prev_upd_idle = false;
+		m_voicew_irq_timer->adjust(m_voicew_irq_poll_period, TID_VOICE_INT0);
+	}
+	update_handset_routing();
 	// M5V (first phrase command) before M5A (uPD path engaged) in boot-trace ordering.
 	if (!m_m5v_logged) {
 		char pcbuf[16], phbuf[16];
@@ -5441,7 +6106,7 @@ bool millennium_state::profile_should_log_io(char const *tag, std::uint16_t port
 	if (m_trace_capture_full_io)
 		return true;
 	std::string const t = tag ? tag : "";
-	if (port == 0x0060U || port == 0x0061U)
+	if (port == 0x0060U || port == 0x0061U || port == 0x0080U || port == 0x00A0U || port == 0x00C0U)
 		return true;
 	if (t == "catch_all_unmapped") {
 		unsigned &count = m_unknown_io_counts[port];
@@ -5488,6 +6153,8 @@ void millennium_state::append_io_trace_line_profiled(std::string const &line)
 	bool const hot_disk = line.find("\"port\":\"0x0060\"") != std::string::npos || line.find("\"port\":\"0x0061\"") != std::string::npos
 		|| line.find("\"port\":\"0x0040\"") != std::string::npos || line.find("\"port\":\"0x0041\"") != std::string::npos
 		|| line.find("\"port\":\"0x0042\"") != std::string::npos || line.find("\"port\":\"0x0043\"") != std::string::npos
+		|| line.find("\"port\":\"0x0080\"") != std::string::npos || line.find("\"port\":\"0x00A0\"") != std::string::npos
+		|| line.find("\"port\":\"0x00C0\"") != std::string::npos
 		|| line.find("\"tag\":\"z180_csio\"") != std::string::npos
 		|| line.find("\"tag\":\"catch_all_unmapped\"") != std::string::npos;
 	if (hot_disk) {
@@ -5857,6 +6524,37 @@ void millennium_state::write_stop_debug_artifacts()
 	std::filesystem::path const dir = m_boot_trace_path.parent_path();
 	if (dir.empty())
 		return;
+	{
+		std::ofstream cf(dir / "cpu-final.json", std::ios::binary | std::ios::trunc);
+		if (cf && m_maincpu) {
+			bool const halted = m_maincpu->state_int(Z180_HALT) != 0;
+			bool const iff1 = m_maincpu->state_int(Z180_IFF1) != 0;
+			address_space &ps = m_maincpu->space(AS_PROGRAM);
+			u16 const sp = u16(m_maincpu->state_int(Z180_SP) & 0xffffU);
+			cf << "{\"cycle\":" << static_cast<unsigned long long>(m_maincpu->total_cycles())
+			   << ",\"pc\":\"0x" << std::hex << std::uppercase << unsigned(m_maincpu->pc() & 0xffffU)
+			   << "\",\"sp\":\"0x" << unsigned(sp)
+			   << "\",\"i\":\"0x" << unsigned(m_maincpu->state_int(Z180_I) & 0xffU)
+			   << "\",\"iff1\":" << (iff1 ? "true" : "false")
+			   << ",\"halted\":" << (halted ? "true" : "false")
+			   << ",\"tcr\":\"0x" << unsigned(m_maincpu->state_int(Z180_TCR) & 0xffU)
+			   << "\",\"itc\":\"0x" << unsigned(m_maincpu->state_int(Z180_ITC) & 0xffU)
+			   << "\",\"cntr\":\"0x" << unsigned(m_maincpu->state_int(Z180_CNTR) & 0xffU)
+			   << "\",\"trdr\":\"0x" << unsigned(m_maincpu->state_int(Z180_TRDR) & 0xffU)
+			   << "\",\"bbr\":\"0x" << unsigned(m_maincpu->state_int(Z180_BBR) & 0xffU)
+			   << "\",\"cbr\":\"0x" << unsigned(m_maincpu->state_int(Z180_CBR) & 0xffU)
+			   << "\",\"cbar\":\"0x" << unsigned(m_maincpu->state_int(Z180_CBAR) & 0xffU)
+			   << "\",\"il\":\"0x" << unsigned(m_maincpu->state_int(Z180_IL) & 0xffU)
+			   << "\",\"dstat\":\"0x" << unsigned(m_maincpu->state_int(Z180_DSTAT) & 0xffU)
+			   << "\",\"stack\":\"";
+			for (unsigned i = 0; i < 32U; ++i) {
+				if (i)
+					cf << ' ';
+				cf << std::hex << std::uppercase << unsigned(ps.read_byte(u16(sp + i)) & 0xffU);
+			}
+			cf << "\"}\n" << std::dec;
+		}
+	}
 	if (!m_vfd_final_state_path.empty()) {
 		std::ofstream fs(m_vfd_final_state_path, std::ios::binary | std::ios::trunc);
 		if (fs)
@@ -5973,6 +6671,9 @@ void millennium_state::write_stop_debug_artifacts()
 
 void millennium_state::device_stop()
 {
+	if (m_battery_live)
+		flush_battery_image();
+	m_line.close();
 #ifdef _WIN32
 	if (m_win_vfd_font_added && !m_win_vfd_font_path.empty()) {
 		RemoveFontResourceExW(m_win_vfd_font_path.c_str(), FR_PRIVATE, nullptr);
@@ -5989,136 +6690,220 @@ void millennium_state::schedule_driver_timer(s32 id, attotime const &delay)
 	machine().scheduler().timer_set(delay, timer_expired_delegate(FUNC(millennium_state::driver_timer_cb), this), id);
 }
 
-void millennium_state::sync_modem_asci_lines()
-{
-	int const cts = m_modem->cts_line() ? 1 : 0;
-	int const dcd = m_modem->dcd_line() ? 1 : 0;
-	m_maincpu->cts0_w(cts);
-	m_maincpu->rxs_cts1_w(cts);
-	m_maincpu->dcd0_w(dcd);
-}
-
 uint32_t millennium_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect)
 {
-	(void)screen;
-	sync_modem_asci_lines();
 	bool const dcd = m_modem->dcd_line();
 	if (dcd != m_last_modem_dcd) {
 		m_telephony->notify_modem_dcd(dcd, m_maincpu->total_cycles(), u16(m_maincpu->pc() & 0xffffU));
 		m_last_modem_dcd = dcd;
 	}
 
-	bitmap.fill(rgb_t(0x08, 0x09, 0x0c), cliprect);
-
-	millennium_display_profile const &dp = m_vfd->display_profile();
-	std::vector<char> const &cells = m_vfd->vfd_cells();
-	int const rows = dp.rows;
-	int const cols = dp.columns;
-	std::string row0_for_logic;
-	std::string row1_for_logic;
-	if (rows >= 1 && cols >= 1 && std::size_t(rows * cols) <= cells.size()) {
-		row0_for_logic.assign(cells.begin(), cells.begin() + cols);
-		if (rows > 1)
-			row1_for_logic.assign(cells.begin() + cols, cells.begin() + 2 * cols);
+	auto const &display = m_vfd->buffer();
+	auto const &dots = display.dot_plane();
+	u8 const luminance = display.luminance();
+	bool const full_frame = cliprect == screen.visible_area();
+	if (full_frame && !m_vfd_last_drawn_dots.empty()
+		&& luminance == m_vfd_last_drawn_luminance && dots == m_vfd_last_drawn_dots)
+		return UPDATE_HAS_NOT_CHANGED;
+	if (full_frame) {
+		m_vfd_last_drawn_dots = dots;
+		m_vfd_last_drawn_luminance = luminance;
+	} else {
+		m_vfd_last_drawn_dots.clear();
 	}
-	if (rows >= 1 && cols >= 1 && std::size_t(rows * cols) <= cells.size()) {
-		// Force dot-plane rendering for deterministic VFD output across hosts.
-		bool const use_oem_vfd_font = false;
-		int const sx_fit = std::max(1, bitmap.width() / (cols * 6));
-		int const sy_fit = std::max(1, bitmap.height() / (rows * 8));
-		// Use anisotropic scaling so 2x20 text fills the VFD window height instead of
-		// becoming tiny when width is the limiting dimension.
-		int const dm_scale_x = sx_fit;
-		int const dm_scale_y = sy_fit;
-		// CU200xx 2x20 style pitch: 5x7 dots with 1-column/1-row inter-cell spacing.
-		int const spaced_cols = cols * 6;
-		int const spaced_rows = rows * 8;
-		int const panel_w = spaced_cols * dm_scale_x;
-		int const panel_h = spaced_rows * dm_scale_y;
-		int const vfd_x0 = std::max(0, (bitmap.width() - panel_w) / 2);
-		int const vfd_y0 = std::max(0, (bitmap.height() - panel_h) / 2);
-		std::uint8_t const lum = m_vfd->buffer().luminance();
-		float const gain = std::clamp(float(lum) / 255.f, 0.12f, 1.f);
-		auto const scale_ch = [gain](std::uint8_t v) -> std::uint8_t {
-			return static_cast<std::uint8_t>(std::min(255, int(std::lround(float(v) * gain))));
-		};
-		rgb_t const panel_bg(scale_ch(0x02), scale_ch(0x06), scale_ch(0x04));
-		bitmap.fill(panel_bg, cliprect);
 
-		render_color phos;
-		phos.set(1.0f, 0.12f, 0.92f, 0.42f);
-		rgb_t const dm_color(scale_ch(0x38), scale_ch(0xff), scale_ch(0xb8));
-		for (int r = 0; r < rows; ++r) {
-			std::string row;
-			row.reserve(std::size_t(cols * 3));
-			bool const katakana = m_vfd->buffer().katakana_font();
-			for (int c = 0; c < cols; ++c) {
-				std::uint8_t const b = static_cast<std::uint8_t>(cells[std::size_t(r * cols + c)]);
-				millennium_vfd_cell_utf8::append_cell(row, b, katakana);
-			}
-			int const row_h = use_oem_vfd_font ? 28 : (8 * dm_scale_y);
-			int const ty = vfd_y0 + r * row_h;
-			if (use_oem_vfd_font) {
-				bitmap_argb32 row_bm(panel_w, row_h);
-				row_bm.fill(0);
-				rectangle const rb(0, panel_w - 1, 0, row_h - 1);
-				coinline_draw_text(*m_vfd_font, row_bm, rb, row, 1, phos);
-				for (int yy = 0; yy < row_h; ++yy) {
-					int const by = ty + yy;
-					if (by < cliprect.min_y || by > cliprect.max_y)
-						continue;
-					for (int xx = 0; xx < panel_w; ++xx) {
-						int const bx = vfd_x0 + xx;
-						if (bx < cliprect.min_x || bx > cliprect.max_x)
-							continue;
-						rgb_t const t(row_bm.pix(yy, xx));
-						if (t.a() != 0)
-							bitmap.pix(by, bx) = t;
-					}
-				}
-			}
-			else {
-				auto const &dots = m_vfd->buffer().dot_plane();
-				int const dot_cols = m_vfd->buffer().dot_cols();
-				int const dot_rows = m_vfd->buffer().dot_rows();
-				for (int dy = 0; dy < dot_rows; ++dy) {
-					int const char_row = dy / 7;
-					int const local_row = dy % 7;
-					int const spaced_y = char_row * 8 + local_row;
-					for (int dx = 0; dx < dot_cols; ++dx) {
-						if (dots[std::size_t(dy * dot_cols + dx)] == 0U)
-							continue;
-						int const char_col = dx / 5;
-						int const local_col = dx % 5;
-						int const spaced_x = char_col * 6 + local_col;
-						int const px0 = vfd_x0 + spaced_x * dm_scale_x;
-						int const py0 = vfd_y0 + spaced_y * dm_scale_y;
-						for (int sy = 0; sy < dm_scale_y; ++sy) {
-							int const py = py0 + sy;
-							if (py < cliprect.min_y || py > cliprect.max_y || py >= bitmap.height())
-								continue;
-							for (int sx = 0; sx < dm_scale_x; ++sx) {
-								int const px = px0 + sx;
-								if (px < cliprect.min_x || px > cliprect.max_x || px >= bitmap.width())
-									continue;
-								bitmap.pix(py, px) = dm_color;
-							}
-						}
-					}
-				}
-			}
+	auto const &profile = m_vfd->display_profile();
+	if (profile.rows < 1 || profile.columns < 1 || dots.empty()) {
+		bitmap.fill(rgb_t(0x08, 0x09, 0x0c), cliprect);
+		return 0;
+	}
+
+	int const columns = profile.columns * 6;
+	int const rows = profile.rows * 8;
+	int const scale_x = std::max(1, bitmap.width() / columns);
+	int const scale_y = std::max(1, bitmap.height() / rows);
+	int const origin_x = std::max(0, (bitmap.width() - columns * scale_x) / 2);
+	int const origin_y = std::max(0, (bitmap.height() - rows * scale_y) / 2);
+	float const gain = std::clamp(float(luminance) / 255.f, 0.12f, 1.f);
+	auto const channel = [gain](u8 value) { return static_cast<u8>(std::lround(float(value) * gain)); };
+	rgb_t const phosphor(channel(0x38), channel(0xff), channel(0xb8));
+	bitmap.fill(rgb_t(channel(0x02), channel(0x06), channel(0x04)), cliprect);
+
+	int const dot_columns = display.dot_cols();
+	for (int y = 0; y < display.dot_rows(); ++y) {
+		int const top = origin_y + (y + y / 7) * scale_y;
+		for (int x = 0; x < dot_columns; ++x) {
+			if (!dots[std::size_t(y * dot_columns + x)])
+				continue;
+			int const left = origin_x + (x + x / 5) * scale_x;
+			rectangle pixel(left, left + scale_x - 1, top, top + scale_y - 1);
+			pixel &= cliprect;
+			if (!pixel.empty())
+				bitmap.fill(phosphor, pixel);
 		}
 	}
-
 	return 0;
 }
 
 TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 {
 	s32 const id = param;
+	if (id == TID_BATTERY_FLUSH) {
+		if (m_battery_dirty)
+			flush_battery_image();
+		schedule_driver_timer(TID_BATTERY_FLUSH, attotime::from_seconds(2));
+		return;
+	}
+	if (id == TID_MODEM_LINK) {
+		double const now = machine().time().as_double();
+		while (m_pad_dtmf_n > 0U) {
+			char digit = m_pad_dtmf_q[0];
+			std::memmove(m_pad_dtmf_q, m_pad_dtmf_q + 1, m_pad_dtmf_n - 1U);
+			--m_pad_dtmf_n;
+			u64 const cy = m_maincpu->total_cycles();
+			u16 const pc = u16(m_maincpu->pc() & 0xffffU);
+			m_audio->write_dtmf_ascii(static_cast<std::uint8_t>(digit), cy, pc);
+			m_audio->write_dtmf_digit(static_cast<std::uint8_t>(digit), 90U, cy, pc);
+			break;
+		}
+		// ASCI1 connects to the NCC modem. ASCI0 belongs to the coin validator.
+		m_modem->model().poll_ncc_link(now);
+
+		static int rx_bits_left = 0;
+		static unsigned rx_frame = 0;
+		static double rx_bit_sec = 0.0;
+		static double rx_next = 0.0;
+		auto const bit_period = [&]() -> double {
+			std::uint8_t const cntlb = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_CNTLB1) & 0xff);
+			std::uint8_t const asext = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_ASEXT1) & 0xff);
+			unsigned const ss = cntlb & 0x07U;
+			if (ss == 0x07U)
+				return 0.0;
+			unsigned const divisor = (asext & 0x10U) ? 1U : ((cntlb & 0x08U) ? 64U : 16U);
+			unsigned brg = 0;
+			if (asext & 0x08U) {
+				unsigned const astc = static_cast<unsigned>(m_maincpu->state_int(Z180_ASTC1) & 0xffff);
+				brg = astc + 2U;
+			} else {
+				brg = (1U << ss) * ((cntlb & 0x20U) ? 30U : 10U);
+			}
+			// The serial subdevice uses the configured peripheral clock, which
+			// can differ from the clock supplied to the Z180.
+			std::uint32_t const baud = m_maincpu->subdevice("asci_1")->clock() / brg / divisor;
+			return baud ? 1.0 / double(baud) : 0.0;
+		};
+		double const period = bit_period();
+		m_modem->configure_terminal_tx(period > 0.0 ? attotime::from_double(period) : attotime::never,
+			u8(m_maincpu->state_int(Z180_CNTLA1)), u8(m_maincpu->state_int(Z180_CNTLB1)));
+		auto const arm_rx_byte = [&](std::uint8_t data) {
+			std::uint8_t const cntla = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_CNTLA1) & 0xff);
+			int const data_bits = (cntla & 0x04U) ? 8 : 7;
+			bool const parity = (cntla & 0x02U) != 0;
+			int const stop_bits = (cntla & 0x01U) ? 2 : 1;
+			unsigned frame = 0;
+			int nbits = 0;
+			auto push_bit = [&](unsigned bit) {
+				frame |= (bit & 1U) << nbits;
+				++nbits;
+			};
+			push_bit(0);
+			unsigned parity_bit = 0;
+			for (int i = 0; i < data_bits; ++i) {
+				unsigned const bit = (data >> i) & 1U;
+				push_bit(bit);
+				parity_bit ^= bit;
+			}
+			if (parity)
+				push_bit(parity_bit ^ ((m_maincpu->state_int(Z180_CNTLB1) >> 4) & 1U));
+			for (int i = 0; i < stop_bits; ++i)
+				push_bit(1);
+			if (period <= 0.0) {
+				std::uint8_t const cntlb = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_CNTLB1) & 0xff);
+				std::uint8_t const asext = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_ASEXT1) & 0xff);
+				unsigned const divisor = (asext & 0x10U) ? 1U : ((cntlb & 0x08U) ? 64U : 16U);
+				auto clocks = [&](int level, unsigned n) {
+					m_maincpu->rxa1_w(level);
+					for (unsigned i = 0; i < n; ++i) {
+						m_maincpu->cka1_w(0);
+						m_maincpu->cka1_w(1);
+					}
+				};
+				for (int i = 0; i < nbits; ++i)
+					clocks(int((frame >> i) & 1U), divisor);
+				m_maincpu->rxa1_w(1);
+				rx_bits_left = 1;
+				rx_frame = 1;
+				rx_bit_sec = 0.001;
+				rx_next = now + 0.001;
+				return;
+			}
+			rx_frame = frame;
+			rx_bits_left = nbits;
+			rx_bit_sec = period;
+			m_maincpu->rxa1_w(int(rx_frame & 1U));
+			rx_frame >>= 1U;
+			rx_bits_left--;
+			rx_next = now + rx_bit_sec;
+		};
+		if (!m_modem->dcd_line() && rx_bits_left != 0) {
+			rx_bits_left = 0;
+			rx_next = now;
+			m_maincpu->rxa1_w(1);
+		}
+		if (rx_bits_left > 0 && now >= rx_next) {
+			m_maincpu->rxa1_w(int(rx_frame & 1U));
+			rx_frame >>= 1U;
+			rx_bits_left--;
+			rx_next += rx_bit_sec;
+		}
+		if (rx_bits_left == 0 && now >= rx_next) {
+			std::uint8_t byte = 0;
+			if (m_modem->model().take_ncc_rx(byte))
+				arm_rx_byte(byte);
+		}
+		attotime delay = attotime::from_usec(200);
+		if (rx_next > now) {
+			double remain = rx_next - machine().time().as_double();
+			if (remain < 0.00002)
+				remain = 0.00002;
+			delay = attotime::from_double(remain);
+		}
+		m_line.poll();
+		bool const line_present = m_line.enabled() ? m_line.line_connected() : (m_linectrl_io->read() & 1U) != 0U;
+		m_modem->model().set_line_present(line_present);
+		if (m_linectrl_io && m_line.enabled()) {
+			auto set_line_bit = [this](std::uint32_t mask, bool on) {
+				if (ioport_field *field = m_linectrl_io->field(mask))
+					field->set_value(on ? 1 : 0);
+			};
+			set_line_bit(0x01U, m_line.line_connected());
+			set_line_bit(0x02U, m_line.reversal() == 1);
+			set_line_bit(0x04U, m_line.reversal() == 2);
+		}
+		if (m_line.take_connected()) {
+			m_line.send_line(m_tel_hook_onhook_stable ? "H0\n" : "H1\n");
+			m_line.send_line((m_hw_cntl_port_image & 0x10U) != 0U ? "E1\n" : "E0\n");
+			if (m_loop_seized)
+				m_line.send_line("S\n");
+		}
+		if (m_line.ring_present() != m_line_ring_seen) {
+			m_line_ring_seen = m_line.ring_present();
+			update_external_ringer();
+		}
+		if (m_line.line_connected() != m_line_connected_seen)
+			m_line_connected_seen = m_line.line_connected();
+		if (m_line.reversal() != m_line_phase_seen)
+			m_line_phase_seen = m_line.reversal();
+		schedule_driver_timer(TID_MODEM_LINK, delay);
+		return;
+	}
 	if (id == TID_CARD_UI) {
 		poll_card_ui();
 		schedule_driver_timer(TID_CARD_UI, attotime::from_msec(25));
+		return;
+	}
+	if (id == TID_CARD_SHIFT) {
+		clock_magstripe();
 		return;
 	}
 	if (id == TID_COIN_UI) {
@@ -6127,6 +6912,15 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		return;
 	}
 	if (id == TID_HOST_POLL) {
+		if (m_handset_gates == 0xffU)
+			update_handset_routing();
+		u8 const security = m_secmask_io->read() & 0x07U;
+		if (security != m_panel_security_state) {
+			m_panel_security_state = security;
+			machine().output().set_value("panel_housing_open", BIT(security, 1));
+			machine().output().set_value("panel_lock_open", BIT(security, 0));
+			machine().output().set_value("panel_vault_open", BIT(security, 2));
+		}
 		u64 const cy = m_maincpu->total_cycles();
 		u64 const hz = static_cast<u64>(m_maincpu->unscaled_clock());
 		u64 cycles_per_10ms = hz / 100U;
@@ -6211,7 +7005,12 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		if (m_tel_hook_onhook_stable != m_tel_hook_onhook && m_tel_hook_stabilize_until_cycle != 0ULL
 			&& cy >= m_tel_hook_stabilize_until_cycle) {
 			m_tel_hook_onhook_stable = m_tel_hook_onhook;
+			if (m_tel_hook_onhook_stable)
+				m_handset_dial_tone = false;
 			m_audio_route->notify_hook_off(!m_tel_hook_onhook_stable);
+			m_audio->set_alerter_audible(m_tel_hook_onhook_stable);
+			m_line.send_line(m_tel_hook_onhook_stable ? "H0\n" : "H1\n");
+			update_external_ringer();
 		}
 		refresh_craft_entry_window(cy);
 		try_emit_boot_readiness_milestones(cy);
@@ -6316,7 +7115,7 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			char tt[420];
 			std::snprintf(tt, sizeof(tt),
 				"{\"cycle\":%llu,\"pc\":\"0x%04X\",\"event\":\"service_timer_tick\","
-				"\"event_area\":\"service_timer\",\"reason\":\"deferred_status_pending\"}",
+				"\"sanitized_source_area\":\"service_timer\",\"reason\":\"deferred_status_pending\"}",
 				static_cast<unsigned long long>(cy), unsigned(m_maincpu->pc() & 0xffffU));
 			millennium_boot_trace_append_line(m_service_timer_trace_path, tt);
 		}
@@ -6409,16 +7208,16 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 				m_last_linectrl_state = l;
 			}
 		}
-		u8 const cntla = u8(m_maincpu->state_int(Z180_CNTLA0) & 0xff);
-		u8 const cntlb = u8(m_maincpu->state_int(Z180_CNTLB0) & 0xff);
+		u8 const cntla = u8(m_maincpu->state_int(Z180_CNTLA1) & 0xff);
+		u8 const cntlb = u8(m_maincpu->state_int(Z180_CNTLB1) & 0xff);
 		if (!m_asci_baseline_ready) {
-			m_base_cntla0 = cntla;
-			m_base_cntlb0 = cntlb;
+			m_base_cntla1 = cntla;
+			m_base_cntlb1 = cntlb;
 			m_asci_baseline_ready = true;
 			schedule_driver_timer(TID_HOST_POLL, attotime::from_msec(10));
 			return;
 		}
-		if (!m_m8_logged && (cntla != m_base_cntla0 || cntlb != m_base_cntlb0))
+		if (!m_m8_logged && (cntla != m_base_cntla1 || cntlb != m_base_cntlb1))
 			m_modem->note_asci_programmed(cntla, cntlb);
 		try_boot_m8(cy);
 		schedule_driver_timer(TID_HOST_POLL, attotime::from_msec(10));
@@ -6448,7 +7247,8 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 	}
 	if (id == TID_VOICE_INT0) {
 		poll_voice_segment_done_pulse_int0();
-		schedule_driver_timer(TID_VOICE_INT0, voicew_int0_poll_delay());
+		if (!m_voicew_prev_upd_idle)
+			m_voicew_irq_timer->adjust(m_voicew_irq_poll_period, TID_VOICE_INT0);
 		return;
 	}
 }

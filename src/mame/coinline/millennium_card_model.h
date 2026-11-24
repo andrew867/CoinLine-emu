@@ -53,6 +53,8 @@ public:
 
 	std::uint64_t cycles_per_bit(std::uint64_t cpu_hz) const;
 	std::size_t bit_count() const noexcept { return m_bits.size(); }
+	unsigned bit_rate() const noexcept { return m_fix.bit_rate_bps; }
+	std::vector<std::uint8_t> track2_wire_bits() const;
 	bool lrc_ok() const noexcept { return m_lrc_ok; }
 
 	bool swipe_active(std::uint64_t cycle) const;

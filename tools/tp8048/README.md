@@ -1,64 +1,34 @@
-# Telephony Co-Processor (TP 8048) Firmware Builder
+# TP 8048 ROM Builder
 
-This directory contains the original behavioural firmware for the telephony
-co-processor used by the CoinLine MAME machine, plus a thin Python wrapper that
-assembles it into a 4 KiB ROM image.
+Builds `firmware/tp_pcd3349a_behavioural.rom` from:
 
-The target chip family is the **PCD3349A**, an MCS-48 / 8048-class
-microcontroller commonly used for terminal-side telephony logic in this class of
-hardware. The assembly here is original code that runs under any MCS-48-compatible
-emulator core; it is *not* a dump of any vendor's mask ROM.
+- `rom/tp_pcd3349a_behavioural.asm` and its companion include
 
-## Layout
+## Usage
 
-```
-tools/tp8048/
-├── build_tp_rom.py         # Cross-assembler driver + deterministic fallback
-├── src/
-│   ├── telephony_subprocessor.asm        # Behavioural TP firmware (MCS-48)
-│   └── telephony_subprocessor_symbols.inc  # Opcodes, ports, state constants
-└── bin/                    # Optional: drop asl/p2bin here to assemble offline
-```
+From repo root:
 
-The build emits `firmware/telephony_subprocessor.rom` (4 KiB) at the repo root.
+`python tools/tp8048/build_tp_rom.py`
 
-## Building
+To build it on Ubuntu using the pinned Macroassembler AS toolchain from CI,
+run `bash tools/tp8048/build-ci-rom.sh build/asl` from the repository root.
 
-From the repo root:
+Without `--allow-placeholder`, the script requires one of:
 
-```bash
-python tools/tp8048/build_tp_rom.py --allow-placeholder
-```
+- Bundled **`third-party/aswcurr/bin/asl.exe`** + **`p2bin.exe`** (preferred on this repo)
+- `asl` + `p2bin` on `PATH`
+- `as8048`
+- `sdas48` + `sdobjcopy`
 
-The script tries real assemblers in this order:
+Assembly runs with the source directory as the working folder so `INCLUDE` resolves (same requirement if invoking ASL manually).
 
-1. `asl` + `p2bin` (Macro Assembler AS) — bundled under `tools/tp8048/bin/` if
-   present, otherwise picked up from `PATH`.
-2. `as8048`
-3. `sdas48` + `sdobjcopy`
+## Output
 
-If none are installed, `--allow-placeholder` writes the same deterministic
-fallback pattern that the C++ TP backend recognises, so acceptance/CI runs
-remain reproducible even on a fresh checkout without an MCS-48 toolchain.
+- Default ROM path: `firmware/tp_pcd3349a_behavioural.rom`
+- Size: 4096 bytes (PCD3349A internal ROM size)
 
-## What the firmware does
+## Note
 
-The TP firmware sits between the main CP (Z180) and the front-panel/handset
-side of the board. It:
+Use the assembled image for firmware acceptance and distributable packages. The optional `--allow-placeholder` flag is for tooling experiments.
 
-- Mirrors keypad and hookswitch state into CP-visible opcodes.
-- Emits boot-ack and steady-state hook bytes with realistic timing.
-- Drives DTMF / dial-tone / NIS-tone intent via HGF/LGF register writes.
-- Handles CP configuration and query commands over the CSI/O byte stream.
-
-See [`docs/tp8048/execution-spec.md`](../../docs/tp8048/execution-spec.md) for
-the full execution and clocking spec, and
-[`docs/tp8048/asm-state-machine.md`](../../docs/tp8048/asm-state-machine.md)
-for the state-machine notes that match the assembly source.
-
-## Quick reference: boot-ack opcode
-
-`QUEUE_BOOT_ACK` mirrors the documented CP↔TP boot opcode contract:
-
-- **P1.7 high (on-hook)** → emits CP `POWER_ON_RESET` (**0x70**).
-- **P1.7 low (off-hook)**  → emits CP `POWER_ON_ACK`   (**0x72**).
+Behavioural `QUEUE_BOOT_ACK`: **P1.7 high (on-hook)** emits CP `POWER_ON_RESET` (**0x70**); **P1.7 low (off-hook)** emits `POWER_ON_ACK` (**0x72**), matching the documented CP↔TP boot opcode contract.

@@ -24,6 +24,7 @@ void millennium_map_program(address_map &map, millennium_state &state)
 			NAME([&state](offs_t offset, u8 data) { state.phys_ram_w(offs_t(0xe0000U + offset), data); }));
 
 	millennium_memory_layout_config const &ly = state.memory_layout();
+	// Extended regions follow the board profile's physical address map.
 	if (ly.nvram_size != 0U)
 		map(ly.nvram_base, ly.nvram_base + ly.nvram_size - 1)
 			.lrw8(

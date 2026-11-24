@@ -1,11 +1,10 @@
+; SPDX-License-Identifier: GPL-2.0-or-later
 ; -----------------------------------------------------------------------------
-; telephony_subprocessor.asm
+; tp_pcd3349a_behavioural.asm
 ;
 ; Behavioral TP firmware for a PCD3349A / MCS-48 backend.
 ;
-; This is an original, deterministic, executable 8048-class firmware. It is
-; NOT a recovered mask ROM image. It runs inside the emulator and preserves
-; the CP-visible TP contract while moving logic out of ad-hoc host C++.
+; This original telephony model runs on the emulated 8048-class core.
 ;
 ; The program assumes the C++ wrapper maps abstract host services into port
 ; callbacks:
@@ -24,7 +23,7 @@
 ;   adjusted. Keep symbols and control flow stable when porting.
 ; -----------------------------------------------------------------------------
 
-        INCLUDE "telephony_subprocessor_symbols.inc"
+        INCLUDE "tp_pcd3349a_symbols.inc"
 
         ORG 000H
 RESET:  JMP START
@@ -68,6 +67,10 @@ START:
         MOV R0,#TONE_MODE
         MOV @R0,A
 
+        ; Make the CP-visible power-on byte available before the Z180 starts its
+        ; telephony config download. TIMER_IRQ keeps a guard so this cannot repeat.
+        CALL QUEUE_BOOT_ACK
+
         EN TCNTI
         ; STRT T required: deferred hook steady bytes (HOOK_SEQ_REM) decrement in TIMER_DONE.
         ; Without a running internal timer, EN TCNTI never vectors and ~80ms hook follow-up never sends.
@@ -89,12 +92,23 @@ MAIN_LOOP:
 ; -----------------------------------------------------------------------------
 EXT_IRQ:
         ; Wrapper should have latched one CP->TP byte into P0 before interrupt.
+        SEL RB1
+        MOV R0,#ISR_A_SAVE
+        MOV @R0,A
         INS A,BUS
         CALL RX_PUSH_A
+        ; Drain the latched CP octet immediately; MAIN_LOOP may not run before the next CP byte.
+        CALL SERVICE_CP_RX
+        MOV R0,#ISR_A_SAVE
+        MOV A,@R0
+        SEL RB0
         RETR
 
 TIMER_IRQ:
-        ; Defer POWER_ON_RESET / POWER_ON_ACK until the timer is running (TP "ready" for IPC timing).
+        SEL RB1
+        MOV R0,#ISR_A_SAVE
+        MOV @R0,A
+        ; Fallback only: startup normally queues POWER_ON_RESET / POWER_ON_ACK before CP config.
         MOV R0,#FLAGS0
         MOV A,@R0
         ANL A,#F_BOOT_ACK_SENT
@@ -130,10 +144,13 @@ TIMER_DONE:
         MOV A,@R0
         CALL TX_PUSH_A
 TD_HOOKSEQ_DONE:
+        MOV R0,#ISR_A_SAVE
+        MOV A,@R0
+        SEL RB0
         RETR
 
 ; -----------------------------------------------------------------------------
-; TELEPHONY CONFIG FRAME (CONTTELC.C) — placed early so internal JZ/JNZ stay
+; TELEPHONY CONFIG FRAME - placed early so internal JZ/JNZ stay
 ; within one 256-byte code page (MCS-48 branch rule).
 ; -----------------------------------------------------------------------------
 ; telephony_config_msg_encode builds a fixed 126-byte frame:
@@ -185,7 +202,34 @@ CFG_DO_ACCEPT_FINISH:
         MOV A,@R0
         ORL A,#F_CFG_ACTIVE
         MOV @R0,A
+        ; Drop any stale POWER_ON / idle ring bytes before exposing CONFIG_ACK on CSI/O.
+        CALL TX_FLUSH
         MOV A,#RESP_CONFIG_ACK
+        CALL TX_PUSH_A
+        ; Boot readiness frames previously came from the legacy host path. Backend B emits them from ROM.
+        MOV A,#0C4H
+        CALL TX_PUSH_A
+        MOV A,#04H
+        CALL TX_PUSH_A
+        MOV A,#00H
+        CALL TX_PUSH_A
+        MOV A,#0C8H
+        CALL TX_PUSH_A
+        MOV A,#0C0H
+        CALL TX_PUSH_A
+        MOV A,#08H
+        CALL TX_PUSH_A
+        MOV A,#00H
+        CALL TX_PUSH_A
+        MOV A,#00H
+        CALL TX_PUSH_A
+        MOV A,#00H
+        CALL TX_PUSH_A
+        MOV A,#00H
+        CALL TX_PUSH_A
+        MOV A,#00H
+        CALL TX_PUSH_A
+        MOV A,#0C8H
         CALL TX_PUSH_A
         CALL MARK_RUNTIME_GOOD
         RET
@@ -200,9 +244,78 @@ CFG_REJECT_FINISH:
         MOV R0,#CFG_NEED
         MOV A,#00H
         MOV @R0,A
-        ; CONTTELC.C: TELEPHONY_CHECKSUM_ERROR prompts telephony_config_update (re-send config).
+        ; CHECKSUM_ERROR prompts telephony_config_update (re-send config).
         MOV A,#TELEPHONY_CHECKSUM_ERROR
         CALL QUEUE_ERROR_REPORT_FRAMED
+        RET
+
+        ORG     0118H               ; Parser stubs after config accept/reject; keep ACK/readiness unoverlapped.
+RX_EMPTY_STUB:
+        JMP     RX_EMPTY            ; was a stale absolute target inside QUEUE_VERSION_FRAME
+RX_POP_STUB:
+        JMP     RX_POP_A            ; was a stale absolute target inside QUEUE_ERROR_REPORT_FRAMED
+
+        ORG     0120H
+
+; -----------------------------------------------------------------------------
+; CP COMMAND PARSER (page 0 — callable from MAIN_LOOP)
+; -----------------------------------------------------------------------------
+SERVICE_CP_RX:
+        ; MCS-48 CALL does not preserve Z; test the ring directly instead of RX_EMPTY_STUB.
+        ; Hold off the byte-ready interrupt across the load/compare/pop. If it runs after
+        ; A has sampled RX_HEAD but before the compare, the ISR consumes that byte and the
+        ; stale A looks non-empty, so the following passes drain the whole ring.
+        DIS I
+        MOV R0,#RX_HEAD
+        MOV A,@R0
+        MOV R0,#RX_TAIL
+        XRL A,@R0
+        JNZ CP_RX_GOT_BYTE
+        EN I
+        RET
+CP_RX_GOT_BYTE:
+        CALL RX_POP_STUB
+        EN I
+        MOV R7,A
+
+        MOV A,R7
+        XRL A,#CMD_CONFIG
+        JNZ CPRX_CHECK_CFG_NEED
+        JMP CP_RX_CFG_HDR
+CPRX_CHECK_CFG_NEED:
+        MOV R0,#CFG_NEED
+        MOV A,@R0
+        JNZ CP_RX_CFG_DATA
+        ; Power-on queries (30h/33h/38h/31h) arrive before any config frame.
+        ; F_LINK_UP is set only after a command completes, so that gate dropped
+        ; the whole query block. Accept commands once QUEUE_BOOT_ACK has run.
+        MOV R0,#FLAGS0
+        MOV A,@R0
+        ANL A,#F_BOOT_ACK_SENT
+        JZ CPRX_LEAVE
+        JMP     0400H
+
+CP_RX_CFG_DATA:
+        MOV A,R7
+        XRL A,#CMD_CONFIG
+        JNZ CPRX_STORE
+        JMP     04E6H
+CPRX_STORE:
+        MOV R0,#CFG_IDX
+        MOV A,@R0
+        ADD A,#CFG_BLK
+        MOV R0,A
+        MOV A,R7
+        MOV @R0,A
+        MOV R0,#CFG_IDX
+        INC @R0
+        MOV R0,#CFG_NEED
+        MOV A,@R0
+        DEC A
+        MOV @R0,A
+        JNZ CPRX_LEAVE
+        CALL    CFG_DO_ACCEPT_FINISH
+CPRX_LEAVE:
         RET
 
         ORG     01C0H
@@ -228,32 +341,89 @@ KEY_BUFFER_APPEND:
         ; Keep last eight logical nibbles for internal trace/craft detector.
         RET
 
-        ORG     0200H               ; CP parser after MAP_KEY/MOVTAB (avoid backward ORG).
+        ORG     0300H               ; MAIN_LOOP CALL 0x74 xx lands on this ROM page.
 
 ; -----------------------------------------------------------------------------
-; CP COMMAND PARSER
+; TONE / DTMF (must live at 0x300 — MAIN_LOOP uses CALL 0x74, low-byte offset)
 ; -----------------------------------------------------------------------------
-; CONTTELC.C telephony_config_msg_encode builds a fixed 126-byte frame:
-;   byte0 = 0xC0 (TELEPHONY_CONFIG_MSG_HDR / CMD_CONFIG)
-;   byte1 = 126   (TELEPHONY_CONFIG_MSG_LENGTH)
-;   bytes2..124   repdial+screen+POTS+dial spd (123 octets summed by CP into byte125)
-;   byte125       sum8 checksum (sum of indices 2..124 inclusive only)
-;
-; While CFG_NEED<>0 bytes are routed only into CFG_BLK continuation (never as hook/status).
-SERVICE_CP_RX:
-        CALL RX_EMPTY
-        JNZ CP_RX_GOT_BYTE
-        RET
-CP_RX_GOT_BYTE:
-        CALL RX_POP_A
-        MOV R7,A
-
-        MOV R0,#CFG_NEED
+UPDATE_TONE_FROM_STATE:
+        ; No dial-tone intent in ROM (voiceware path); OOS SIT/NIS when off-hook + OOS until CP SEIZE relay (3Dh).
+        MOV R0,#FLAGS1
         MOV A,@R0
-        JZ CP_RX_ROUTE_SINGLE
-        JMP CP_RX_CFG_DATA
+        ANL A,#F_HOOK_OFF
+        JNZ UTS_OFFHK
+        MOV A,#TONE_NONE
+        JMP SET_TONE_MODE
+UTS_OFFHK:
+        MOV R0,#FLAGS0
+        MOV A,@R0
+        ANL A,#F_VOICE_ACTIVE
+        JNZ UTS_SILENCE
+        MOV R0,#FLAGS0
+        MOV A,@R0
+        ANL A,#F_FAULT
+        JNZ UTS_NIS
+        MOV R0,#FLAGS0
+        MOV A,@R0
+        ANL A,#F_OOS
+        JZ UTS_SILENCE
+        MOV R0,#RELAY_CP_SEIZED
+        MOV A,@R0
+        JNZ UTS_SILENCE
+        MOV A,#TONE_NIS
+        JMP SET_TONE_MODE
+UTS_SILENCE:
+        MOV A,#TONE_NONE
+        JMP SET_TONE_MODE
+UTS_NIS:
+        MOV A,#TONE_NIS
+SET_TONE_MODE:
+        MOV R0,#TONE_MODE
+        MOV @R0,A
+        RET
 
-CP_RX_ROUTE_SINGLE:
+SERVICE_TONE_INTENT:
+        MOV R0,#TMP3
+        MOV A,@R0
+        ANL A,#TONE_GEN_OFF_Q
+        JNZ STI_SILENT
+        MOV R0,#TONE_MODE
+        MOV A,@R0
+        JNZ STI_NONZERO
+        MOV A,#00H
+        MOV R0,#TONE_MODE
+        MOV @R0,A
+        RET
+STI_NONZERO:
+        ANL A,#0FH
+        XRL A,#TONE_NIS
+        JNZ STI_TRY_DTMF
+        MOV A,#TONE_NIS_HIGH_REG
+        ; MOVD DER_HGF,A
+        MOV A,#TONE_NIS_LOW_REG
+        ; MOVD DER_LGF,A
+        RET
+STI_TRY_DTMF:
+        MOV R0,#TONE_MODE
+        MOV A,@R0
+        ANL A,#0FH
+        XRL A,#TONE_DTMF
+        JNZ STI_RET_INST
+        MOV R0,#TMP1
+        MOV A,@R0
+        ; MOVD DER_LGF,A
+        MOV R0,#TMP2
+        MOV A,@R0
+        ; MOVD DER_HGF,A
+        RET
+STI_SILENT:
+        MOV A,#00H
+        RET
+STI_RET_INST:
+        RET
+
+        ORG     0400H               ; CP command router (was clobbered by duplicate ORG 0300H tone block).
+CP_RX_ROUTE_PAGE3:
         MOV R0,#CP_CMD
         MOV A,R7
         MOV @R0,A
@@ -447,27 +617,6 @@ CP_RX_CFG_HDR:
         MOV @R0,A
         RET
 
-CP_RX_CFG_DATA:
-        ; Store next frame byte; when CFG_NEED hits 0, validate and ACK (or error).
-        MOV R0,#CFG_IDX
-        MOV A,@R0
-        MOV R3,A
-        MOV A,R3
-        ADD A,#CFG_BLK
-        MOV R0,A
-        MOV A,R7
-        MOV @R0,A
-        MOV R0,#CFG_IDX
-        INC @R0
-        MOV R0,#CFG_NEED
-        MOV A,@R0
-        DEC A
-        MOV @R0,A
-        JNZ CPRX_LEAVE
-        CALL CFG_VALIDATE_FINISH
-CPRX_LEAVE:
-        RET
-
 HANDLE_RUNTIME_CONTROL:
         JMP     HRC_BODY
 
@@ -523,10 +672,15 @@ HOOK_SAMPLE_ON:
 HOOK_SAMPLE_OFF:
         MOV A,#F_HOOK_OFF
 HOOK_SAMPLE_APPLY:
+        MOV R1,A
         MOV R0,#HOOK_LAST
+        MOV A,R1
         XRL A,@R0
         JZ HOOK_STABLE_SAME
         ; changed, reset debounce counter
+        MOV R0,#HOOK_LAST
+        MOV A,R1
+        MOV @R0,A
         MOV R0,#HOOK_CNT
         MOV A,#00H
         MOV @R0,A
@@ -536,6 +690,15 @@ HOOK_SAMPLE_APPLY:
         MOV @R0,A
         RET
 HOOK_STABLE_SAME:
+        ; Count matching samples only while this level is not yet the accepted one.
+        ; Once HOOK_LAST equals HOOK_STABLE the edge has already been emitted.
+        MOV R0,#HOOK_LAST
+        MOV A,@R0
+        MOV R1,A
+        MOV R0,#HOOK_STABLE
+        MOV A,@R0
+        XRL A,R1
+        JZ HOOK_DONE
         MOV R0,#HOOK_CNT
         INC @R0
         MOV A,@R0
@@ -548,8 +711,21 @@ HOOK_DONE:
 ACCEPT_HOOK_STATE:
         MOV R0,#HOOK_LAST
         MOV A,@R0
+        MOV R1,A
+        MOV R0,#HOOK_STABLE
+        MOV A,@R0
+        XRL A,R1
+        JZ HOOK_ACCEPT_DONE
+        MOV A,R1
         JZ ACCEPT_ONHOOK
 ACCEPT_OFFHOOK:
+        MOV R0,#HOOK_SEQ_REM
+        MOV A,@R0
+        JNZ HOOK_ACCEPT_DONE
+        MOV R0,#FLAGS1
+        MOV A,@R0
+        ANL A,#F_HOOK_OFF
+        JNZ HOOK_STABLE_SYNC
         MOV R0,#FLAGS1
         MOV A,@R0
         ORL A,#F_HOOK_OFF
@@ -563,8 +739,15 @@ ACCEPT_OFFHOOK:
         MOV A,#HOOK_STATE_DELAY_IRQS
         MOV @R0,A
         CALL UPDATE_TONE_FROM_STATE
-        RET
+        JMP HOOK_STABLE_SYNC
 ACCEPT_ONHOOK:
+        MOV R0,#HOOK_SEQ_REM
+        MOV A,@R0
+        JNZ HOOK_ACCEPT_DONE
+        MOV R0,#FLAGS1
+        MOV A,@R0
+        ANL A,#F_HOOK_OFF
+        JZ HOOK_STABLE_SYNC
         MOV R0,#FLAGS1
         MOV A,@R0
         ANL A,#0FEH
@@ -578,6 +761,14 @@ ACCEPT_ONHOOK:
         MOV A,#HOOK_STATE_DELAY_IRQS
         MOV @R0,A
         CALL UPDATE_TONE_FROM_STATE
+HOOK_STABLE_SYNC:
+        MOV R0,#HOOK_STABLE
+        MOV A,R1
+        MOV @R0,A
+HOOK_ACCEPT_DONE:
+        MOV R0,#HOOK_CNT
+        MOV A,#00H
+        MOV @R0,A
         RET
 
 SAMPLE_KEYPAD:
@@ -593,9 +784,9 @@ SAMPLE_KEYPAD:
         IN A,P2
         MOV R3,A
         ANL A,#030H
-        MOV R5,A
-        ADD A,R5
-        ADD A,R5
+        RL A
+        RL A
+        NOP                         ; Keep the keypad branch addresses stable.
         ORL A,R4
         MOV R1,A
         MOV R0,#KEY_LAST
@@ -613,23 +804,28 @@ PK_SAME:
         INC @R0
         MOV A,@R0
         XRL A,#03H
-        JNZ KEY_DONE
+        JNZ PK_EXIT
         MOV A,R1
         CALL ACCEPT_PACKED_OPCODE
-        JMP KEY_DONE
+PK_EXIT:
+        RET
 SK_LEGACY:
         ; Legacy nibble 0..9 -> DIGTAB (IPCODES wire bytes via MOVP table).
         MOV A,R2
         ANL A,#00FH
         XRL A,#00FH
-        JZ NO_KEY_SAMPLE
+        JNZ SK_HAS_NIBBLE
+        JMP NO_KEY_SAMPLE
+SK_HAS_NIBBLE:
         MOV A,R2
         ANL A,#00FH
         MOV R1,A
         MOV R0,#KEY_LAST
         MOV A,@R0
         XRL A,R1
-        JZ KEY_SAME
+        JNZ SK_KEY_CHANGED
+        JMP KEY_SAME
+SK_KEY_CHANGED:
         MOV A,R1
         MOV @R0,A
         MOV R0,#KEY_CNT
@@ -649,16 +845,28 @@ KEY_DONE:
 NO_KEY_SAMPLE:
         MOV R0,#KEY_HELD
         MOV A,@R0
-        JZ NO_KEY_DONE
+        JZ KEY_DONE
         MOV A,#KEY_RELEASE
         CALL TX_PUSH_A
         MOV R0,#KEY_HELD
         MOV A,#00H
         MOV @R0,A
-NO_KEY_DONE:
+        ; Drop the last accepted code so the same key can be pressed again.
+        MOV R0,#KEY_STABLE
+        MOV A,#0FFH
+        MOV @R0,A
         RET
 
 ACCEPT_PACKED_OPCODE:
+        MOV R0,#KEY_STABLE
+        MOV A,R1
+        XRL A,@R0
+        JZ APC_DONE
+        MOV A,R1
+        MOV @R0,A
+        MOV R0,#KEY_CNT
+        MOV A,#00H
+        MOV @R0,A
         MOV A,R1
         CALL TX_PUSH_A
         CALL KEY_BUFFER_APPEND
@@ -667,11 +875,22 @@ ACCEPT_PACKED_OPCODE:
         MOV @R0,A
         MOV A,R1
         CALL UPDATE_TONE_FOR_DTMF_KEY
+APC_DONE:
         RET
 
 ACCEPT_KEY_NIBBLE:
         ; Nibble 0..9 maps to KEY_0..KEY_9 (IPCODES wire values via DIGTAB).
         MOV R2,A
+        MOV R0,#KEY_STABLE
+        MOV A,R2
+        XRL A,@R0
+        JZ AKN_DONE
+        MOV A,R2
+        MOV @R0,A
+        MOV R0,#KEY_CNT
+        MOV A,#00H
+        MOV @R0,A
+        MOV A,R2
         CALL MAP_KEY_NIBBLE_TO_OPCODE
         CALL TX_PUSH_A
         CALL KEY_BUFFER_APPEND
@@ -679,6 +898,7 @@ ACCEPT_KEY_NIBBLE:
         MOV A,#01H
         MOV @R0,A
         CALL UPDATE_TONE_FOR_DTMF_KEY
+AKN_DONE:
         RET
 
 ; -----------------------------------------------------------------------------
@@ -691,6 +911,7 @@ MARK_RUNTIME_GOOD:
         MOV R0,#FLAGS0
         MOV A,@R0
         ORL A,#F_READY
+        ORL A,#F_LINK_UP
         ANL A,#0F7H                ; clear F_FAULT
         MOV @R0,A
         MOV R0,#TP_STATE
@@ -735,6 +956,8 @@ QUEUE_BOOT_ACK:
 BOOT_QUEUE_ACK:
         MOV A,#RESP_BOOT_PWRON_ACK
 BOOT_QUEUE_PUSH:
+        ; Expose POWER_ON_* on P0 immediately; MAIN_LOOP SERVICE_TX may not run before CP config.
+        OUTL BUS,A
         CALL TX_PUSH_A
         MOV R0,#FLAGS0
         MOV A,@R0
@@ -746,7 +969,7 @@ BOOT_QUEUE_PUSH:
         RET
 
 QUEUE_STATUS_FRAME:
-        ; TELEPHONY_STATUS (0xC0): CONTTELC.C telephony_misc_msg_decode — 2nd byte == TELEPHONY_STATUS_MSG_LENGTH (8).
+        ; TELEPHONY_STATUS (0xC0): - 2nd byte == TELEPHONY_STATUS_MSG_LENGTH (8).
         ; Frame = opcode + len + 5-byte TELEPHONY_STATUS body + checksum; chk = ip_rx_code + len + sum(body) mod 256.
         MOV A,#FRAME_STATUS
         CALL TX_PUSH_A
@@ -767,7 +990,7 @@ QUEUE_STATUS_FRAME:
         RET
 
         ; TELEPHONY_VERSION_NUMBER (0xC2): 2nd byte == TEL_VERSION_NUM_MSG_LENGTH (14); payload = 14-3 = 11 bytes.
-        ; Label-style ASCII "0772470" + NUL pad to 11; chk = opcode + len + sum(payload) mod 256 (CONTTELC.C).
+        ; Label-style ASCII "0772470" + NUL pad to 11; chk = opcode + len + sum(payload) mod 256 (telephony control interface).
 QUEUE_VERSION_FRAME:
         MOV A,#FRAME_EXT_STATUS
         CALL TX_PUSH_A
@@ -800,7 +1023,7 @@ QUEUE_VERSION_FRAME:
         RET
 
         ; TELEPHONY_ERROR_REPORT (0xC4): 2nd byte == TEL_ERROR_REPORT_MSG_LENGTH (4); body = status + checksum.
-        ; checksum = ip_rx_code + len + status (mod 256) per telephony_misc_msg_decode (CONTTELC.C).
+        ; checksum = ip_rx_code + len + status (mod 256)
 QUEUE_ERROR_REPORT_FRAMED:
         MOV R2,A                   ; status octet
         MOV A,#FRAME_ERROR_REPORT
@@ -846,90 +1069,15 @@ EMIT_ON:
         MOV @R0,A
         RET
 
-        ORG     0300H               ; Keep tone + SERVICE_TONE_INTENT branch chains on one 256-byte ROM page.
-
-; -----------------------------------------------------------------------------
-; TONE / DTMF
-; -----------------------------------------------------------------------------
-UPDATE_TONE_FROM_STATE:
-        ; No dial-tone intent in ROM (voiceware path); OOS SIT/NIS when off-hook + OOS until CP SEIZE relay (3Dh).
-        MOV R0,#FLAGS1
-        MOV A,@R0
-        ANL A,#F_HOOK_OFF
-        JNZ UTS_OFFHK
-        MOV A,#TONE_NONE
-        JMP SET_TONE_MODE
-UTS_OFFHK:
-        MOV R0,#FLAGS0
-        MOV A,@R0
-        ANL A,#F_VOICE_ACTIVE
-        JNZ UTS_SILENCE
-        MOV R0,#FLAGS0
-        MOV A,@R0
-        ANL A,#F_FAULT
-        JNZ UTS_NIS
-        MOV R0,#FLAGS0
-        MOV A,@R0
-        ANL A,#F_OOS
-        JZ UTS_SILENCE
-        MOV R0,#RELAY_CP_SEIZED
-        MOV A,@R0
-        JNZ UTS_SILENCE
-        MOV A,#TONE_NIS
-        JMP SET_TONE_MODE
-UTS_SILENCE:
-        MOV A,#TONE_NONE
-        JMP SET_TONE_MODE
-UTS_NIS:
-        MOV A,#TONE_NIS
-SET_TONE_MODE:
-        MOV R0,#TONE_MODE
-        MOV @R0,A
-        RET
-
-SERVICE_TONE_INTENT:
-        MOV R0,#TMP3
-        MOV A,@R0
-        ANL A,#TONE_GEN_OFF_Q
-        JNZ STI_SILENT
-        MOV R0,#TONE_MODE
-        MOV A,@R0
-        JNZ STI_NONZERO
-        MOV A,#00H
-        MOV R0,#TONE_MODE
-        MOV @R0,A
-        RET
-STI_NONZERO:
-        ANL A,#0FH
-        XRL A,#TONE_NIS
-        JNZ STI_TRY_DTMF
-        MOV A,#TONE_NIS_HIGH_REG
-        ; MOVD DER_HGF,A
-        MOV A,#TONE_NIS_LOW_REG
-        ; MOVD DER_LGF,A
-        RET
-STI_TRY_DTMF:
-        MOV R0,#TONE_MODE
-        MOV A,@R0
-        ANL A,#0FH
-        XRL A,#TONE_DTMF
-        JNZ STI_RET_INST
-        MOV R0,#TMP1
-        MOV A,@R0
-        ; MOVD DER_LGF,A
-        MOV R0,#TMP2
-        MOV A,@R0
-        ; MOVD DER_HGF,A
-        RET
-STI_SILENT:
-        MOV A,#00H
-        RET
-STI_RET_INST:
-        RET
-
 UPDATE_TONE_FOR_DTMF_KEY:
         MOV R3,A
-        CALL SET_DTMF_FROM_PAD_OPCODE
+        ; Do not call the upper-bank helper from here. The assembler encodes that
+        ; call as a bank select plus a call, and the select stays latched, so the
+        ; scan never returns to this bank after the first digit. Three no-ops keep
+        ; the following addresses stable.
+        NOP
+        NOP
+        NOP
         MOV R0,#TONE_MODE
         MOV A,#TONE_DTMF
         MOV @R0,A
@@ -947,6 +1095,15 @@ RX_EMPTY:
 
 RX_PUSH_A:
         MOV R1,A
+        MOV A,R1
+        XRL A,#0FFH
+        JNZ RX_PUSH_STORE
+        ; Idle open-bus is 0xFF, but a config frame's payload legally contains 0xFF.
+        ; Dropping those octets leaves CFG_NEED nonzero, so the frame never completes.
+        MOV R0,#CFG_NEED
+        MOV A,@R0
+        JZ RX_PUSH_DROP
+RX_PUSH_STORE:
         MOV R0,#RX_HEAD
         MOV A,@R0
         ADD A,#RX_BUF
@@ -958,6 +1115,8 @@ RX_PUSH_A:
         MOV A,@R0
         ANL A,#0FH
         MOV @R0,A
+        RET
+RX_PUSH_DROP:
         RET
 
 RX_POP_A:
@@ -991,6 +1150,18 @@ TX_PUSH_A:
         MOV R0,#FLAGS0
         MOV A,@R0
         ORL A,#F_TX_PENDING
+        MOV @R0,A
+        RET
+
+TX_FLUSH:
+        ; Empty the TP→CP ring without touching BUS (host presents one CSI/O byte per CP clock).
+        MOV R0,#TX_HEAD
+        MOV A,@R0
+        MOV R0,#TX_TAIL
+        MOV @R0,A
+        MOV R0,#FLAGS0
+        MOV A,@R0
+        ANL A,#0BFH
         MOV @R0,A
         RET
 
@@ -1083,6 +1254,8 @@ SET_DTMF_FROM_PAD_OPCODE:
         MOV R4,A
         CALL LOAD_DTMF_FROM_INDEX
 SF_RET:
+        ; Caller entered this bank with SEL MB1 and does not switch back.
+        SEL MB0
         RET
 
 HRC_BODY:
@@ -1107,6 +1280,7 @@ HRC_BODY:
         MOV A,#TONE_DTMF
         MOV @R0,A
 HRCX_RET:
+        SEL MB0
         RET
 HRC_AFTER_CP_DTMF:
         MOV A,R3
@@ -1128,7 +1302,7 @@ HRC_AFTER_CP_DTMF:
         ADD A,#0E0H
         MOV R0,#VOL_IDX
         MOV @R0,A
-        RET
+        JMP HRCX_RET
 HRC_AFTER_PV:
         MOV A,R3
         XRL A,#024H
@@ -1156,14 +1330,14 @@ HRC_AFTER_PV:
         ANL A,#0FH
         ORL A,R7
         MOV @R0,A
-        RET
+        JMP HRCX_RET
 HRC_VOL_DOWN:
         MOV R0,#VOL_IDX
         MOV A,@R0
         JZ HRCX_RET
         DEC A
         MOV @R0,A
-        RET
+        JMP HRCX_RET
 HRC_VOL_UP:
         MOV R0,#VOL_IDX
         MOV A,@R0
@@ -1171,25 +1345,25 @@ HRC_VOL_UP:
         JZ HRCX_RET
         INC A
         MOV @R0,A
-        RET
+        JMP HRCX_RET
 HRC_PAD_DIS:
         MOV R0,#TMP3
         MOV A,@R0
         ORL A,#P_PAD_DTMF_DIS
         MOV @R0,A
-        RET
+        JMP HRCX_RET
 HRC_PAD_EN:
         MOV R0,#TMP3
         MOV A,@R0
         ANL A,#0FEH
         MOV @R0,A
-        RET
+        JMP HRCX_RET
 HRC_TONE_OFF:
         MOV R0,#TMP3
         MOV A,@R0
         ORL A,#TONE_GEN_OFF_Q
         MOV @R0,A
-        RET
+        JMP HRCX_RET
 HRC_TAIL_TONE:
         CALL UPDATE_TONE_FROM_STATE
         RET

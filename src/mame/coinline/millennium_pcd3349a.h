@@ -17,6 +17,7 @@ public:
 
 	struct front_panel_result {
 		std::vector<std::uint8_t> tp_events;
+		std::vector<std::uint8_t> tp_bytes;
 		bool hook_changed = false;
 		bool hook_onhook = true;
 	};
@@ -36,12 +37,13 @@ public:
 	std::vector<std::uint8_t> handle_cp_to_tp_byte(std::uint8_t byte, bool hook_onhook_stable);
 
 	tone_mode compute_tone_mode(bool off_hook, bool rx_open, bool voice_active, bool oos_mode) const noexcept;
+	std::uint8_t tone_hgf() const noexcept { return m_tp.tone_hgf(); }
+	std::uint8_t tone_lgf() const noexcept { return m_tp.tone_lgf(); }
 
 private:
 	millennium_am8048_core m_core;
 	coinline::tp8048::pcd3349a_contract m_tp{ m_core };
 	std::uint32_t m_last_keymatrix = 0U;
-	std::uint32_t m_last_linectrl = 0U;
 	std::uint32_t m_last_softkeys = 0U;
 	std::uint64_t m_hook_last_transition_cycle = 0ULL;
 	bool m_hook_onhook = true;

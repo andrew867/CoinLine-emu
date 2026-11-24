@@ -3,6 +3,7 @@
 
 #include "millennium_voiceware_phrase_lookup.h"
 
+#include <algorithm>
 #include <array>
 
 int main()
@@ -31,6 +32,14 @@ int main()
 
 	if (coinline_voiceware_lookup_phrase_for_upd7759(bank0.data(), std::uint32_t(bank0.size()), 0x00U, 0x01U, bad))
 		return 4;
+
+	std::array<std::uint8_t, 0x40000> rom{};
+	std::copy(bank0.begin(), bank0.end(), rom.begin());
+	std::copy(bank0.begin(), bank0.end(), rom.begin() + bank0.size());
+	if (!coinline_voiceware_lookup_phrase_for_upd7759(rom.data(), std::uint32_t(rom.size()), 0x01U, 0x00U, out))
+		return 5;
+	if (!out.ok || out.upd_sample_index != 0U || out.segment_base_abs != 0x20000U)
+		return 6;
 
 	return 0;
 }

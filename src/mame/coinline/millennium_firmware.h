@@ -26,3 +26,7 @@ bool millennium_board_parse_strict_hash(std::string const &board_json, bool &str
 // If strict: sha256 must appear in firmware-hashes.json entries[].sha256_hex (substring match scan).
 millennium_firmware_validate_result millennium_validate_firmware(std::vector<std::uint8_t> const &bytes,
 	std::string const &board_json_text, std::string const &firmware_hashes_json_text);
+
+// Hash-list field "motherboard": "earlier" selects the PIO-at-0x40 board decode. Absent means later.
+bool millennium_firmware_hash_is_earlier_motherboard(std::string const &firmware_hashes_json_text,
+	std::string const &sha256_hex);

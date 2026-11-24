@@ -710,9 +710,10 @@ bool millennium_voiceware_device::decode_phrase(std::uint8_t phrase)
 
 void millennium_voiceware_device::write_hw_control(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle)
 {
-	// Board-level voice reset control is inverted before reaching the uPD7759 /RESET pin.
-	// Keep chip-level behavior active-low via reset_w(0)=asserted below.
-	bool const rst = (data & VOICE_RESET_MASK) != 0U;
+	// Control-latch bit 3 is active-low. Clear holds the synthesizer in reset; set releases
+	// it. Phrase writes are issued only after the bit is set, so treating a set bit as reset
+	// drops every prompt. Chip /RESET stays active-low via reset_w(0).
+	bool const rst = (data & VOICE_RESET_MASK) == 0U;
 	bool const was_reset = m_reset_asserted;
 	if (rst != m_reset_asserted)
 		emit_row("voice_reset_edge", cpu_cycle, pc, 0x40, 'w', data, nullptr);
@@ -783,7 +784,7 @@ std::uint8_t millennium_voiceware_device::read_phrase_port(std::uint16_t pc, std
 	return bus_value;
 }
 
-void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle)
+bool millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle)
 {
 	u16 const sp = u16(m_z180->state_int(Z180_SP) & 0xffffU);
 	if (m_stream)
@@ -792,7 +793,7 @@ void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 	if (m_reset_asserted) {
 		m_last_phrase = data;
 		emit_row("voice_fault_reset_active", cpu_cycle, pc, 0x61, 'w', data, nullptr);
-		return;
+		return false;
 	}
 	if (!m_bank_latched) {
 		m_bank = 0;
@@ -831,7 +832,7 @@ void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 			   "COINLINE_VOICEWARE_RETRIGGER_POLICY=allow to model lab restarts";
 		millennium_audio_trace_emit_voiceware_row(millennium_audio_trace_voiceware_phrase_detail_json(tr));
 		m_audio_route->notify_voice_active(true);
-		return;
+		return false;
 	}
 
 	m_last_phrase = data;
@@ -867,7 +868,7 @@ void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 			m_phrase_pos = 0;
 			millennium_audio_trace_emit_voiceware_row(millennium_audio_trace_voiceware_phrase_detail_json(tr));
 			m_audio_route->notify_voice_active(false);
-			return;
+			return false;
 		}
 		coinline_voiceware_phrase_lookup_result lr{};
 		if (!coinline_voiceware_lookup_phrase_for_upd7759(vr->base(), u32(vr->bytes()), m_bank & 0x0fU, data, lr)) {
@@ -885,7 +886,7 @@ void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 					[](std::int16_t sample) { return sample != 0; });
 				millennium_audio_trace_emit_voiceware_row(millennium_audio_trace_voiceware_phrase_detail_json(tr));
 				m_audio_route->notify_voice_active(decoded);
-				return;
+				return decoded;
 			}
 			tr.execution_path = k_voiceware_exec_core;
 			phrase_trace_attach_rom_fingerprint(tr);
@@ -897,7 +898,7 @@ void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 			m_phrase_pos = 0;
 			millennium_audio_trace_emit_voiceware_row(millennium_audio_trace_voiceware_phrase_detail_json(tr));
 			m_audio_route->notify_voice_active(false);
-			return;
+			return false;
 		}
 		m_phrase_pcm.clear();
 		m_phrase_pos = 0;
@@ -914,7 +915,7 @@ void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 		tr.audio_non_silent = false;
 		millennium_audio_trace_emit_voiceware_row(millennium_audio_trace_voiceware_phrase_detail_json(tr));
 		m_audio_route->notify_voice_active(true);
-		return;
+		return true;
 	}
 
 	decoded = decode_phrase(data);
@@ -932,6 +933,7 @@ void millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 	millennium_audio_trace_emit_voiceware_row(millennium_audio_trace_voiceware_phrase_detail_json(tr));
 
 	m_audio_route->notify_voice_active(decoded);
+	return decoded;
 }
 
 bool millennium_voiceware_device::playing() const noexcept

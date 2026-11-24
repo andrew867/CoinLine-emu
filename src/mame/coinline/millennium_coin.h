@@ -2,12 +2,13 @@
 #pragma once
 
 #include "emu.h"
+#include "diserial.h"
 
 #include "millennium_coin_model.h"
 
 DECLARE_DEVICE_TYPE(MILLENNIUM_COIN, millennium_coin_device)
 
-class millennium_coin_device : public device_t {
+class millennium_coin_device : public device_t, private device_buffered_serial_interface<16> {
 public:
 	millennium_coin_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock = 0);
 
@@ -24,9 +25,14 @@ public:
 	void inject_reject_route(std::uint64_t cpu_cycle);
 
 	void set_cpu_hz(std::uint64_t hz) noexcept { m_model.set_cpu_hz(hz); }
+	void rxd_w(int state) { rx_w(state); }
+	auto txd_handler() { return m_txd.bind(); }
 
 	millennium_coin_model &model() noexcept { return m_model; }
 
 private:
+	void received_byte(u8 data) override;
+	void tra_callback() override;
+	devcb_write_line m_txd;
 	millennium_coin_model m_model{};
 };

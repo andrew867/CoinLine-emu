@@ -41,13 +41,12 @@ int main()
 		return 1;
 	}
 
-	std::string const report = read_text(root() / "build/generated/z180-internal-readback-regression.json");
-	if (report.empty()) {
-		// Evidence is produced by a MAME-backed run; skip when running the
-		// CMake-only suite without a MAME binary.
-		std::cerr << "skipping: Z180 readback regression report not generated\n";
+	auto const report_path = root() / "build/generated/z180-internal-readback-regression.json";
+	if (!std::filesystem::exists(report_path)) {
+		std::cerr << "skip: MAME readback regression report is absent\n";
 		return 77;
 	}
+	std::string const report = read_text(report_path);
 	for (char const *needle : { "\"0x0034\"", "\"z180_itc\"", "\"0x38\": 3045", "\"0x003F\"", "\"z180_iocr\"" }) {
 		if (!contains(report, needle)) {
 			std::cerr << "ITC/IOCR readback report missing " << needle << "\n";

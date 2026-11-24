@@ -83,6 +83,32 @@ int main()
 		}
 	}
 
+	m.reset();
+	if (m.uart_command('g') != std::vector<std::uint8_t>{'A'} ||
+		m.uart_command('r') != std::vector<std::uint8_t>{'B', 0, 0} || m.uart_insert(5)) {
+		std::cerr << "validator wake, poll, or idle acceptance failed\n";
+		return 12;
+	}
+	m.uart_command('d');
+	m.uart_command('2');
+	m.uart_command('x');
+	if (m.uart_insert(10) || m.uart_insert(5) != '1' || m.uart_insert(25) || !m.escrow_present()) {
+		std::cerr << "validator did not respect disabled window or one-coin mode\n";
+		return 13;
+	}
+	m.uart_command('e');
+	m.uart_command('2');
+	m.uart_command('a');
+	if (m.uart_insert(10) != '2' || m.uart_insert(25) != '3') {
+		std::cerr << "validator reported incorrect slot numbers\n";
+		return 14;
+	}
+	m.uart_command('f');
+	if (m.escrow_present()) {
+		std::cerr << "validator refund left coins in escrow\n";
+		return 15;
+	}
+
 	std::cout << "coin_validator_protocol_vectors ok\n";
 	return 0;
 }

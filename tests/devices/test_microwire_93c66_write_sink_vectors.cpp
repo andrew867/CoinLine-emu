@@ -15,7 +15,7 @@ static_assert(millennium_eprm_command_body11(0x30, 0) == 0x180);
 static_assert(millennium_eprm_command_body11(0x40, 0) == 0x200);
 static_assert(millennium_eprm_command_body11(0x40, 10) == 0x20a);
 static_assert(millennium_eprm_command_body11(0x80, 10) == 0x40a);
-// Driver SR seed maps the reference 11-bit body11 encoding to the on-wire command (see millennium_eprm_command.h).
+// Driver SR seed maps EPRMASM pack to on-wire 11-bit command (see millennium_eprm_command.h).
 inline constexpr std::uint16_t eprm_to_wire_body11(std::uint16_t eprm_body11)
 {
 	return static_cast<std::uint16_t>(0x400U | ((eprm_body11 >> 1U) & 0x3ffU));
@@ -23,7 +23,7 @@ inline constexpr std::uint16_t eprm_to_wire_body11(std::uint16_t eprm_body11)
 static_assert(eprm_to_wire_body11(millennium_eprm_command_body11(0x40, 0)) == 0x500);
 static_assert(eprm_to_wire_body11(millennium_eprm_command_body11(0x40, 10)) == 0x505);
 static_assert(eprm_to_wire_body11(millennium_eprm_command_body11(0x80, 10)) == 0x605);
-// Erase/write-enable opcode high nibble (0x30) merged with C — driver accepts the full 0x4C0..0x4FF wire family.
+// EEPROM_EWEN_OPC (0x30) + merged C — driver accepts full 0x4C0..0x4FF EPRMASM wire family.
 static_assert(eprm_to_wire_body11(millennium_eprm_command_body11(0x30, 0)) == 0x4c0);
 static_assert(eprm_to_wire_body11(millennium_eprm_command_body11(0x30, 0x55)) == 0x4ea);
 
@@ -32,7 +32,7 @@ namespace {
 bool di_bits_for_body11(unsigned body11, bool bits_out[11])
 {
 	// Invert the driver SR (START seed + 11 edges): find DI[0..10] such that (sr>>1)&0x7FF == body11.
-	// Bit i is the i-th rising edge after START; same search pattern as earlier bring-up tests.
+	// Bit i is the i-th rising edge after START; same search pattern as pre-EPRMASM bring-up tests.
 	for (std::uint32_t mask = 0; mask < (1U << 11U); ++mask) {
 		std::uint32_t sr = 1U;
 		for (unsigned i = 0; i < 11U; ++i) {
@@ -131,7 +131,7 @@ int main()
 
 	if (!send_command_body(e, pb, eprm_to_wire_body11(millennium_eprm_command_body11(0x80, 10)))) // READ word 5
 		return 3;
-	// Match host read sequence: sample DO then toggle SK, 17 times (1 dummy + 16 data).
+	// Match EPRMASM eprm_in_word: sample DO then toggle SK, 17 times (dummy + 16 data).
 	std::uint16_t acc = 0;
 	for (unsigned k = 0; k < 17U; ++k) {
 		bool const b = e.serial_out();
@@ -147,7 +147,7 @@ int main()
 		return 1;
 	}
 
-	// Erase/write-enable opcode path: wire image 0x4C0.. (not only the legacy 0x44a).
+	// IODEFS EEPROM_EWEN_OPC path: wire image 0x4C0.. (not only legacy 0x44a).
 	e.reset();
 	e.set_chip_select(true);
 	pb = 0;

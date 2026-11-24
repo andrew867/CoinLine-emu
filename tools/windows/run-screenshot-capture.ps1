@@ -38,8 +38,8 @@ param(
     [int] $CaptureIntervalMs = 1000,
     [string] $MameExe = '',
     [string] $BoardProfile = 'fixtures/board/board-profile-2line-vfd.json',
-    [string] $VoiceRomU16 = '../firmware/voice_a.bin',
-    [string] $VoiceRomU26 = '../firmware/voice_b.bin',
+    [string] $VoiceRomU16 = '../firmware/voice_u16.bin',
+    [string] $VoiceRomU26 = '../firmware/voice_u26.bin',
     [ValidateSet('banked_two_roms', 'u16_u26_concat', 'u26_u16_concat', 'u16_only', 'u26_only')]
     [string] $VoiceRomLayout = 'banked_two_roms',
     [switch] $EnableAudio,
@@ -47,7 +47,7 @@ param(
     [switch] $AudioTrace,
     [switch] $VoicewareTrace,
     [switch] $RealInputDemo,
-    [ValidateSet('fast', 'm6', 'uart', 'voice', 'full', 'tp_timing')]
+    [ValidateSet('fast', 'm6', 'uart', 'voice', 'full', 'tp_timing', 'craft')]
     [string] $TraceProfile = 'fast',
     # Per-run MAME NVRAM directory (battery-backed device save). Default: <OutputDir>/nvram
     [string] $NvramDirectory = '',
@@ -112,8 +112,8 @@ if ($VoiceRomLayout -ne 'banked_two_roms') {
 }
 if (-not (Test-Path -LiteralPath $VoiceRomU16)) { throw "VoiceRomU16 not found: $VoiceRomU16" }
 if (-not (Test-Path -LiteralPath $VoiceRomU26)) { throw "VoiceRomU26 not found: $VoiceRomU26" }
-Copy-Item -LiteralPath $VoiceRomU16 -Destination (Join-Path $mameShortNameDir 'voice_a.bin') -Force
-Copy-Item -LiteralPath $VoiceRomU26 -Destination (Join-Path $mameShortNameDir 'voice_b.bin') -Force
+Copy-Item -LiteralPath $VoiceRomU16 -Destination (Join-Path $mameShortNameDir 'voice_u16.bin') -Force
+Copy-Item -LiteralPath $VoiceRomU26 -Destination (Join-Path $mameShortNameDir 'voice_u26.bin') -Force
 $i16 = Get-Item -LiteralPath $VoiceRomU16
 $i26 = Get-Item -LiteralPath $VoiceRomU26
 $h16 = Get-CoinlineSha256 $VoiceRomU16
@@ -121,8 +121,8 @@ $h26 = Get-CoinlineSha256 $VoiceRomU26
 $voicewareRomsDoc = [ordered]@{
     schema_version = 'coinline.voiceware_roms/v1'
     layout         = $VoiceRomLayout
-    u16            = @{ path = $VoiceRomU16; size = $i16.Length; sha256 = $h16; staged_as = 'cl_millennium/voice_a.bin' }
-    u26            = @{ path = $VoiceRomU26; size = $i26.Length; sha256 = $h26; staged_as = 'cl_millennium/voice_b.bin' }
+    u16            = @{ path = $VoiceRomU16; size = $i16.Length; sha256 = $h16; staged_as = 'cl_millennium/voice_u16.bin' }
+    u26            = @{ path = $VoiceRomU26; size = $i26.Length; sha256 = $h26; staged_as = 'cl_millennium/voice_u26.bin' }
     mame_rompath   = $runRomPath
     mame_set_dir   = $mameShortNameDir
 }
@@ -131,7 +131,7 @@ $voicewareRomsDoc | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $genDir 'vo
 [ordered]@{
     schema_version             = 'coinline.voicew_region/v1'
     voicew_region_size_bytes   = 0x200000
-    rom_load_order             = @('voice_a.bin@0x000000', 'voice_b.bin@0x100000')
+    rom_load_order             = @('voice_u16.bin@0x000000', 'voice_u26.bin@0x100000')
     banked_two_roms_interpretation = '16 banks: banks 0-7 map to U16, banks 8-15 map to U26 (128 KiB each)'
 } | ConvertTo-Json | Set-Content (Join-Path $OutputDir 'voiceware-region-report.json') -Encoding UTF8
 
@@ -200,6 +200,7 @@ $m6Profile = ($TraceProfile -eq 'm6')
 $uartProfile = ($TraceProfile -eq 'uart')
 $voiceProfile = ($TraceProfile -eq 'voice')
 $tpTimingProfile = ($TraceProfile -eq 'tp_timing')
+$craftProfile = ($TraceProfile -eq 'craft')
 if ($fullProfile -and $env:COINLINE_TRACE_STACK -eq '1') {
     $env:COINLINE_STACK_TRACE = (Join-Path $OutputDir 'stack-trace.jsonl')
 }
@@ -225,7 +226,15 @@ if ($fullProfile -or $uartProfile -or $tpTimingProfile) {
     $env:COINLINE_TELEPHONY_RX_BUFFER_TRACE = (Join-Path $OutputDir 'telephony-rx-buffer-trace.jsonl')
     $env:COINLINE_TELEPHONY_PARSER_TRACE = (Join-Path $OutputDir 'telephony-parser-trace.jsonl')
 }
-if ($fullProfile -or $uartProfile -or $m6Profile -or $voiceProfile -or $tpTimingProfile) {
+if ($craftProfile) {
+    # Craft validator only consumes: telephony-board, tp-readiness-sequence, display-queue,
+    # tp-8048-cp-protocol (fallback), and the panel/keypad/craft-gate paths below.
+    $env:COINLINE_TELEPHONY_BOARD_TRACE = (Join-Path $OutputDir 'telephony-board-trace.jsonl')
+    $env:COINLINE_TP_READINESS_SEQUENCE_TRACE = (Join-Path $OutputDir 'tp-readiness-sequence-trace.jsonl')
+    $env:COINLINE_DISPLAY_QUEUE_TRACE = (Join-Path $OutputDir 'display-queue-trace.jsonl')
+    $env:COINLINE_TP_8048_CP_PROTOCOL_TRACE = (Join-Path $OutputDir 'tp-8048-cp-protocol-trace.jsonl')
+}
+if ($fullProfile -or $uartProfile -or $m6Profile -or $voiceProfile -or $tpTimingProfile -or $craftProfile) {
     $env:COINLINE_TRACE_PANEL = '1'
     $env:COINLINE_FRONT_PANEL_TRACE = (Join-Path $OutputDir 'front-panel-trace.jsonl')
     $env:COINLINE_FRONT_PANEL_INPUT_SOURCE_TRACE = (Join-Path $OutputDir 'front-panel-input-source-trace.jsonl')
@@ -283,8 +292,12 @@ if ($env:COINLINE_TRACE_AUDIO -eq '1' -or $AudioTrace) {
     $env:COINLINE_ALERTER_TRACE = $altTracePath
 }
 $env:COINLINE_BOOT_TRACE = $bootTrace
-$env:COINLINE_IO_TRACE = $ioTrace
-$env:COINLINE_UNKNOWN_PORT_LOG = $unknownPort
+# Craft profile: skip io-trace.jsonl + unknown-port.jsonl (high-volume sync IO that throttles MAME).
+# The craft validator does not consume io-trace; vfd/tp-cp-keypad/craft-entry-gate cover the gates.
+if (-not $craftProfile) {
+    $env:COINLINE_IO_TRACE = $ioTrace
+    $env:COINLINE_UNKNOWN_PORT_LOG = $unknownPort
+}
 if ($fullProfile) {
     $env:COINLINE_MEMORY_TRACE = $memTrace
     $env:COINLINE_CPU_TRACE = $cpuTrace
@@ -412,28 +425,53 @@ if ($RealInputDemo) {
             # Run acceptance interaction later so firmware has time to settle into OOS/service state.
             $fHook = [int][Math]::Min([Math]::Max(2400, $fHook), 3000)
             if ($craftOnlyMode) {
-                # A6-focused loop: stay on-hook, but defer keypad sequence until OOS/TP-ready has time to settle.
-                $fHook = [int][Math]::Min([Math]::Max(3000, $fHook), 3400)
+                # Craft entry matches cabinet flow: wait on OOS, dwell, sustained hook off, hook on, then 2727378.
+                # Boot/config are ~fixed emulated time; OOS appears ~frame 6000 in a 100s reference run, so scale by 100/RunSeconds.
+                $craftHookFrame = 0
+                if ($env:COINLINE_CRAFT_HOOK_FRAME -match '^\d+$') { $craftHookFrame = [int]$env:COINLINE_CRAFT_HOOK_FRAME }
+                if ($craftHookFrame -le 0) {
+                    $postOosSec = 25.0
+                    if ($env:COINLINE_CRAFT_POST_OOS_SEC -match '^\d+(\.\d+)?$') { $postOosSec = [double]$env:COINLINE_CRAFT_POST_OOS_SEC }
+                    # OOS banner stabilizes near cp_cycle 76M in throttled craft runs (~frame 600 @ 60fps / 12.288MHz).
+                    $oosRefCycle = 76078503.0
+                    if ($env:COINLINE_CRAFT_OOS_REF_CYCLE -match '^\d+$') { $oosRefCycle = [double]$env:COINLINE_CRAFT_OOS_REF_CYCLE }
+                    $cpHz = 12288000.0
+                    $frameHz = 60.0
+                    $cyclesPerFrame = $cpHz / $frameHz
+                    $oosAtFrame = [int][Math]::Max(300, [Math]::Floor($oosRefCycle / $cyclesPerFrame))
+                    $postOosFrames = [int][Math]::Floor($postOosSec * $frameHz)
+                    $craftTailFrames = 2200
+                    $craftHookFrame = $oosAtFrame + $postOosFrames
+                    $maxHookStart = [int]($RunSeconds * $frameHz) - $craftTailFrames
+                    if ($craftHookFrame -gt $maxHookStart) { $craftHookFrame = [Math]::Max($oosAtFrame + 300, $maxHookStart) }
+                }
+                $fHook = $craftHookFrame
             }
-            # Short off-hook pulse for acceptance A2/A4 path; craft-only keeps line on-hook.
-            $fOnHook = if ($craftOnlyMode) { $fHook } else { $fHook + 180 }
+            $offHookFrames = 600
+            if ($env:COINLINE_CRAFT_OFFHOOK_SEC -match '^\d+(\.\d+)?$') { $offHookFrames = [int][Math]::Floor([double]$env:COINLINE_CRAFT_OFFHOOK_SEC * 60.0) }
+            # Sustained off-hook before on-hook + install digits (craft needs long off-hook for TP debounce).
+            $fOnHook = $fHook + $(if ($craftOnlyMode) { $offHookFrames } else { 180 })
+            $fDigitStart = if ($craftOnlyMode) { $fOnHook + 180 } else { $fOnHook + 120 }
             # Craft/install: cabinet cfg may already assert lock/door/vault; do not pulse toggles (risks wrong state).
             # Service is non-toggle — hold during the install digit window.
-            $fSecGateStart = $fOnHook + 30
-            $dig = 90
-            $fK2a = $fOnHook + 120
+            $fSecGateStart = $fDigitStart + 30
+            # Real keypress: hold ~120 ms, release ~120 ms. At 60 fps that's 7-8 frames each.
+            # Old craft used 45-frame hold = 750 ms, which the cabinet rejects/coalesces.
+            $dig = $(if ($craftOnlyMode) { 8 } else { 120 })
+            $gap = $(if ($craftOnlyMode) { 8 } else { $dig })
+            $fK2a = $fDigitStart + $(if ($craftOnlyMode) { 30 } else { 60 })
             $fK2ac = $fK2a + $dig
-            $fK7a = $fK2ac + $dig
+            $fK7a = $fK2ac + $gap
             $fK7ac = $fK7a + $dig
-            $fK2b = $fK7ac + $dig
+            $fK2b = $fK7ac + $gap
             $fK2bc = $fK2b + $dig
-            $fK7b = $fK2bc + $dig
+            $fK7b = $fK2bc + $gap
             $fK7bc = $fK7b + $dig
-            $fK3 = $fK7bc + $dig
+            $fK3 = $fK7bc + $gap
             $fK3c = $fK3 + $dig
-            $fK7c = $fK3c + $dig
+            $fK7c = $fK3c + $gap
             $fK7cc = $fK7c + $dig
-            $fK8 = $fK7cc + $dig
+            $fK8 = $fK7cc + $gap
             $fK8c = $fK8 + $dig
             $fSecGateEnd = $fK8c + 180
             $fEnd = $fK8c + 300
@@ -450,9 +488,18 @@ if ($RealInputDemo) {
         }
         $realInputLuaBody = @"
 local ports = manager.machine.ioport.ports
-local km = ports[":KEYMATRIX"] or ports["KEYMATRIX"]
-local line = ports[":LINECTRL"] or ports["LINECTRL"]
-local sec = ports[":SECMASK"] or ports["SECMASK"]
+local function find_port(name)
+  local direct = ports[":" .. name] or ports[name]
+  if direct ~= nil then return direct end
+  for tag, port in pairs(ports) do
+    if tostring(tag):match(name .. "$") then return port end
+  end
+  return nil
+end
+
+local km = find_port("KEYMATRIX")
+local line = find_port("LINECTRL")
+local sec = find_port("SECMASK")
 if km == nil then return end
 
 local function field(port, mask)
@@ -485,22 +532,22 @@ $(if ($acceptanceMode) {
 })
 $(if ($acceptanceMode) {
 @"
-$(if (-not $craftOnlyMode) {
+$(if ($craftOnlyMode) {
+@"
+  if frame >= $fHook and frame < $fOnHook then
+    if handset ~= nil then handset:set_value(1) end
+    if hook ~= nil then hook:set_value(1) end
+  else
+    if handset ~= nil then handset:clear_value() end
+    if hook ~= nil then hook:clear_value() end
+  end
+"@
+} else {
 @"
   if frame == $fHook and handset ~= nil then handset:set_value(1) end
   if frame == $($fHook + 1) and handset ~= nil then handset:clear_value() end
-"@
-} else {
-@"
-"@
-})
-$(if (-not $craftOnlyMode) {
-@"
   if frame == $fOnHook and handset ~= nil then handset:set_value(1) end
   if frame == $($fOnHook + 1) and handset ~= nil then handset:clear_value() end
-"@
-} else {
-@"
 "@
 })
   if frame >= $fSecGateStart and frame < $fSecGateEnd then
@@ -549,15 +596,16 @@ end, "real_input_demo")
             $pre = "{`"event`":`"input_demo_started`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"lua_autoboot_registered`"}"
             Add-Content -LiteralPath $fpInputTracePath -Value $pre -Encoding UTF8
             $hookInputName = if ($acceptanceMode) { 'KEYMATRIX' } else { 'LINECTRL+KEYMATRIX' }
-            $hookEventName = if ($craftOnlyMode) { 'input_hook_offhook_skipped_craft_only' } else { 'input_hook_offhook_sent' }
-            $hookNote = if ($craftOnlyMode) { 'craft_only_mode_keeps_onhook' } else { "lua_frame_$fHook" }
+            $hookEventName = if ($craftOnlyMode) { 'input_hook_offhook_scheduled' } else { 'input_hook_offhook_sent' }
+            $hookNote = if ($craftOnlyMode) { "lua_frames_${fHook}_to_$($fOnHook - 1)" } else { "lua_frame_$fHook" }
             $sched = "{`"event`":`"$hookEventName`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"$hookNote`",`"MAME_input_name`":`"$hookInputName`"}"
             Add-Content -LiteralPath $fpInputTracePath -Value $sched -Encoding UTF8
             if ($acceptanceMode) {
-                if (-not $craftOnlyMode) {
-                    Add-Content -LiteralPath $fpInputTracePath -Value "{`"event`":`"input_hook_onhook_sent`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"lua_frame_$fOnHook`",`"MAME_input_name`":`"KEYMATRIX`"}" -Encoding UTF8
+                if ($craftOnlyMode) {
+                    Add-Content -LiteralPath $fpInputTracePath -Value "{`"event`":`"input_hook_onhook_scheduled`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"lua_frame_$fOnHook`",`"MAME_input_name`":`"KEYMATRIX`"}" -Encoding UTF8
+                    Add-Content -LiteralPath $fpInputTracePath -Value "{`"event`":`"input_install_digits_scheduled`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"lua_frame_$fDigitStart`",`"MAME_input_name`":`"KEYMATRIX`"}" -Encoding UTF8
                 } else {
-                    Add-Content -LiteralPath $fpInputTracePath -Value "{`"event`":`"input_hook_onhook_preserved`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"craft_only_mode_no_offhook_toggle`",`"MAME_input_name`":`"KEYMATRIX`"}" -Encoding UTF8
+                    Add-Content -LiteralPath $fpInputTracePath -Value "{`"event`":`"input_hook_onhook_sent`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"lua_frame_$fOnHook`",`"MAME_input_name`":`"KEYMATRIX`"}" -Encoding UTF8
                 }
                 Add-Content -LiteralPath $fpInputTracePath -Value "{`"event`":`"input_sec_door_service_gate`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"lua_frames_$($fSecGateStart)_to_$($fSecGateEnd)`",`"MAME_input_name`":`"SECMASK`"}" -Encoding UTF8
                 Add-Content -LiteralPath $fpInputTracePath -Value "{`"event`":`"input_key_digit_2_sent`",`"wall_time_ms`":$wallMs,`"input_source`":`"scripted_mame_input`",`"note`":`"lua_frame_$fK2a`"}" -Encoding UTF8
@@ -988,9 +1036,12 @@ catch {
 $gracefulStop = $false
 $forcedStop = $false
 
-# Let MAME complete its own -seconds_to_run shutdown so wavwrite can finalize RIFF/data sizes.
+# Windowed runs already waited $RunSeconds above. Headless skips that loop, so wait here
+# for the requested wall time (emulation is often slower than -seconds_to_run).
 if (-not $microwireEarlyStopUsed) {
-    Wait-Process -Id $p.Id -Timeout 20 -ErrorAction SilentlyContinue
+    $waitSec = 20
+    if ($Headless) { $waitSec = [Math]::Max(20, $RunSeconds) }
+    Wait-Process -Id $p.Id -Timeout $waitSec -ErrorAction SilentlyContinue
 }
 else {
     Add-Content -LiteralPath $runLog -Value 'microwire_early_stop: skipping Wait-Process for natural -seconds_to_run exit' -Encoding UTF8

@@ -28,7 +28,7 @@ public:
 
 	bool verify_checksum(std::string &error_out) const;
 	bool checksum_failure() const noexcept { return m_checksum_failure; }
-	void recover_default_cleared(std::string &error_out);
+	void clear_nvram();
 
 	bool apply_dla_to_flash(std::vector<std::uint8_t> &flash_rom, std::string &error_out);
 

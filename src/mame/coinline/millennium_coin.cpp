@@ -7,6 +7,8 @@ DEFINE_DEVICE_TYPE(MILLENNIUM_COIN, millennium_coin_device, "millennium_coin", "
 millennium_coin_device::millennium_coin_device(machine_config const &mconfig, char const *tag,
 	device_t *owner, u32 clock)
 	: device_t(mconfig, MILLENNIUM_COIN, tag, owner, clock)
+	, device_buffered_serial_interface(mconfig, *this)
+	, m_txd(*this)
 {
 }
 
@@ -18,6 +20,12 @@ void millennium_coin_device::device_reset()
 {
 	device_t::device_reset();
 	m_model.reset();
+	set_data_frame(1, 8, PARITY_NONE, STOP_BITS_1);
+	set_rate(600);
+	receive_register_reset();
+	transmit_register_reset();
+	clear_fifo();
+	m_txd(1);
 }
 
 void millennium_coin_device::apply_config(millennium_coin_board_config const &cfg)
@@ -28,7 +36,24 @@ void millennium_coin_device::apply_config(millennium_coin_board_config const &cf
 
 bool millennium_coin_device::begin_insert_cents(int cents, std::uint64_t cpu_cycle, std::uint64_t cpu_hz)
 {
+	if (m_model.uart_active()) {
+		auto const code = m_model.uart_insert(cents);
+		if (code)
+			transmit_byte(*code);
+		return code.has_value();
+	}
 	return m_model.begin_insert_cents(cents, cpu_cycle, cpu_hz);
+}
+
+void millennium_coin_device::received_byte(u8 data)
+{
+	for (u8 const response : m_model.uart_command(data))
+		transmit_byte(response);
+}
+
+void millennium_coin_device::tra_callback()
+{
+	m_txd(transmit_register_get_data_bit());
 }
 
 void millennium_coin_device::write_control(std::uint8_t data, std::uint64_t cpu_cycle)

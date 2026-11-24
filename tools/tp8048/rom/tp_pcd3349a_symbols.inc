@@ -1,5 +1,6 @@
+; SPDX-License-Identifier: GPL-2.0-or-later
 ; -----------------------------------------------------------------------------
-; telephony_subprocessor_symbols.inc
+; tp_pcd3349a_symbols.inc
 ; Behavioral PCD3349A / MCS-48 TP firmware constants.
 ; Syntax is intentionally conservative MCS-48 style. Some assemblers may require
 ; EQU syntax tweaks.
@@ -31,7 +32,7 @@ VOL_IDX     EQU KEY_REL_LO   ; amplified volume step 0..3 (PRESET / UP / DOWN)
 MUTE_FLAGS  EQU KEY_REL_HI   ; host-visible mute scratch (TX/RX)
 TONE_MODE   EQU 035H
 CP_CMD      EQU 036H
-; Multi-byte TP config (CONTTELC.C telephony_config_msg_encode): header 0xC0, len 126, 124-byte body.
+; Multi-byte TP config (telephony control interface telephony_config_msg_encode): header 0xC0, len 126, 124-byte body.
 CFG_NEED    EQU 037H        ; bytes remaining in current C0 frame (0 = idle)
 CFG_IDX     EQU 038H        ; next write offset 0..125 into CFG_BLK
 TMP0        EQU 039H
@@ -39,15 +40,16 @@ TMP1        EQU 03AH
 TMP2        EQU 03BH
 TMP3        EQU 03CH        ; scratch; also PAD_FLAGS (DTMF pad enable, tone gen off) when CFG ingest idle
 TMP_SUM     EQU 03DH        ; scratch: running sum for config checksum verify
+ISR_A_SAVE  EQU 03EH        ; interrupt handlers run on RB1 and restore A before RETR
 ; Hook sequencing (CONTTELC telephony_msg_decode_task): CP expects transition then steady state.
 ; After RESP_HOOK_TRANS_*, defer RESP_HOOK_ON/OFF by HOOK_STATE_DELAY_IRQs timer IRQs (~50–100 ms).
-HOOK_SEQ_REM   EQU 03EH     ; 0 = idle; countdown per TIMER_IRQ
-HOOK_SEQ_BYTE  EQU 03FH     ; second opcode (ON_HOOK_STATE / OFF_HOOK_STATE)
+HOOK_SEQ_REM   EQU 03FH     ; 0 = idle; countdown per TIMER_IRQ
+HOOK_SEQ_BYTE  EQU 0DEH     ; second opcode (ON_HOOK_STATE / OFF_HOOK_STATE)
 
 ; Simple ring buffer layout (TX shrunk to free 0x60.. for 126-byte config image)
 RX_BUF      EQU 040H      ; 16 bytes: CP -> TP accepted bytes
 TX_BUF      EQU 050H      ; 16 bytes: TP -> CP queued bytes
-; CONTTELC.H TELEPHONY_CONFIG_MSG_LENGTH = 126 (hdr + len field + 124 data bytes incl. trailing sum8)
+; telephony control interface TELEPHONY_CONFIG_MSG_LENGTH = 126 (hdr + len field + 124 data bytes incl. trailing sum8)
 CFG_BLK       EQU 060H              ; base of mirrored frame (126 bytes occupy 060h..0ddh)
 TELE_CFG_LEN  EQU 07EH             ; 126 decimal, expected in CFG_BLK+1
 CFG_CHK_ADDR  EQU CFG_BLK+07DH     ; index 125: CP sum8 over bytes [2..124]
@@ -100,7 +102,7 @@ CMD_SEIZE_RELAY EQU 03DH
 CMD_CHGFDBK     EQU 03EH     ; CHANGE_DTMF_FEEDBACK_CONTROL — accepted, no TP reply
 CMD_CONFIG      EQU 0C0H
 
-; TP -> CP single-byte power-on codes (IPCODES.H: POWER_ON_RESET / POWER_ON_ACK)
+; TP -> CP single-byte power-on codes (telephony opcode definitions: POWER_ON_RESET / POWER_ON_ACK)
 ; On-hook idle after TP reset completes -> RESET (070H). Off-hook / call-survivor path -> ACK (072H).
 RESP_BOOT_PWRON_ACK EQU 072H ; POWER_ON_ACK
 RESP_BOOT_RESET     EQU 070H ; POWER_ON_RESET
@@ -123,15 +125,15 @@ KEY_RELEASE         EQU 05EH
 ; Timer IRQs between hook transition and hook steady-state (~80 ms if IRQ ~10 ms)
 HOOK_STATE_DELAY_IRQS EQU 008H
 
-; Framed TP→CP messages — length byte (2nd octet) MUST equal CONTTELC.H value:
+; Framed TP→CP messages — length byte (2nd octet) MUST equal telephony control interface value:
 ;   telephony_misc_msg_decode() compares rd_cbuffer() to TELEPHONY_STATUS_MSG_LENGTH /
 ;   TEL_ERROR_REPORT_MSG_LENGTH / TEL_VERSION_NUM_MSG_LENGTH (total frame size incl. opcode).
-; CONTTELC.H lines 159–161
+; telephony control interface lines 159–161
 TELEPHONY_STATUS_MSG_LENGTH   EQU 008H
 TEL_ERROR_REPORT_MSG_LENGTH   EQU 004H
 TEL_VERSION_NUM_MSG_LENGTH    EQU 00EH
 
-; Framed TP responses (IPCODES.H / CONTTELC)
+; Framed TP responses (telephony opcode definitions / CONTTELC)
 FRAME_STATUS         EQU 0C0H
 FRAME_EXT_STATUS     EQU 0C2H
 FRAME_ERROR_REPORT   EQU 0C4H
@@ -139,10 +141,10 @@ LEN_STATUS           EQU TELEPHONY_STATUS_MSG_LENGTH
 LEN_ERROR            EQU TEL_ERROR_REPORT_MSG_LENGTH
 LEN_EXT_STATUS       EQU TEL_VERSION_NUM_MSG_LENGTH
 
-; CONTTELC.H — telephony_error_status bits (TP -> CP in 0xC4 frame)
+; telephony control interface — telephony_error_status bits (TP -> CP in 0xC4 frame)
 TELEPHONY_CHECKSUM_ERROR EQU 001H
 
-; Keypad TP→CP wire opcodes (IPCODES.H — digit 'A' is 0x20; digit 1 is 0x22; 0 is 0x34; * / # / B–D follow header)
+; Keypad TP→CP wire opcodes (telephony opcode definitions — digit 'A' is 0x20; digit 1 is 0x22; 0 is 0x34; * / # / B–D follow header)
 KEY_A EQU 020H
 KEY_0 EQU 034H
 KEY_1 EQU 022H
@@ -171,7 +173,7 @@ P_PAD_DTMF_DIS    EQU 01H     ; 1 = dial-pad DTMF suppressed (CP DIAL_PAD_DTMF_D
 TONE_GEN_OFF_Q    EQU 02H     ; TONE_GENERATOR_OFF latched
 SIDETONE_ON_Q     EQU 04H     ; SIDETONE_SUPPRESSION_ON (behavioural latch)
 
-; CP→TP control opcode bases (IPCODES.H)
+; CP→TP control opcode bases (telephony opcode definitions)
 CP_DTMF_MIN   EQU 10H
 CP_DTMF_MAX   EQU 1FH
 CP_PAUSE      EQU 2CH
