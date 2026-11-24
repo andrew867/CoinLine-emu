@@ -86,7 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           pin=$(tr -d '\r\n' < config/mame-pinned.ref)
-          git clone --depth 1 --branch "$pin" https://github.com/mamedev/mame.git mame-build
+          git clone -c core.autocrlf=false --depth 1 --branch "$pin" https://github.com/mamedev/mame.git mame-build
           COINLINE_MAME_REGENIE=1 /usr/bin/python tools/mingw64/build-portable.py --mame-root mame-build --output artifacts
           package=(artifacts/*-work/'CoinLine Emulator')
           "${package[0]}/bin/coinline-mame.exe" -listfull cl_millennium | grep cl_millennium

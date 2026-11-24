@@ -83,18 +83,13 @@ def build_mame(mame, work, windows):
     if not (mame / "COPYING").is_file():
         raise ValueError("Set --mame-root to the MAME checkout identified by config/mame-pinned.ref.")
     jobs = str(min(os.cpu_count() or 4, 6))
+    subprocess.run([sys.executable, str(ROOT / "tools/build/overlay-mame.py"), str(mame)], check=True)
     if not windows:
-        subprocess.run([sys.executable, str(ROOT / "tools/build/overlay-mame.py"), str(mame)], check=True)
         # Disable optional libraries so the artifact uses the same SDL dependencies on both platforms.
         subprocess.run(["make", "REGENIE=1", "SUBTARGET=coinline", "NOWERROR=1", "USE_QTDEBUG=0",
                         "NO_USE_PORTAUDIO=1", "NO_USE_PULSEAUDIO=1", "USE_PCAP=0", "USE_TAPTUN=0",
                         "-j", jobs], cwd=mame, check=True)
         return mame / "mamecoinline"
-    overlay = ROOT / "tools/windows/overlay-coinline-driver.ps1"
-    windows_paths = [output(["cygpath", "-w", str(path)]) for path in (overlay, ROOT, mame)]
-    overlay_path, emu_path, mame_path = windows_paths
-    subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", overlay_path,
-                    "-EmuRoot", emu_path, "-MameRoot", mame_path], check=True)
     env = dict(os.environ, COINLINE_EMU_ROOT=str(ROOT), EXTERNAL_MAME_ROOT=str(mame),
                COINLINE_MAME_BUILD_LOG=str(work / "mame-build.log"),
                COINLINE_MAKE_JOBS=jobs)
