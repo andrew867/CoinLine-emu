@@ -16,7 +16,7 @@ An out-of-service display on first launch is expected. Complete the firmware’s
 
 | Input | Action |
 | --- | --- |
-| H | Lift or replace the handset |
+| H, the handset photo, or the handset button | Lift or replace the handset |
 | 0–9 | Digits |
 | Shift+8 or numpad `*` | Star |
 | Shift+3 or numpad `/` | Pound |
@@ -27,7 +27,7 @@ An out-of-service display on first launch is expected. Complete the firmware’s
 | Q W E R T | Quick-access positions 1 through 5, also clickable on the panel |
 | Y G J X Z | Positions 6 through 10 on a ten-button profile |
 
-MAME keeps its function-key shortcuts. If an older profile has custom keyboard assignments, reset them in MAME's input menu or transfer its `nvram` folder into a fresh package and use the new defaults.
+The handset starts on-hook at each launch. The button reads **Lift handset** on-hook and **Hang up** off-hook. MAME keeps its function-key shortcuts. If an older profile has custom keyboard assignments, reset them in MAME's input menu or transfer its `nvram` folder into a fresh package and use the new defaults.
 
 ## Calls and audio
 

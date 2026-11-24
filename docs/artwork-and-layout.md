@@ -26,7 +26,7 @@ The `.lay` file declares:
 
 | Region | MAME element | Behavior | Mapped device |
 | ------ | ------------ | -------- | -------------- |
-| Handset | `handset_state` | Click toggles the hookswitch | `KEYMATRIX` |
+| Handset photo and handset button | `hit_misc`, `handset_button` | Either click toggles the hookswitch. The button shows the action for the current state. | `KEYMATRIX` |
 | Numeric keypad | `hit_num` | Click sends 0 through 9, star, or pound | `KEYMATRIX` |
 | Quick-access buttons | `hit_quick` | Five buttons, positions 1 through 5 from left to right | `KEYMATRIX` |
 | Volume up and down | `hit_up`, `hit_down` | Click changes handset volume | `KEYMATRIX` |

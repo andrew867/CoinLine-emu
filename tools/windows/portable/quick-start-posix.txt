@@ -14,6 +14,8 @@ Supply your authorized ROM images at these paths in the extracted folder.
   roms/cl_millennium/voice_u16.bin and voice_u26.bin (1 MiB each)
 
 From the extracted folder, run ./start-oem.sh --check and then ./start-oem.sh.
+The terminal starts on-hook. Press H or click the handset photo or its button
+to lift or replace the receiver.
 The emulator includes a simulated central office. SIP audio and host microphone
 capture are currently supported by the Windows build. The Linux and macOS
 builds support the local CO and terminal audio playback.

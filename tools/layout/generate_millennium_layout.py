@@ -94,7 +94,8 @@ def render_layout(image_w: int, image_h: int, data: dict[str, Iterable[Box] | Bo
     newcall_box: Box = data["newcall_box"]  # type: ignore[assignment]
 
     # Keep existing approximations for regions not included in the color map.
-    handset_box: Box = (46, 471, 133, 761)
+    handset_box: Box = (100, 590, 293, 1220)
+    handset_button_box: Box = (162, 1376, 442, 1434)
     service_lock_box: Box = (337, 299, 379, 341)
     coin_slot_box: Box = (272, 22, 348, 121)
     card_reader_box: Box = (317, 945, 451, 1065)
@@ -216,13 +217,38 @@ copyright-holders:CoinLine contributors
 \t\t\t<color red="0.42" green="0.84" blue="0.97" alpha="0.00" />
 \t\t</rect>
 \t</element>
-\t<element name="handset_state" defstate="0">
-\t\t<rect state="0">
-\t\t\t<color red="0.95" green="0.16" blue="0.16" alpha="0.34" />
+\t<element name="handset_button" defstate="0">
+\t\t<rect>
+\t\t\t<color red="0.30" green="0.36" blue="0.41" />
 \t\t</rect>
-\t\t<rect state="1">
-\t\t\t<color red="0.23" green="0.92" blue="0.45" alpha="0.36" />
+\t\t<rect>
+\t\t\t<bounds x="0.009" y="0.043" width="0.982" height="0.914" />
+\t\t\t<color red="0.08" green="0.11" blue="0.14" />
 \t\t</rect>
+\t\t<disk state="0">
+\t\t\t<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+\t\t\t<color red="0.36" green="0.86" blue="0.61" />
+\t\t</disk>
+\t\t<disk state="1">
+\t\t\t<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+\t\t\t<color red="1.00" green="0.68" blue="0.33" />
+\t\t</disk>
+\t\t<text state="0" string="Lift handset" align="1">
+\t\t\t<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+\t\t\t<color red="0.91" green="0.94" blue="0.97" />
+\t\t</text>
+\t\t<text state="1" string="Hang up" align="1">
+\t\t\t<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+\t\t\t<color red="1.00" green="0.84" blue="0.66" />
+\t\t</text>
+\t\t<rect>
+\t\t\t<bounds x="0.82" y="0.24" width="0.13" height="0.52" />
+\t\t\t<color red="0.19" green="0.24" blue="0.29" />
+\t\t</rect>
+\t\t<text string="H">
+\t\t\t<bounds x="0.82" y="0.29" width="0.13" height="0.42" />
+\t\t\t<color red="0.81" green="0.86" blue="0.91" />
+\t\t</text>
 \t</element>
 \t<element name="indicator_panel">
 \t\t<rect>
@@ -256,8 +282,9 @@ copyright-holders:CoinLine contributors
 \t\t<!-- Quick access row -->
 {quick_elements}
 
-\t\t<!-- Handset icon / off-hook -->
-{el("handset_state", "KEYMATRIX", "0x00080000", handset_box)}
+\t\t<!-- The receiver photo and the handset button operate the same switch. -->
+{el("hit_misc", "KEYMATRIX", "0x00080000", handset_box)}
+{el("handset_button", "KEYMATRIX", "0x00080000", handset_button_box)}
 
 \t\t<!-- Service toggles -->
 {el("hit_misc", "SECMASK", "0x01", service_lock_box)}

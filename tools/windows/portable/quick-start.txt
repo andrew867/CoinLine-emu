@@ -53,7 +53,7 @@ and service startup are managed separately from this emulator.
 Controls
 --------
 
-  H                    lift or replace handset
+  H / handset button   lift or replace handset, also clickable on the photo
   0-9                  keypad digits
   Shift+8 or numpad *  keypad *
   Shift+3 or numpad /  keypad #

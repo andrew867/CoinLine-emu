@@ -52,13 +52,38 @@ copyright-holders:CoinLine contributors
 			<color red="0.42" green="0.84" blue="0.97" alpha="0.00" />
 		</rect>
 	</element>
-	<element name="handset_state" defstate="0">
-		<rect state="0">
-			<color red="0.95" green="0.16" blue="0.16" alpha="0.34" />
+	<element name="handset_button" defstate="0">
+		<rect>
+			<color red="0.30" green="0.36" blue="0.41" />
 		</rect>
-		<rect state="1">
-			<color red="0.23" green="0.92" blue="0.45" alpha="0.36" />
+		<rect>
+			<bounds x="0.009" y="0.043" width="0.982" height="0.914" />
+			<color red="0.08" green="0.11" blue="0.14" />
 		</rect>
+		<disk state="0">
+			<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+			<color red="0.36" green="0.86" blue="0.61" />
+		</disk>
+		<disk state="1">
+			<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+			<color red="1.00" green="0.68" blue="0.33" />
+		</disk>
+		<text state="0" string="Lift handset" align="1">
+			<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+			<color red="0.91" green="0.94" blue="0.97" />
+		</text>
+		<text state="1" string="Hang up" align="1">
+			<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+			<color red="1.00" green="0.84" blue="0.66" />
+		</text>
+		<rect>
+			<bounds x="0.82" y="0.24" width="0.13" height="0.52" />
+			<color red="0.19" green="0.24" blue="0.29" />
+		</rect>
+		<text string="H">
+			<bounds x="0.82" y="0.29" width="0.13" height="0.42" />
+			<color red="0.81" green="0.86" blue="0.91" />
+		</text>
 	</element>
 	<element name="indicator_panel">
 		<rect>
@@ -214,9 +239,12 @@ copyright-holders:CoinLine contributors
 			<bounds left="573" top="896" right="614" bottom="919" />
 		</element>
 
-		<!-- Handset icon / off-hook -->
-		<element ref="handset_state" inputtag="KEYMATRIX" inputmask="0x00080000">
-			<bounds left="46" top="471" right="133" bottom="761" />
+		<!-- The receiver photo and the handset button operate the same switch. -->
+		<element ref="hit_misc" inputtag="KEYMATRIX" inputmask="0x00080000">
+			<bounds left="100" top="590" right="293" bottom="1220" />
+		</element>
+		<element ref="handset_button" inputtag="KEYMATRIX" inputmask="0x00080000">
+			<bounds left="162" top="1376" right="442" bottom="1434" />
 		</element>
 
 		<!-- Service toggles -->

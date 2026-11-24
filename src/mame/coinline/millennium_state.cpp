@@ -1109,6 +1109,13 @@ void millennium_state::emit_trace_m1_m2()
 void millennium_state::machine_reset()
 {
 	driver_device::machine_reset();
+	if (machine().time().is_zero()) {
+		// MAME restores toggle positions from its input configuration before reset.
+		// A newly launched terminal starts with the receiver in its cradle.
+		ioport_field &handset = *m_keymatrix_io->field(k_terminal21_hook_bit);
+		handset.live().value = handset.defvalue();
+		m_keymatrix_io->update_defvalue(true);
+	}
 	if (!m_reset_trace_path.empty()) {
 		char rbuf[240];
 		std::snprintf(rbuf, sizeof(rbuf),
