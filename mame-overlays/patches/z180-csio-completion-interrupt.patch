@@ -1,0 +1,105 @@
+diff --git a/src/devices/cpu/z180/z180.cpp b/src/devices/cpu/z180/z180.cpp
+--- a/src/devices/cpu/z180/z180.cpp
++++ b/src/devices/cpu/z180/z180.cpp
+@@ -1853,6 +1853,7 @@
+ 			{
+ 			case Z180_INT_ASCI0: m_asci[0]->clear_interrupt(); break;
+ 			case Z180_INT_ASCI1: m_asci[1]->clear_interrupt(); break;
++			case Z180_INT_CSIO: m_csio->clear_interrupt(); break;
+ 			}
+ 			break;
+ 		}
+diff --git a/src/devices/cpu/z180/z180csio.cpp b/src/devices/cpu/z180/z180csio.cpp
+--- a/src/devices/cpu/z180/z180csio.cpp
++++ b/src/devices/cpu/z180/z180csio.cpp
+@@ -113,8 +113,10 @@
+ 	// Should access be suppressed if EF is clear?
+ 
+ 	LOG("Z180 TRDR rd $%02x\n", m_trdr);
+-	if (!machine().side_effects_disabled())
++	if (!machine().side_effects_disabled()) {
+ 		m_cntr &= ~Z180_CNTR_EF;
++		m_irq = 0;
++	}
+ 
+ 	return m_trdr;
+ }
+@@ -127,6 +129,9 @@
+ 	// If one attempts to write 1 to both at the same time, which takes precedence?
+ 
+ 	LOG("Z180 CNTR wr $%02x\n", data);
++
++	bool const ef_before = (m_cntr & Z180_CNTR_EF) != 0;
++	bool const eie_before = (m_cntr & Z180_CNTR_EIE) != 0;
+ 
+ 	if (data & (Z180_CNTR_RE | Z180_CNTR_TE))
+ 	{
+@@ -155,6 +160,10 @@
+ 	// TODO: if switching internal/external clock, update CKS output and trigger a clock edge if necessary
+ 
+ 	m_cntr = (m_cntr & Z180_CNTR_EF) | (data & ~Z180_CNTR_EF & Z180_CNTR_MASK); // EF is read-only
++	if (!(m_cntr & Z180_CNTR_EIE))
++		m_irq = 0;
++	else
++		arm_irq_on_rise(ef_before, eie_before);
+ }
+ 
+ 
+@@ -165,6 +174,7 @@
+ 
+ 	LOG("Z180 TRDR wr $%02x\n", data);
+ 	m_cntr &= ~Z180_CNTR_EF;
++	m_irq = 0;
+ 	m_trdr = data;
+ }
+ 
+@@ -239,11 +249,22 @@
+ 		// EF/RE/TE updated on rising edge
+ 		if (m_cntr & (Z180_CNTR_RE | Z180_CNTR_TE))
+ 		{
++			bool const ef_before = (m_cntr & Z180_CNTR_EF) != 0;
++			bool const eie_before = (m_cntr & Z180_CNTR_EIE) != 0;
+ 			m_shift_cnt = (m_shift_cnt + 1) & 7;
+ 			if (!m_shift_cnt)
+ 				m_cntr = Z180_CNTR_EF | (m_cntr & ~(Z180_CNTR_RE | Z180_CNTR_TE));
+-		}
+-	}
++			arm_irq_on_rise(ef_before, eie_before);
++		}
++	}
++}
++
++void z180csio_device::arm_irq_on_rise(bool ef_before, bool eie_before)
++{
++	bool const ef = (m_cntr & Z180_CNTR_EF) != 0;
++	bool const eie = (m_cntr & Z180_CNTR_EIE) != 0;
++	if (ef && eie && !(ef_before && eie_before))
++		m_irq = 1;
+ }
+ 
+ 
+diff --git a/src/devices/cpu/z180/z180csio.h b/src/devices/cpu/z180/z180csio.h
+--- a/src/devices/cpu/z180/z180csio.h
++++ b/src/devices/cpu/z180/z180csio.h
+@@ -33,7 +33,12 @@
+ 
+ 	void state_add(device_state_interface &parent);
+ 
+-	int  check_interrupt() { return BIT(m_cntr, 7) && BIT(m_cntr, 6); }
++	// EF stays set until TRDR is read or written so the service routine can still
++	// see the completed byte. The request is the rising edge of (EF and EIE):
++	// a single-byte transfer leaves EF set on return, and a level request would
++	// re-enter before the shifter is idled.
++	int  check_interrupt() const { return m_irq && BIT(m_cntr, 6); }
++	void clear_interrupt() { m_irq = 0; }
+ 
+ protected:
+ 	// device_t implementation
+@@ -42,6 +47,7 @@
+ 	virtual void device_reset() override ATTR_COLD;
+ 
+ 	void clock_edge(u8 cks);
++	void arm_irq_on_rise(bool ef_before, bool eie_before);
+ 
+ 	TIMER_CALLBACK_MEMBER(internal_clock);
+ 

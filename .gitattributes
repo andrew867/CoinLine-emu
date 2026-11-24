@@ -1,1 +1,3 @@
 fixtures/display/*.json text eol=lf
+mame-overlays/patches/*.patch text eol=lf
+tools/tp8048/build-ci-rom.sh text eol=lf

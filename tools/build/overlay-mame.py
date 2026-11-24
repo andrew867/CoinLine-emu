@@ -12,10 +12,12 @@ ROOT = Path(__file__).resolve().parents[2]
 def overlay(mame):
     if not (mame / "COPYING").is_file():
         raise ValueError("Use the MAME checkout identified by config/mame-pinned.ref.")
-    patch = ROOT / "mame-overlays/patches/z180-asci-transmit-interrupt.patch"
     git = ["git", "-C", str(mame), "apply"]
-    if subprocess.run([*git, "--reverse", "--check", str(patch)], capture_output=True).returncode:
-        subprocess.run([*git, str(patch)], check=True)
+    for patch in sorted((ROOT / "mame-overlays/patches").glob("*.patch")):
+        data = patch.read_bytes().replace(b"\r\n", b"\n")
+        if subprocess.run([*git, "--reverse", "--check"], input=data, capture_output=True).returncode:
+            print(f"Applying {patch.name}", flush=True)
+            subprocess.run(git, input=data, check=True)
 
     for source in sorted((ROOT / "src/mame/coinline").iterdir()):
         if source.suffix in (".cpp", ".h"):

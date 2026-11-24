@@ -29,11 +29,17 @@ $dest = Join-Path $MameRoot 'src\mame\coinline'
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
 $manifest = [ordered]@{ copied = @(); timestamp_utc = (Get-Date).ToUniversalTime().ToString('o') }
-$asciPatch = Join-Path $EmuRoot 'mame-overlays\patches\z180-asci-transmit-interrupt.patch'
-& git -C $MameRoot apply --reverse --check $asciPatch 2>$null
-if ($LASTEXITCODE -ne 0) {
-    & git -C $MameRoot apply $asciPatch
-    if ($LASTEXITCODE -ne 0) { throw 'Could not apply the Z180 ASCI interrupt correction.' }
+$patches = Get-ChildItem -LiteralPath (Join-Path $EmuRoot 'mame-overlays\patches') -Filter '*.patch' -File | Sort-Object Name
+foreach ($patch in $patches) {
+    $alreadyApplied = & {
+        $ErrorActionPreference = 'Continue'
+        & git -C $MameRoot apply --reverse --check $patch.FullName 2>&1 | Out-Null
+        $LASTEXITCODE -eq 0
+    }
+    if (-not $alreadyApplied) {
+        & git -C $MameRoot apply $patch.FullName
+        if ($LASTEXITCODE -ne 0) { throw "Could not apply $($patch.Name)." }
+    }
 }
 Get-ChildItem -LiteralPath $src -File | ForEach-Object {
     $target = Join-Path $dest $_.Name
