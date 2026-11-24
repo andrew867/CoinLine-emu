@@ -312,6 +312,7 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
     effective_hash = hashlib.sha256(image).hexdigest()
     json_file(attempt / "fixtures/firmware/firmware-hashes.json", {"entries": [{
         "version_id": program[0]["firmware_id"], "motherboard": board,
+        "friendly_name": f"{program[0]['firmware_id']} mapped flash ({effective_hash[:12]})",
         "sha256_hex": effective_hash, "size_bytes": rom_size,
     }]})
     voice_source, voice = voice_pair(row, verified, args.reference)
