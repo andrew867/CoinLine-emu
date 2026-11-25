@@ -26,7 +26,7 @@ u8 millennium_state::external_io_r(offs_t offset)
 			// Independent, active-low analogue expansion outputs.
 			u8 status = catch_all_io_r(low) | 0x0cU;
 			if (m_adsi_rx.cas_detected()) status &= ~0x04U;
-			if (m_adsi_rx.fsk_carrier()) status &= ~0x08U;
+			if (m_adsi_carrier_line) status &= ~0x08U;
 			u8 const result = m_graphic_vfd.read_status(status, m_maincpu->total_cycles());
 			if (m_adsi_trace && m_adsi_rx.cas_detected() && !machine().side_effects_disabled()) {
 				if (++m_adsi_status_reads <= 8)

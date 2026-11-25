@@ -102,3 +102,41 @@ interaction and disconnect supervision are separate acceptance gates.
   to its conventional display profile. The updated native executable and
   18 CO regression tests pass; live end-to-end requalification is underway.
   Run: `build/firmware-acceptance/graphic-firmware/20261125T081348.677583Z/`.
+
+## Real firmware data dialogue
+
+The next five calls established the actual capability and data paths. A
+passive service-side wire capture independently verified full, unchanged CAS
+and CONNECT waveforms, native terminal-generated A, and, on four calls, two
+sets of native D1 responses. The receiver decoded the real incoming CONNECT
+octets (`84 05 01 8E 00 86 00 62`) without framing errors. Two recorded
+CONNECT segments were also independently decoded by a separate Bell 202
+implementation.
+
+| Attempt | CAS end to completed A (ms) | CONNECT end to first completed D (ms) | Result |
+| --- | ---: | ---: | --- |
+| 7 | 219 | 1040 | D1 crossed retry |
+| 8 | 361 | 1161 | D1 crossed retry |
+| 9 | 310 | 1378 | D1 crossed retry |
+| 10 | 333 | 1114 | D1 crossed retry |
+| 11 | 228 | 1087 | D1 crossed retry |
+
+All values are measured service-side packet intervals, not estimated from
+message timestamps. The server requires the completed D digit within 1000 ms
+and does not accept a stale acknowledgment that crosses its retry. No server
+timeout, fabricated ACK, terminal memory, or installed table was modified to
+make this pass. The service did not deliver the welcome/menu display.
+
+The final revision also keeps regenerated serial carrier active until the
+actual final stop bit completes, preventing the physical carrier indication
+from preceding the decoded UART data. It reduces idle serial poll overhead,
+while retaining the 200 microsecond cadence for actual serial transfers.
+Attempt 11 independently confirmed two exact CONNECT frames, with the first
+completed D late and the retry's completed D on time. The first-mode state
+transition and its silence qualification remain the next timing area to
+resolve; ADSI menu navigation, voice release from a menu, and paid menu calls
+are not yet acceptance passes.
+
+Runs: `build/firmware-acceptance/graphic-firmware/20261125T081858.656976Z/`,
+`20261125T082455.589093Z/`, `20261125T082914.953557Z/`, and
+`20261125T083328.353649Z/`. The first run includes attempts 7 and 8.

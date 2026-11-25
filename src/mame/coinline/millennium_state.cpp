@@ -1219,6 +1219,8 @@ void millennium_state::machine_reset()
 	m_vfd_last_drawn_dots.clear();
 	m_graphic_vfd.reset();
 	m_adsi_rx.reset();
+	m_adsi_carrier_line = false;
+	m_adsi_carrier_release_at = 0.0;
 	m_voicew_int0_asserted = false;
 	m_maincpu->set_input_line(Z180_INPUT_LINE_IRQ0, CLEAR_LINE);
 	// External interrupt 2 is level-sensitive and held active. The 10 ms tick is
@@ -3650,8 +3652,22 @@ void millennium_state::exchange_line_pcm(std::int16_t mic, std::int16_t &line, b
 		auto &modem = m_modem->model();
 		bool const cas_before = m_adsi_rx.cas_detected();
 		bool const carrier_before = m_adsi_rx.fsk_carrier();
-		m_adsi_rx.sample(sample, modem.adsi_receiver_mode());
-		modem.set_adsi_carrier(m_adsi_rx.fsk_carrier());
+		bool const receiver_enabled = modem.adsi_receiver_mode() && !modem.ncc_link_up();
+		m_adsi_rx.sample(sample, receiver_enabled);
+		if (receiver_enabled && m_adsi_rx.fsk_carrier()) {
+			m_adsi_carrier_line = true;
+			m_adsi_carrier_release_at = 0.0;
+			modem.set_adsi_carrier(true);
+		} else if (receiver_enabled && carrier_before) {
+			// The byte decoder regenerates a physical UART frame after the final
+			// received stop symbol. Delay carrier release by that same one-character
+			// pipeline latency so it cannot overtake the wire's last stop bit.
+			m_adsi_carrier_release_at = machine().time().as_double() + 10.0 / 1200.0;
+		} else if (!receiver_enabled) {
+			m_adsi_carrier_line = false;
+			m_adsi_carrier_release_at = 0.0;
+			modem.set_adsi_carrier(false);
+		}
 		if (m_adsi_trace && (cas_before != m_adsi_rx.cas_detected() || carrier_before != m_adsi_rx.fsk_carrier())) {
 			if (!cas_before && m_adsi_rx.cas_detected()) m_adsi_status_reads = 0;
 			std::fprintf(stderr, "ADSI audio %.6f CAS=%d carrier=%d framing_errors=%u status_reads=%u\n",
@@ -6877,6 +6893,10 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		static unsigned rx_frame = 0;
 		static double rx_bit_sec = 0.0;
 		static double rx_next = 0.0;
+		bool const ncc_serial_active = m_modem->model().ncc_link_up();
+		bool const adsi_rx_enabled = m_graphic_display && !m_tel_hook_onhook_stable
+			&& m_modem->model().adsi_receiver_mode() && !ncc_serial_active;
+		bool const serial_active = ncc_serial_active || adsi_rx_enabled || rx_bits_left != 0;
 		auto const bit_period = [&]() -> double {
 			std::uint8_t const cntlb = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_CNTLB1) & 0xff);
 			std::uint8_t const asext = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_ASEXT1) & 0xff);
@@ -6896,9 +6916,10 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			std::uint32_t const baud = m_maincpu->subdevice("asci_1")->clock() / brg / divisor;
 			return baud ? 1.0 / double(baud) : 0.0;
 		};
-		double const period = bit_period();
-		m_modem->configure_terminal_tx(period > 0.0 ? attotime::from_double(period) : attotime::never,
-			u8(m_maincpu->state_int(Z180_CNTLA1)), u8(m_maincpu->state_int(Z180_CNTLB1)));
+		double const period = serial_active ? bit_period() : 0.0;
+		if (ncc_serial_active)
+			m_modem->configure_terminal_tx(period > 0.0 ? attotime::from_double(period) : attotime::never,
+				u8(m_maincpu->state_int(Z180_CNTLA1)), u8(m_maincpu->state_int(Z180_CNTLB1)));
 		auto const arm_rx_byte = [&](std::uint8_t data) {
 			std::uint8_t const cntla = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_CNTLA1) & 0xff);
 			int const data_bits = (cntla & 0x04U) ? 8 : 7;
@@ -6949,8 +6970,6 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			rx_bits_left--;
 			rx_next = now + rx_bit_sec;
 		};
-		bool const adsi_rx_enabled = m_graphic_display && !m_tel_hook_onhook_stable
-			&& m_modem->model().adsi_receiver_mode() && !m_modem->model().ncc_link_up();
 		if (!m_modem->dcd_line() && !adsi_rx_enabled && rx_bits_left != 0) {
 			rx_bits_left = 0;
 			rx_next = now;
@@ -6971,7 +6990,17 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 				arm_rx_byte(byte);
 			}
 		}
-		attotime delay = attotime::from_usec(200);
+		if (adsi_rx_enabled && m_adsi_carrier_line && !m_adsi_rx.fsk_carrier()
+			&& m_adsi_carrier_release_at != 0.0 && now >= m_adsi_carrier_release_at
+			&& rx_bits_left == 0 && now >= rx_next && !m_adsi_rx.pending_bytes()) {
+			m_adsi_carrier_line = false;
+			m_adsi_carrier_release_at = 0.0;
+			m_modem->model().set_adsi_carrier(false);
+			if (m_adsi_trace) std::fprintf(stderr, "ADSI serial carrier release %.6f\n", now);
+		}
+		// Idle network/media polling needs no ASCI bit-rate state reads or
+		// 5 kHz socket polls. Retain the fine cadence for actual serial work.
+		attotime delay = attotime::from_usec(serial_active ? 200 : 1000);
 		if (rx_next > now) {
 			double remain = rx_next - machine().time().as_double();
 			if (remain < 0.00002)
@@ -7118,6 +7147,8 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			m_tel_hook_onhook_stable = m_tel_hook_onhook;
 			if (m_tel_hook_onhook_stable) {
 				m_adsi_rx.reset();
+				m_adsi_carrier_line = false;
+				m_adsi_carrier_release_at = 0.0;
 				if (m_modem) m_modem->model().set_adsi_carrier(false);
 			}
 			if (m_tel_hook_onhook_stable)

@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
     parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
     parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
+    parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     args = parser.parse_args()
     image = args.firmware.read_bytes()
@@ -126,6 +127,8 @@ def main():
            "-snapshot_directory", str(out), "-snapview", view if args.artwork else "native",
            "-view", view, "-window", "-nomaximize", "-seconds_to_run", str(args.seconds),
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
+    if args.realtime_priority and os.name == "nt":
+        cmd.extend(["-priority", "1"])
     with (out / "mame.log").open("wb") as log, central_office(out, env, Path(sys.executable)):
         result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)
     print(f"Emulator exited with {result.returncode}", flush=True)

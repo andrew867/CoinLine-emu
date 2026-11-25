@@ -15,6 +15,7 @@ public:
 	bool cas_detected() const noexcept { return m_cas; }
 	bool fsk_carrier() const noexcept { return m_carrier; }
 	bool take_byte(std::uint8_t &value);
+	bool pending_bytes() const noexcept { return !m_bytes.empty(); }
 	unsigned framing_errors() const noexcept { return m_framing_errors; }
 
 private:
