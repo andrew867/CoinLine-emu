@@ -11,9 +11,13 @@ runtime libraries for your platform.
 Supply your authorized ROM images at these paths in the extracted folder.
 
   firmware/oem/flash.bin (256 KiB)
+  firmware/graphical/flash.bin (1 MiB, optional graphical profile)
   roms/cl_millennium/voice_u16.bin and voice_u26.bin (1 MiB each)
 
 From the extracted folder, run ./start-oem.sh --check and then ./start-oem.sh.
+Run ./start-graphical.sh for the graphical profile, if its ROM is supplied.
+Its separate configuration is coinline-graphical.ini and its state is under
+data/graphical. Both profiles can use the local CO concurrently.
 The terminal starts on-hook. Press H or click the handset photo or its button
 to lift or replace the receiver.
 The emulator includes a simulated central office. SIP audio and host microphone

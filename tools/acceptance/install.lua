@@ -33,6 +33,7 @@ local pin = assert(os.getenv("COINLINE_ACCEPTANCE_PIN"))
 local keypad_test = assert(os.getenv("COINLINE_ACCEPTANCE_KEYS"))
 local dial = os.getenv("COINLINE_ACCEPTANCE_DIAL") or ""
 local mag_call = os.getenv("COINLINE_ACCEPTANCE_MAG_CALL") == "1"
+local answer_only = os.getenv("COINLINE_ACCEPTANCE_ANSWER_ONLY") == "1"
 local co_log = assert(os.getenv("COINLINE_ACCEPTANCE_CO_LOG"))
 local frame, delay, since, entered, coin_index = 0, 0, 0, 0, 1
 local prompt = ""
@@ -427,6 +428,9 @@ emu.register_frame_done(function()
         set_hook(true)
         change("answer result")
     elseif (phase == "download" or phase == "answer check") and has("start ncc") and has("download") then
+        if answer_only then
+            return finish("passed", "answer supervision completed; NCC download not started")
+        end
         press("*")
         change("downloading")
     elseif phase == "downloading" and completed and has("continue") then

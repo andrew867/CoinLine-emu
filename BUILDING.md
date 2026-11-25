@@ -35,6 +35,7 @@ By default the ZIP leaves the terminal firmware and Voiceware files for the oper
 | File under the input directory | Size |
 | --- | --- |
 | `firmware/oem/flash.bin` | 256 KiB |
+| `firmware/graphical/flash.bin` (optional) | 1 MiB |
 | `roms/cl_millennium/voice_u16.bin` | 1 MiB |
 | `roms/cl_millennium/voice_u26.bin` | 1 MiB |
 
@@ -43,6 +44,12 @@ By default the ZIP leaves the terminal firmware and Voiceware files for the oper
 ```
 
 This variant has `-local-roms` in its ZIP name. Keep it private and use only ROM images you are authorized to use. The OEM profile starts with empty battery state. The package carries no credentials or terminal data from the build machine.
+
+If the optional registered graphical image is present in the input layout,
+the package includes it automatically; alternatively provide `--graphical-rom
+<path-to-1MiB-image>`. The resulting dual-profile package includes both launchers,
+each with separate saved state and INI defaults. Public CI packages include
+the launchers and examples, not proprietary firmware or Voiceware images.
 
 ## Build the executable only
 

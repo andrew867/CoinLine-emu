@@ -5,6 +5,7 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 ## Start here
 
 - [Windows quick start](RUNNING.md) for the portable ZIP, controls, first INSTALL, and SIP.
+- Separate OEM two-line and graphical 11-line launchers provide independent terminal storage and SIP setup in the same package.
 - [Build and package](BUILDING.md) for Windows x64, Ubuntu Linux x64, macOS Apple Silicon, and the operator ROM input layout.
 - [INSTALL verification](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) for the firmware and network evidence.
 - [Card contact and payment qualification](docs/status/smartcard-contact-2026-11-25.md), [ADSI interoperation](docs/status/adsi-interop-2026-11-25.md), and [graphical performance](docs/status/graphical-render-performance-2026-11-25.md) for the latest live trials and remaining gates.

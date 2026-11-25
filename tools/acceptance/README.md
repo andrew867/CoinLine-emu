@@ -269,6 +269,20 @@ and its lifecycle to the caller.
 
 ## Connected keypad and SIP transport
 
+For a focused cold OEM electrical check, `oem_answer_probe.py` runs the actual
+packaged firmware with fresh memory, completes CO and answer supervision,
+and stops at the NCC download prompt. It defaults to a loopback SIP registrar
+without a public route, or accepts `--mode local` for the local office.
+
+```sh
+python tools/acceptance/oem_answer_probe.py --package <extracted-package-folder>
+```
+
+`dual_profile_probe.py --package <extracted-package-folder>` copies the
+package into an ignored test run, launches both terminal profiles and
+verifies that their separate SIP accounts register through distinct local
+ports against a loopback registrar. No external call is placed.
+
 `connected_dtmf_native_probe.py` starts a real graphical terminal from a
 copy of completed installation state and an isolated loopback SIP registrar
 and RTP peer. It requires a permitted free-call destination in the lab

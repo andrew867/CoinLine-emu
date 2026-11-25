@@ -2,22 +2,27 @@ CoinLine Terminal Emulator for Windows x64
 =========================================
 
 1. Extract the entire ZIP to a writable folder. Open that folder in Explorer.
-2. Double-click Start OEM.cmd.
+2. Double-click Start OEM.cmd for the 2-line terminal or Start Graphical.cmd
+   for the 11-line terminal.
 3. Click the emulator window so it receives keys. Esc closes the emulator.
 
 The portable folder includes the CO simulator and its Python runtime. With blank
 SIP settings it answers the lab toll-free call locally. The OEM terminal starts
 blank on its first launch. Close the emulator and copy data/oem/nvram to the same
 location in the new package to keep an installed terminal when upgrading.
+The graphical launcher has separate battery, flash, configuration and logs
+under data/graphical. Both launchers can run at the same time. Give them
+different 10-digit terminal wire IDs and appropriate NCC table assignments.
 
 Package.txt tells you whether this copy includes local ROM inputs. If it does
 not, supply your authorized images at the following paths.
 
   firmware/oem/flash.bin (256 KiB)
+  firmware/graphical/flash.bin (1 MiB, for Start Graphical.cmd)
   roms/cl_millennium/voice_u16.bin and voice_u26.bin (1 MiB each)
 
 For other firmware, set the flash paths and hardware profile under [hardware]
-in coinline.ini, or pass --firmware, --flash1, --rompath and --hardware on the
+in the corresponding INI file, or pass --firmware, --flash1, --rompath and --hardware on the
 command line. Use --check to verify selection and the mapped flash hash before
 launch. Available profiles include multipay-v1, multipay-v1-dual-flash,
 multipay-v1.1, multipay-v1.3, desk-rel1, desk-rel2, card-only and coin-basic.
@@ -32,6 +37,12 @@ See the project runtime guide for the acceptance gates on these presets.
 
 Keep packages that contain local ROM inputs private. The ZIP includes no saved
 terminal memory, SIP credentials, or site data.
+
+For independent SIP accounts use coinline.ini for Start OEM.cmd and copy
+coinline-graphical.example.ini to coinline-graphical.ini for Start Graphical.cmd.
+Their default SIP ports are 5087 and 5088, respectively, and their dynamic
+RTP ranges are 10000-14999 and 15000-19999. Do not reuse fixed SIP/RTP ports or
+the same registrar account if you want simultaneous independent calls.
 
 First INSTALL
 -------------

@@ -267,6 +267,39 @@ class OutboundRoutingTest(unittest.TestCase):
         self.assertEqual(calls, ["+12025550123"])
         self.assertEqual(reversals, 1)
 
+    def test_install_answer_survives_early_manager_relay_release(self):
+        for mode in ("local", "sip"):
+            with self.subTest(mode=mode):
+                calls, reversals = self.run_office(mode, [
+                    (0.0, b"Q1\n" + outpulse(office.NCC_LOOPBACK)),
+                    (0.4, b"Q0\n"),
+                    (5.8, None),
+                    (0.1, b"H0\nX\n"),
+                ])
+                self.assertEqual(calls, [])
+                self.assertEqual(reversals, 1)
+
+    def test_new_dial_after_early_manager_release_supersedes_pending_answer(self):
+        calls, reversals = self.run_office("sip", [
+            (0.0, b"Q1\n" + outpulse(office.NCC_LOOPBACK)),
+            (0.4, b"Q0\n"),
+            (0.2, b"Q1\n" + b"".join(f"D{d}\n".encode() for d in "2025550123")),
+            (1.6, None),
+            (5.0, None),
+        ])
+        self.assertEqual(calls, ["+12025550123"])
+        self.assertEqual(reversals, 0)
+
+    def test_hook_or_loop_release_cancels_pending_manager_answer(self):
+        for release in (b"H0\n", b"X\n"):
+            with self.subTest(release=release):
+                calls, reversals = self.run_office("sip", [
+                    (0.0, b"Q1\n" + outpulse(office.NCC_LOOPBACK)),
+                    (0.4, b"Q0\n"), (0.1, release), (6.2, None),
+                ])
+                self.assertEqual(calls, [])
+                self.assertEqual(reversals, 0)
+
     def test_jack_labels_dial_tone_until_the_first_digit(self):
         self.run_office("local", [(0.0, b"S\nH1\n"), (0.1, b"D5\n")])
         tone_on = self.writes.index(b"T1\n")

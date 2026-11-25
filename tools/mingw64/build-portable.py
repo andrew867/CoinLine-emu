@@ -48,6 +48,7 @@ PRIVATE_ROMS = {
     "roms/cl_millennium/voice_u16.bin": 0x100000,
     "roms/cl_millennium/voice_u26.bin": 0x100000,
 }
+GRAPHICAL_ROM = "firmware/graphical/flash.bin"
 
 
 def sha256(path):
@@ -133,10 +134,11 @@ def stage_runtime(bundle, cache, work):
     pth.write_text(pth.read_text(encoding="ascii") + "\nLib/site-packages\n../app\n", encoding="ascii")
 
 
-def stage_files(bundle, mame, rom_input, windows):
+def stage_files(bundle, mame, rom_input, graphical_rom, windows):
     sources = {
         "Quick Start.txt": PORTABLE / ("quick-start.txt" if windows else "quick-start-posix.txt"),
         "coinline.example.ini": PORTABLE / "coinline.example.ini",
+        "coinline-graphical.example.ini": PORTABLE / "coinline-graphical.example.ini",
         "app/launch.py": PORTABLE / "launch.py",
         "app/hardware.py": PORTABLE / "hardware.py",
         "app/central_office.py": ROOT / "tools/line-jack/central_office.py",
@@ -160,23 +162,27 @@ def stage_files(bundle, mame, rom_input, windows):
         "docs/status/peripheral-handoff-implementation-2026-11-25.md": ROOT / "docs/status/peripheral-handoff-implementation-2026-11-25.md",
         "docs/status/windows-window-timing-2026-11-25.md": ROOT / "docs/status/windows-window-timing-2026-11-25.md",
         "docs/status/connected-dtmf-adsi-welcome-2026-11-25.md": ROOT / "docs/status/connected-dtmf-adsi-welcome-2026-11-25.md",
+        "docs/status/oem-answer-dual-launcher-2026-11-25.md": ROOT / "docs/status/oem-answer-dual-launcher-2026-11-25.md",
         "docs/Running.md": ROOT / "RUNNING.md",
         "licenses/CoinLine.txt": ROOT / "LICENSE",
         "licenses/MAME.txt": mame / "COPYING",
     }
     if rom_input:
         sources.update({name: rom_input / name for name in PRIVATE_ROMS})
+    if graphical_rom:
+        sources[GRAPHICAL_ROM] = graphical_rom
     for destination, source in sources.items():
         copy_file(source, bundle / destination)
-    if windows:
-        script = ('@echo off\n"%~dp0runtime\\python.exe" "%~dp0app\\launch.py" oem %*\n'
-                  'set "result=%errorlevel%"\nif not "%result%"=="0" pause\nexit /b %result%\n')
-        (bundle / "Start OEM.cmd").write_text(script, encoding="ascii", newline="\r\n")
-    else:
-        launcher = bundle / "start-oem.sh"
-        launcher.write_text('#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\nexec python3 app/launch.py oem "$@"\n',
-                            encoding="ascii")
-        launcher.chmod(0o755)
+    for profile, label in (("oem", "OEM"), ("graphical", "Graphical")):
+        if windows:
+            script = (f'@echo off\n"%~dp0runtime\\python.exe" "%~dp0app\\launch.py" {profile} %*\n'
+                      'set "result=%errorlevel%"\nif not "%result%"=="0" pause\nexit /b %result%\n')
+            (bundle / f"Start {label}.cmd").write_text(script, encoding="ascii", newline="\r\n")
+        else:
+            launcher = bundle / f"start-{profile}.sh"
+            launcher.write_text(f'#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\nexec python3 app/launch.py {profile} "$@"\n',
+                                encoding="ascii")
+            launcher.chmod(0o755)
 
 
 def pack(args):
@@ -187,13 +193,26 @@ def pack(args):
             file = args.rom_input / name
             if not file.is_file() or file.stat().st_size != size:
                 raise ValueError(f"Supply {name} with exactly {size} bytes under --rom-input.")
+    if args.graphical_rom and not args.rom_input:
+        raise ValueError("Graphical ROM packaging also requires the local OEM and Voiceware ROM inputs.")
+    graphical_rom = args.graphical_rom
+    if graphical_rom is None and args.rom_input and (args.rom_input / GRAPHICAL_ROM).is_file():
+        graphical_rom = args.rom_input / GRAPHICAL_ROM
+    if graphical_rom:
+        import json
+        registry = json.loads((ROOT / "fixtures/firmware/firmware-hashes.json").read_text(encoding="utf-8"))
+        if not graphical_rom.is_file() or graphical_rom.stat().st_size != 0x100000 or not any(
+            item.get("display") == "11line" and item["sha256_hex"] == sha256(graphical_rom)
+            for item in registry["entries"]
+        ):
+            raise ValueError("Supply a verified 1 MiB graphical flash image from the firmware registry.")
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     suffix = "-local-roms" if args.rom_input else ""
     windows = os.environ.get("MSYSTEM") == "MINGW64"
     os_label = "Windows" if windows else {"darwin": "macOS", "linux": "Linux"}[sys.platform]
     cpu = "x64" if windows else {"x86_64": "x64", "aarch64": "arm64", "arm64": "arm64"}[platform.machine()]
-    name = f"CoinLine-Emulator-OEM-{os_label}-{cpu}-{stamp}{suffix}"
+    name = f"CoinLine-Emulator-{('Dual' if graphical_rom else 'OEM')}-{os_label}-{cpu}-{stamp}{suffix}"
     args.output.mkdir(parents=True, exist_ok=True)
     args.cache.mkdir(parents=True, exist_ok=True)
     work = args.output / (name + "-work")
@@ -207,14 +226,15 @@ def pack(args):
         target = bundle / "bin/coinline-mame"
         copy_file(executable, target)
         target.chmod(0o755)
-    stage_files(bundle, args.mame_root, args.rom_input, windows)
+    stage_files(bundle, args.mame_root, args.rom_input, graphical_rom, windows)
 
     source_pin = args.mame_root / ".coinline-upstream-revision"
     revision = source_pin.read_text(encoding="ascii").strip() if source_pin.is_file() else output(
         ["git", "-C", str(args.mame_root), "rev-parse", "HEAD"])
     (bundle / "Package.txt").write_text(
-        f"{os_label} {cpu}, OEM firmware profile\nNative MAME base revision: {revision}\n"
+        f"{os_label} {cpu}, OEM and graphical launcher profiles\nNative MAME base revision: {revision}\n"
         f"Local ROM inputs included: {'yes' if args.rom_input else 'no'}\n"
+        f"Graphical ROM included: {'yes' if graphical_rom else 'no'}\n"
         + ("CPython 3.13.17, pyVoIP 1.6.8, audioop-lts 0.2.2, pylibsrtp 1.0.0\n" if windows
            else "Local CO only. See Quick Start.txt for the system runtime dependencies.\n"),
         encoding="ascii",
@@ -242,12 +262,13 @@ def main():
     parser.add_argument("--mame-root", type=Path, default=ROOT / "third-party/mame", help="prepared MAME checkout")
     parser.add_argument("--mame-exe", type=Path, help="reuse a specific build instead of rebuilding")
     parser.add_argument("--rom-input", type=Path, help="bundle operator-supplied ROMs from the package directory layout")
+    parser.add_argument("--graphical-rom", type=Path, help="optional verified graphical ROM to include in the local package")
     parser.add_argument("--cache", type=Path, default=ROOT / "build/package-cache")
     parser.add_argument("--output", type=Path, default=ROOT / "build/dist")
     args = parser.parse_args()
     if os.environ.get("MSYSTEM") != "MINGW64" and sys.platform not in ("linux", "darwin"):
         parser.error("On Windows, run from MSYS2 MINGW64.")
-    for field in ("mame_root", "mame_exe", "rom_input", "cache", "output"):
+    for field in ("mame_root", "mame_exe", "rom_input", "graphical_rom", "cache", "output"):
         if getattr(args, field) is not None:
             setattr(args, field, getattr(args, field).resolve())
     try:
