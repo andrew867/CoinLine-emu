@@ -44,6 +44,13 @@ Their default SIP ports are 5087 and 5088, respectively, and their dynamic
 RTP ranges are 10000-14999 and 15000-19999. Do not reuse fixed SIP/RTP ports or
 the same registrar account if you want simultaneous independent calls.
 
+For 4K displays, run from Command Prompt:
+  "Start OEM.cmd" --scale 2
+  "Start Graphical.cmd" --scale 2
+or use --maximize to fit the monitor work area. To retain the setting, set
+window_scale = 2.0 under [display] in the corresponding INI file. The terminal
+keeps its native artwork aspect ratio.
+
 First INSTALL
 -------------
 
@@ -82,6 +89,10 @@ card. The synchronous contact test passed on the later reference terminal;
 the default card is nonfunded and does not qualify chip payment. Other
 firmware may still report a failure. Follow the firmware's continuation prompt.
 Allow the refund and collection tests to finish before pressing * again.
+
+The optional smartcard-async-t0-lab.json and smartcard-async-t1-lab.json fixtures
+are generic read-only native serial application tests, not historical payment
+cards. Keep the default synchronous fixture for the existing INSTALL test.
 
 Controls
 --------

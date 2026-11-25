@@ -2,12 +2,13 @@
 #pragma once
 
 #include "emu.h"
+#include "diserial.h"
 
 #include "millennium_smartcard_model.h"
 
 DECLARE_DEVICE_TYPE(MILLENNIUM_SMARTCARD, millennium_smartcard_device)
 
-class millennium_smartcard_device : public device_t {
+class millennium_smartcard_device : public device_t, public device_nvram_interface, private device_serial_interface {
 public:
 	millennium_smartcard_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock = 0);
 
@@ -23,14 +24,38 @@ public:
 
 	void notify_reset(u64 cycle);
 	void later_pins(u8 d, u8 e, u8 f, u64 cycle);
+	void later_async_pins(u8 h, u8 d, u8 e);
+	bool async_routed() const noexcept { return m_model.async_routed(); }
+	void rxd_w(int state);
+	auto txd_handler() { return m_txd.bind(); }
 	void earlier_pins(u8 a, u8 c, u64 cycle);
 	u8 merge_data_pin(u8 value, u8 mask, u64 cycle) const;
 
 	millennium_smartcard_model &model() noexcept { return m_model; }
 
 private:
+	void nvram_default() override;
+	bool nvram_read(util::read_stream &file) override;
+	bool nvram_write(util::write_stream &file) override;
+	bool nvram_can_write() const override { return m_model.sync_test_memory_writable() && m_fixture_digest.size() == 64U; }
+	void stop_async_serial();
+	void schedule_async_serial();
+	TIMER_CALLBACK_MEMBER(async_serial_tick);
+	void tra_callback() override;
+	void tra_complete() override;
+	void rcv_complete() override;
+	u64 async_cycle() const;
+	static u8 inverse_octet(u8 value);
+	devcb_write_line m_txd;
+	emu_timer *m_async_timer = nullptr;
+	attotime m_async_guard_until = attotime::zero;
+	attotime m_async_period = attotime::never;
+	bool m_async_serial = false;
+	u64 m_async_hz = 12288000;
 	millennium_smartcard_model m_model{};
 	bool m_pin_trace = false;
+	bool m_lab_serial_trace = false;
 	std::string m_fixture_path;
 	std::vector<std::uint8_t> m_fixture_bytes;
+	std::string m_fixture_digest;
 };

@@ -524,6 +524,12 @@ void millennium_state::millennium(machine_config &config)
 	m_maincpu->txa0_wr_callback().set([this](int state) {
 		if (m_earlier_motherboard)
 			m_coin->rxd_w(state);
+		else if (m_smartcard->async_routed())
+			m_smartcard->rxd_w(state);
+	});
+	m_smartcard->txd_handler().set([this](int state) {
+		if (!m_earlier_motherboard)
+			m_maincpu->rxa0_w(state);
 	});
 	m_coin_uart->out_tx_callback().set([this](int state) {
 		if (!m_earlier_motherboard)
@@ -963,7 +969,7 @@ void millennium_state::driver_start()
 	if (m_z180_board.clock_hz != 0)
 		m_maincpu->set_unscaled_clock(double(m_z180_board.clock_hz));
 	if (m_tp_pcd3349a)
-		m_tp_pcd3349a->set_cp_hz(static_cast<std::uint32_t>(m_maincpu->unscaled_clock()));
+		m_tp_pcd3349a->set_cp_hz(static_cast<std::uint32_t>(m_maincpu->clocks_to_cycles(m_maincpu->unscaled_clock())));
 }
 
 void millennium_state::ensure_vfd_render_font()
@@ -2601,6 +2607,12 @@ void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, s
 		update_earpiece_tone_output(cycle, pc);
 		return;
 	}
+	if (!m_tel_ip_link_enabled) {
+		bool const onhook = (keymatrix & k_terminal21_hook_bit) == 0U;
+		if (onhook != m_tel_hook_onhook)
+			set_tel_hook_state(onhook, cycle, "pcd3349a_reset_hook");
+		return;
+	}
 
 	auto const res = m_tp_pcd3349a->process_front_panel(keymatrix, linectrl, softkeys_raw, secmask,
 		m_vfd_is_oos || m_vfd_is_not_responding || m_runtime_oos_seen || m_runtime_not_responding_seen,
@@ -2635,13 +2647,15 @@ void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, s
 	}
 	tp_enqueue_line_transitions(linectrl);
 	m_last_tp_ui_keymatrix_state = km_prof;
+	update_handset_routing();
 
 	bool const off_hook = !m_tel_hook_onhook;
 	bool const voice_active = m_voiceware->playing();
 	auto const &rs = m_audio_route->route_state();
 	bool const rx_open = !rs.rx_muted;
 	bool const oos_mode = m_vfd_is_oos || m_vfd_is_not_responding || m_runtime_not_responding_seen;
-	auto const mode = m_tp_pcd3349a->compute_tone_mode(off_hook, rx_open, voice_active, oos_mode);
+	auto const mode = m_handset_dial_tone ? millennium_pcd3349a::tone_mode::none :
+		m_tp_pcd3349a->compute_tone_mode(off_hook, rx_open, voice_active, oos_mode);
 	switch (mode) {
 	case millennium_pcd3349a::tone_mode::none:
 		m_earpiece_tone_mode = earpiece_tone_mode::none;
@@ -2649,17 +2663,11 @@ void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, s
 		m_earpiece_tone_b->set_state(0);
 		break;
 	case millennium_pcd3349a::tone_mode::dialtone:
-		if (!m_handset_dial_tone || m_line.line_connected()) {
-			m_earpiece_tone_mode = earpiece_tone_mode::none;
-			m_earpiece_tone_a->set_state(0);
-			m_earpiece_tone_b->set_state(0);
-			break;
-		}
-		m_earpiece_tone_mode = earpiece_tone_mode::dialtone;
-		m_earpiece_tone_a->set_clock(350);
-		m_earpiece_tone_b->set_clock(440);
-		m_earpiece_tone_a->set_state(1);
-		m_earpiece_tone_b->set_state(1);
+		// Firmware-selected local dial tone is mixed by the handset audio device,
+		// not by the external-loop or out-of-service tone path.
+		m_earpiece_tone_mode = earpiece_tone_mode::none;
+		m_earpiece_tone_a->set_state(0);
+		m_earpiece_tone_b->set_state(0);
 		break;
 	case millennium_pcd3349a::tone_mode::nis:
 		m_earpiece_tone_mode = earpiece_tone_mode::nis;
@@ -2729,7 +2737,7 @@ void millennium_state::tp_backend_queue_response_bytes(std::vector<std::uint8_t>
 				bool const modem_data = m_modem->model().ncc_link_up();
 				// The modem relay can remain engaged for answer supervision on a
 				// connected voice loop. It is not an exclusive data-path selector.
-				bool const voice_loop = m_loop_seized && (m_tp_loop_seized || !modem_relay ||
+				bool const voice_loop = m_loop_seized && (coinline::audio_route::handset_co_loop(m_tp_loop_seized, m_hw_cntl_port_image) || !modem_relay ||
 					coinline::audio_route::call_state_established(route.call));
 				bool const line_tone = coinline::audio_route::dialpad_line_tone_enabled(route,
 					!m_tel_hook_onhook, voice_loop, modem_data);
@@ -3582,8 +3590,8 @@ void millennium_state::trace_hw_cntl_telephony_relays(u8 prev, u8 data, u64 cy, 
 			       "inactive selects CO-line power / power-fail takeover (toll rules from config)";
 			break;
 		case 3:
-			role = "R3 modem sink relay: tone-detect / CO coupling when active; "
-			       "inactive allows modem loop-current sink for off-hook";
+			role = "R3 modem sink relay: enables loop-current sink when active; "
+			       "inactive selects high-impedance CO monitoring";
 			break;
 		default:
 			break;
@@ -3692,7 +3700,7 @@ void millennium_state::update_external_ringer()
 
 void millennium_state::update_line_seizure()
 {
-	bool const seized = m_tp_loop_seized || (m_hw_cntl_port_image & 1U) != 0U;
+	bool const seized = coinline::audio_route::co_loop_seized(m_tp_loop_seized, m_hw_cntl_port_image);
 	if (seized != m_loop_seized) {
 		m_loop_seized = seized;
 		m_line.send_line(seized ? "S\n" : "X\n");
@@ -3705,6 +3713,15 @@ void millennium_state::update_handset_routing()
 	auto const &rs = m_audio_route->route_state();
 	bool const speech = !m_voicew_prev_upd_idle && !m_handset_dial_tone;
 	bool const rx_muted = rs.rx_muted || speech || !m_loop_seized;
+	bool const handset_on_co = coinline::audio_route::handset_co_loop(m_tp_loop_seized, m_hw_cntl_port_image);
+	bool const local_dial_tone = coinline::audio_route::local_dial_tone_enabled(
+		!m_tel_hook_onhook_stable, m_handset_dial_tone, handset_on_co,
+		m_line.line_connected() && m_line.co_dial_tone(), !rx_muted);
+	if (m_dtmf_trace && local_dial_tone != m_audio->model().local_dial_tone())
+		std::fprintf(stderr, "Dial tone %.6f local=%d hook=%d requested=%d co_loop=%d co_tone=%d rx_muted=%d\n",
+			machine().time().as_double(), local_dial_tone, !m_tel_hook_onhook_stable, m_handset_dial_tone,
+			handset_on_co, m_line.co_dial_tone(), rx_muted);
+	m_audio->set_local_dial_tone(local_dial_tone);
 	u8 const gates = (rs.tx_muted ? 1U : 0U) | (rx_muted ? 2U : 0U) | (rs.sidetone_suppressed ? 4U : 0U);
 	if (gates != m_handset_gates) {
 		m_handset_gates = gates;
@@ -3915,9 +3932,10 @@ void millennium_state::write_hw_cntl(u8 data)
 		bool const r1 = (data & 0x01U) != 0U;
 		m_modem->model().note_modem_relay(r1, machine().time().as_double());
 		m_line.send_line(r1 ? "Q1\n" : "Q0\n");
-		update_line_seizure();
 		if (!r1) adsi_fixture_maybe_answer();
 	}
+	if (((prev ^ data) & 0x07U) != 0U)
+		update_line_seizure();
 	if (((prev ^ data) & 0x10U) != 0U) {
 		bool const en = (data & 0x10U) != 0U;
 		m_line.send_line(en ? "E1\n" : "E0\n");
@@ -3934,7 +3952,7 @@ void millennium_state::write_hw_cntl(u8 data)
 		static constexpr u8 PWR_FAIL_LINE = 0x20U;
 		bool const prev_pf = (prev & PWR_FAIL_LINE) != 0U;
 		bool const now_pf = (data & PWR_FAIL_LINE) != 0U;
-		u64 const hz = static_cast<u64>(m_maincpu->unscaled_clock());
+		u64 const hz = m_maincpu->clocks_to_cycles(m_maincpu->unscaled_clock());
 		u64 c10 = hz / 100U;
 		if (c10 == 0ULL)
 			c10 = 1ULL;
@@ -3942,8 +3960,19 @@ void millennium_state::write_hw_cntl(u8 data)
 			m_tel_ip_link_enable_deadline_cycle = cy + 6ULL * c10;
 		} else if (prev_pf && !now_pf) {
 			m_tel_ip_link_enabled = false;
+			m_tel_ip_link_enable_deadline_cycle = 0ULL;
 			m_tel_boot_code_sent = false;
 			m_tel_boot_code_deadline_cycle = 0ULL;
+			m_ipcomm_rx_prio_bytes.clear();
+			m_ipcomm_rx_bytes.clear();
+			m_ipcomm_have_rx_byte = false;
+			m_ipcomm_rx_bit = 0U;
+			m_ipcomm_rts_asserted = false;
+			m_keypad->set_ip_comm_rts_asserted(false);
+			if (m_tel_hook_onhook) {
+				m_tp_loop_seized = false;
+				update_line_seizure();
+			}
 		}
 	}
 	// HW_CNTL_PORT bit 7 (SCLK) is the CSIO external clock generated by firmware. Bridge it into the Z180 CSIO input.
@@ -4225,7 +4254,7 @@ void millennium_state::telephony_note_csio_rx_byte(u8 b)
 				if (v == 0x70U || v == 0x72U) {
 					m_tel_boot_power_ack_seen = true;
 					m_tel_boot_semantic_state = tel_boot_semantic_state::acked_not_ready;
-					telephony_runtime_trace_event("telephony_init_ack", "0x72", opcode_hex_byte(v).c_str(), true, "csio_single_byte");
+				telephony_runtime_trace_event("telephony_init_ack", opcode_hex_byte(v).c_str(), opcode_hex_byte(v).c_str(), true, "csio_single_byte");
 				} else if (v == 0x6CU || v == 0x6EU) {
 					m_tel_boot_hook_state_seen = true;
 				} else if (v == 0x7AU || v == 0x7CU) {
@@ -5962,6 +5991,8 @@ void millennium_state::mach_pio_w(offs_t offset, u8 data)
 	// Port \c F (\c 0xC3): card-reader control + forgotten-card warning / cadence bits (\c millennium_mach_port_f); handset alerter remains \c 0x58–\c 0x5b.
 	if (offset >= 1 && offset <= 3)
 		m_smartcard->later_pins(m_mach_pio_shadow[1], m_mach_pio_shadow[2], m_mach_pio_shadow[3], cy);
+	if (!m_earlier_motherboard && offset <= 3)
+		m_smartcard->later_async_pins(m_mach_pio_shadow[0], m_mach_pio_shadow[1], m_mach_pio_shadow[2]);
 }
 
 u8 millennium_state::card_reader_signals() const
@@ -7098,7 +7129,9 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			m_audio->write_dtmf_digit(static_cast<std::uint8_t>(digit), 90U, cy, pc);
 			break;
 		}
-		// ASCI1 connects to the NCC modem. ASCI0 belongs to the coin validator.
+		// ASCI1 connects to the NCC modem. The earlier board uses ASCI0
+		// for its coin validator; the later board selects external contacts
+		// on ASCI0 and keeps its coin UART independent.
 		m_modem->model().poll_ncc_link(now);
 
 		static int rx_bits_left = 0;
@@ -7306,14 +7339,17 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		// CSI/O TP link arms after PWR_FAIL_LINE release + DELAY_AFTER_PWR_FAIL_RESET (~60 ms), see board_status_w.
 		// Fallback: some traces never touch HW_CNTL — approximate original fixed ladder after a grace window.
 		if (!m_tel_ip_link_enabled) {
+			u64 const tp_10ms = std::max<u64>(1, m_maincpu->clocks_to_cycles(hz) / 100U);
 			if (m_tel_ip_link_enable_deadline_cycle == 0ULL
-				&& cy > m_tel_reset_cycle_start + 50ULL * cycles_per_10ms) {
-				m_tel_ip_link_enable_deadline_cycle = cy + cycles_per_10ms * (15U + 6U);
+				&& (m_hw_cntl_port_image & 0x20U) && cy > m_tel_reset_cycle_start + 50ULL * tp_10ms) {
+				m_tel_ip_link_enable_deadline_cycle = cy + tp_10ms * (15U + 6U);
 			}
 			if (m_tel_ip_link_enable_deadline_cycle != 0ULL && cy >= m_tel_ip_link_enable_deadline_cycle) {
+				if (m_tp_backend_kind == tp_backend_kind::pcd3349a && m_tp_pcd3349a)
+					m_tp_pcd3349a->reset(m_tel_hook_onhook, cy);
 				m_tel_ip_link_enabled = true;
 				m_tel_link_enable_cycle = cy;
-				m_tel_boot_code_deadline_cycle = cy + (cycles_per_10ms * 100U);
+				m_tel_boot_code_deadline_cycle = cy + (tp_10ms * 100U);
 				telephony_runtime_trace_event("telephony_init_status_ok", "", "", true, "ip_link_enabled_after_reset_delays");
 			}
 		}
@@ -7388,6 +7424,7 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 				m_handset_dial_tone = false;
 			m_audio_route->notify_hook_off(!m_tel_hook_onhook_stable);
 			m_audio->set_alerter_audible(m_tel_hook_onhook_stable);
+			update_handset_routing();
 			m_line.send_line(m_tel_hook_onhook_stable ? "H0\n" : "H1\n");
 			update_external_ringer();
 		}

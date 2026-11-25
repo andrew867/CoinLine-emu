@@ -12,6 +12,13 @@ retains its original `data/oem/` path. A prior graphical installation launched
 through OEM can be moved by the operator to the matching subdirectory under
 `data/graphical/` with both instances closed; nothing is migrated automatically.
 
+For a larger Windows window, use `"Start OEM.cmd" --scale 2` or
+`"Start Graphical.cmd" --scale 2`. This requests a 720x1700 client bound,
+which the native aspect ratio and monitor work area may constrain. Use
+`--maximize` to fit the available monitor rather than use a fixed bound.
+Set `[display] window_scale = 2.0` (and optionally `window_maximized = true`)
+in the corresponding INI to retain the preference across launches.
+
 On Linux x64 or macOS on Apple Silicon, extract the archive, install the dependencies listed in **Quick Start.txt**, and run `./start-oem.sh`. These builds use the local central office and play terminal audio. SIP audio and capture are Windows features.
 
 Open the included **Quick Start.txt** for setup. The [Windows operator guide](tools/windows/portable/quick-start.txt) includes the full INSTALL sequence for all platforms. Supply authorized ROMs using the [ROM input layout](BUILDING.md#include-your-local-rom-inputs).
@@ -49,13 +56,20 @@ bitmap advertisements. Its original INSTALL chip-card check failed, but a
 later native pin-level reader passed Craft item 728 twice and the standard
 NLA1X05 complete INSTALL. A magnetic swipe obtained an approved simulated
 authorization and connected a local call; no CDR or debit was observed.
-Funded chip applications and graphical menu navigation remain separate gates.
+Funded chip applications remain a separate gate. Free graphical menu
+navigation is qualified with the compatible voice service.
 
 For a local card bench, choose synthetic card fixtures with `--mag-card`
 and `--smart-card` or set `mag_fixture` and `smart_fixture` under
 `[cards]` in `coinline.ini`. Paths are relative to the extracted package
 or absolute. The default chip-card fixture exercises the physical contacts;
-it is not a funded payment card. Use `--local` for simulated calls.
+it is not a funded payment card. The optional `smartcard-async-t0-lab.json`
+and `smartcard-async-t1-lab.json` fixtures use the actual later-board ASCI0
+pin path and a read-only synthetic application. They are intended for a
+compatible transport test, not recognition by historical payment firmware.
+Use `--local` for simulated calls. The explicit writable synchronous lab
+fixture persists only its bounded one-way test memory in a separate smart-card
+NVRAM device file; it does not modify the terminal's own battery data.
 
 | Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
 | --- | --- | --- | --- |

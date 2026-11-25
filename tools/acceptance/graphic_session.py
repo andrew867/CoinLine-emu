@@ -153,6 +153,7 @@ def main():
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     if args.keypad_trace:
         env.update(COINLINE_FRONT_PANEL_TRACE=str(out / "front-panel.jsonl"),
+                   COINLINE_HW_CNTL_RELAY_TRACE=str(out / "hw-cntl-relay-trace.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
                    COINLINE_TP_8048_KEYPAD_TRACE=str(out / "keypad.jsonl"),
                    COINLINE_TP_8048_RUNTIME_TRACE=str(out / "telephony-clock.jsonl"),

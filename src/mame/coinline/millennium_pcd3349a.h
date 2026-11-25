@@ -21,7 +21,7 @@ public:
 		bool hook_onhook = true;
 	};
 
-	void reset(bool onhook_initial = true);
+	void reset(bool onhook_initial = true, std::uint64_t cp_cycle = 0);
 	void step(std::uint64_t cycles) noexcept { m_core.step_cycles(cycles); }
 	void set_cp_hz(std::uint32_t cp_hz) noexcept { m_cp_hz = cp_hz; }
 	void set_trace_paths(std::filesystem::path runtime, std::filesystem::path port, std::filesystem::path keypad,

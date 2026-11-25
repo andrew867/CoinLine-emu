@@ -9,6 +9,8 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 - [Build and package](BUILDING.md) for Windows x64, Ubuntu Linux x64, macOS Apple Silicon, and the operator ROM input layout.
 - [INSTALL verification](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) for the firmware and network evidence.
 - [Card contact and payment qualification](docs/status/smartcard-contact-2026-11-25.md), [ADSI interoperation](docs/status/adsi-interop-2026-11-25.md), and [graphical performance](docs/status/graphical-render-performance-2026-11-25.md) for the latest live trials and remaining gates.
+- [Native smart-card transport and high-DPI window sizing](docs/status/smartcard-native-transport-2026-11-25.md) for the synthetic ASCI0 and memory-persistence tests.
+- [Interactive and audio milestone status](docs/status/interactive-audio-milestone-status.md) for the native New Call relay and SIP-dialog restart check.
 - [Windows window and artwork timing](docs/status/windows-window-timing-2026-11-25.md) for nonmodal window moves/resizes and native renderer measurements.
 - [Connected DTMF and ADSI navigation qualification](docs/status/connected-dtmf-adsi-welcome-2026-11-25.md) for live menu navigation and SIP transport verification.
 - [Firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) for the tested terminal families, archive hashes and outstanding gates.

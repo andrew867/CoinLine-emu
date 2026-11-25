@@ -51,6 +51,8 @@ int main()
 		m.remove_card();
 		m.insert_card_at(90, 1000000);
 		if (m.memory()[0] != 0xbf || m.sync_powered()) return 35;
+		if (m.restore_sync_test_memory({0xff, 0xff}) || m.restore_sync_test_memory({0x3f, 0xff}) ||
+			m.restore_sync_test_memory({0xbf}) || !m.restore_sync_test_memory({0x9f, 0xff})) return 38;
 		if (m.parse_fixture_json(R"({"protocol":"sync","atr_hex":"00","memory_hex":"FF","sync_program_enabled":true,"sync_program_first_bit":0,"sync_program_end_bit":9})", err)) return 36;
 	}
 	{
@@ -147,7 +149,7 @@ int main()
 		millennium_smartcard_model m;
 		std::string err;
 		// ATR with TD1 low nibble = 1 => T=1 available.
-		if (!m.parse_fixture_json("{\"protocol\":\"micro\",\"atr_hex\":\"3B 90 11 01\"}", err)) {
+		if (!m.parse_fixture_json("{\"protocol\":\"micro\",\"atr_hex\":\"3B 80 01 81\"}", err)) {
 			std::cerr << "parse failed for t1 fixture\n";
 			return 3;
 		}

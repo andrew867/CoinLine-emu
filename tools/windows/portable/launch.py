@@ -27,10 +27,24 @@ SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "P
 def config_for_run(profile):
     config = configparser.ConfigParser(interpolation=None)
     config.read(ROOT / PROFILES[profile][0], encoding="utf-8-sig")
-    for section in ("line", "sip", "hardware", "cards", "adsi"):
+    for section in ("line", "sip", "hardware", "cards", "adsi", "display"):
         if section not in config:
             config.add_section(section)
     return config
+
+
+def window_settings(args, config):
+    settings = config["display"]
+    scale = args.scale if args.scale is not None else settings.getfloat("window_scale", 1.0)
+    if not 0.5 <= scale <= 4.0:
+        raise ValueError("Set window_scale or --scale between 0.5 and 4.0.")
+    maximize = args.maximize if args.maximize is not None else settings.getboolean("window_maximized", False)
+    # MAME treats -resolution as the window's maximum, not its initial
+    # client size. Start at that bound for an explicit scale; an unrestricted
+    # maximize uses the monitor's available work area instead.
+    if maximize:
+        return None, True
+    return f"{round(360 * scale)}x{round(850 * scale)}", scale != 1.0
 
 
 def check_files(program, rompath, display):
@@ -161,6 +175,7 @@ def prepare_hardware(args, config):
 def run(args, config, hardware):
     state, rompath, hardware_env, description = hardware
     graphical = hardware_env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
+    resolution, maximize = window_settings(args, config)
     port = config["line"].getint("ncc_port", 4000)
     digits = config["line"].get("outbound_digits", "18005551212").strip()
     sip = config["sip"]
@@ -247,9 +262,9 @@ def run(args, config, hardware):
             cmd += ["-view", "Graphical"]
         # Software artwork rendering must be allowed to shed display work
         # rather than slow the physical terminal or audio clock.
-        cmd += ["-window", "-nomaximize", "-autoframeskip", "-frameskip", "11" if args.video == "gdi" else "4", "-audio_latency", "6"]
-        if WINDOWS:
-            cmd += ["-resolution", "360x850"]
+        cmd += ["-window", "-maximize" if maximize else "-nomaximize", "-autoframeskip", "-frameskip", "11" if args.video == "gdi" else "4", "-audio_latency", "6"]
+        if WINDOWS and resolution is not None:
+            cmd += ["-resolution", resolution]
     if args.seconds:
         cmd += ["-seconds_to_run", str(args.seconds)]
     if args.record:
@@ -301,6 +316,8 @@ def main():
     parser.add_argument("--check", action="store_true", help="check package inputs and exit")
     parser.add_argument("--headless", action="store_true", help="run a bounded test without a window")
     parser.add_argument("--seconds", type=int, metavar="N", help="exit after N emulated seconds")
+    parser.add_argument("--scale", type=float, help="initial Windows window size multiplier (0.5 to 4.0)")
+    parser.add_argument("--maximize", action="store_true", default=None, help="start with the emulator window maximized")
     if WINDOWS:
         parser.add_argument("--video", choices=("gdi", "d3d", "opengl"), default="opengl", help="OpenGL by default; use gdi for software rendering")
     else:

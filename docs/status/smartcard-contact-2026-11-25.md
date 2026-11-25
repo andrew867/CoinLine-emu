@@ -25,8 +25,8 @@
 
 ## Remaining card application gates
 
-- Native asynchronous ATR/APDU transport and application-specific
-  stored-value programming remain unqualified. A bounded one-way test
+- At this stage, native asynchronous ATR/APDU transport and application-specific
+  stored-value programming remained unqualified. A bounded one-way test
   memory programming model has unit coverage for pulse duration, address
   range, interrupted programming and removal persistence. The native bus
   probe in `build/firmware-acceptance/smartcard-pin-probe/20261125T062620.883573Z/`
@@ -105,3 +105,33 @@ provisioning, not the retained terminal battery or the shared deployment.
 The final native contact probe repeated the timed memory and two-selector
 checks with the corrected board-clock build. It passed. Run:
 `build/firmware-acceptance/smartcard-pin-probe/20261125T084348.990167Z/`.
+
+## Independent terminal operator payment follow-up
+
+- The operator lifted the receiver, swiped the synthetic magnetic card and
+  dialed a rated call. The terminal displayed Card validation in progress,
+  then Card is not valid / Please hang up. The host payment transaction list
+  contained no entries. The NCC history included a rate request and a later
+  short dialogue whose sensitive application bytes were redacted. The host
+  independently confirmed that the latter was a genuine MT2 request.
+- The current host authorization path returns a decline when no connected
+  provider is available; the presence of a seeded account balance does not
+  establish that the provider is connected. The host retains redacted audit
+  metadata for authorization messages. Follow-up requires the host to
+  correlate the actual authorization attempt and expose its outcome without
+  storing full card data. An authorization attempt is not a settled payment.
+- The operator also observed Check orientation during normal-call smart-card
+  insertion. The shipped synchronous contact-test fixture is intentionally
+  unfunded and is not a recognized payment application. The native Craft
+  contact-test success remains distinct from runtime application recognition.
+  Follow-up is to complete asynchronous selection, ATR and T=0/T=1 transport
+  on the native contact pins, qualify removal and error paths, then coordinate
+  an authorized synthetic application and its separate host account.
+- Payment acceptance must demonstrate actual firmware authorization, rated
+  call connection, terminal call record, host reconciliation and a single
+  simulated settlement. No payment should be recorded solely because a
+  contact test, card lookup or preauthorization succeeds.
+
+The subsequent [native serial contact qualification](smartcard-native-transport-2026-11-25.md)
+passed the generic read-only T=0/T=1 application and synchronous restart
+persistence. Historical application recognition remains a separate test.

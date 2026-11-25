@@ -47,5 +47,17 @@ int main()
 		std::cerr << "expected a muted receive path after the tone\n";
 		return 1;
 	}
+	// Supplementary handset power: the CO receiver is muted but the requested
+	// local 350/440 Hz source must remain audible, then stop on cancellation.
+	m.set_local_dial_tone(true);
+	m.write_volume(0);
+	double const t = 1.2005;
+	float const expected = 0.5f * 0.069f * (std::sin(2.0 * 3.141592653589793 * 350.0 * t) +
+		std::sin(2.0 * 3.141592653589793 * 440.0 * t));
+	if (std::fabs(m.handset_speaker_sample(t) - expected) > 0.0001f)
+		return 1;
+	m.set_local_dial_tone(false);
+	if (m.handset_speaker_sample(t) != 0.f)
+		return 1;
 	return 0;
 }

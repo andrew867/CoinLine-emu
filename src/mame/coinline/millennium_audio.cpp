@@ -89,6 +89,13 @@ void millennium_audio_device::set_handset_gain(float gain)
 	m_model.set_receive_gain(gain);
 }
 
+void millennium_audio_device::set_local_dial_tone(bool enabled) noexcept
+{
+	if (enabled == m_model.local_dial_tone()) return;
+	if (m_stream) m_stream->update();
+	m_model.set_local_dial_tone(enabled);
+}
+
 void millennium_audio_device::device_stop()
 {
 	close_microphone();

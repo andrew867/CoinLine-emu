@@ -17,6 +17,7 @@ local machine = manager.machine
 local io = machine.devices[":maincpu"].spaces["io"]
 local card = assert(machine.ioport.ports[":CARDUI"]:field(2))
 local frame = 0
+local warm = os.getenv("COINLINE_SMART_CARD_WARM_PROBE") == "1"
 local function d(v) io:write_u8(0xc1, v) end
 local function e(v) io:write_u8(0xc2, v) end
 local function f(v) io:write_u8(0xc3, v) end
@@ -38,6 +39,11 @@ emu.register_frame_done(function()
         select_card()
         assert(bit(), "initial contact bit missing")
         advance()
+        if warm then
+            assert(not bit(), "terminal restart restored programmed contact bit")
+            print("SMARTCARD_PIN_PERSISTENCE passed")
+            e(0); machine:exit(); return
+        end
         assert(bit(), "initial writable bit missing")
         program(); d(base) -- too short
         assert(bit(), "short pulse changed memory")
@@ -107,7 +113,13 @@ def main():
     (out / "mame.log").write_text(log, encoding="utf-8")
     if result.returncode or "SMARTCARD_PIN_PROBE passed" not in log:
         raise RuntimeError(f"Native contact-memory probe failed: {out}")
-    print(f"Native contact-memory probe passed: {out}")
+    warm = subprocess.run(command, cwd=out, env=dict(env, COINLINE_SMART_CARD_WARM_PROBE="1"),
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
+    warm_log = warm.stdout.decode(errors="replace")
+    (out / "warm.log").write_text(warm_log, encoding="utf-8")
+    if warm.returncode or "SMARTCARD_PIN_PERSISTENCE passed" not in warm_log or "smart-card synthetic memory restored" not in warm_log:
+        raise RuntimeError(f"Native restart contact-memory probe failed: {out}")
+    print(f"Native contact-memory and restart persistence probes passed: {out}")
 
 
 if __name__ == "__main__":

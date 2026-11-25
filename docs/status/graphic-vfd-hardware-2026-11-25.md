@@ -17,8 +17,32 @@ The standard character display and its artwork view remain available.
 - The cold-run evidence is under `build/firmware-acceptance/graphic-firmware/20261125T042328.999166Z/`. The native display captured every one of the 16 downloaded MT131/132 bitmap screens in 92 snapshots. Each exact 112 by 72 pixel match was placed at column 8, row 16 on the 126 by 88 pixel VFD. MT133 was acknowledged; menu application operation was not established by this bitmap comparison.
 - A separate artwork launch loaded the cold run's saved battery and program flash. After an initial telephony alarm and a normal NCC alarm upload, the firmware returned to **Please lift receiver** without Craft intervention. Lifting the handset displayed the normal deposit, card or dial prompt, and returning it restored idle. The warm evidence is in `build/firmware-acceptance/graphic-firmware/20261125T045651.482325Z/`. Both emulator processes exited successfully.
 
+## Independent launcher cold-download follow-up
+
+During a subsequent operator cold INSTALL, the graphical firmware reported
+status 34 after a host-completed download. The NCC history confirmed that
+the first MT44 request with reason `0x86` was served an older queued partial
+containing only MT131, MT132 and MT133. All three were acknowledged, but
+that batch omitted the other 15 records of the assigned full graphical set.
+The simultaneously running two-line launcher had a distinct terminal and
+line-jack connection and independently acknowledged its own 12-record set.
+
+The graphical terminal's native retry issued MT44 reason `0x82` and the host
+delivered all 18 assigned records: MT21, MT26, MT31, MT62, MT50, MT73, MT92,
+MT93, MT72, MT134, MT135, MT136, MT30, MT33, MT49, MT131, MT132 and MT133.
+All 18 application acknowledgements and normal NCC session closure were
+confirmed. No emulator storage was edited. The operator confirmed that the
+terminal displayed Completed 02, matching the earlier successful graphical
+download. Status 02 is a completion result, not terminal type 40. The
+remaining peripheral and closure checks are separate acceptance gates.
+
+The host orchestration correction is to give cold INSTALL precedence over
+an older partial schedule, while retaining still-needed partial updates for
+a later ordinary session. A completed partial batch alone does not establish
+that a new terminal received every required record.
+
 ## Remaining gates
 
-- The original cold-run smart-card self-test failed. A subsequent pin-level model passed Craft item 728 twice on the installed NLA1X08, and passed a complete standard NLA1X05 INSTALL and restart. See [card contact qualification](smartcard-contact-2026-11-25.md). A fresh NLA1X08 INSTALL and funded-card transactions still require separate evidence. The startup telephony alarm recovered during normal maintenance in this run; its cause is not qualified. Graphical menu navigation and ADSI service interoperability require their own evidence.
+- The original cold-run smart-card self-test failed. A subsequent pin-level model passed Craft item 728 twice on the installed NLA1X08, and passed a complete standard NLA1X05 INSTALL and restart. See [card contact qualification](smartcard-contact-2026-11-25.md). A fresh NLA1X08 INSTALL and funded-card transactions still require separate evidence. The startup telephony alarm was subsequently reproduced and corrected through the controller reset and serial link sequencing; see [interactive and audio regression evidence](interactive-audio-milestone-status.md). [Free ADSI menu navigation and service interoperability](connected-dtmf-adsi-welcome-2026-11-25.md) subsequently passed; paid menu access is not established by that result.
 - The new artwork input regions use the existing MAME input mechanism. The twelve raw inputs have been exercised through the scanner; actual pointer clicks and resize behavior still require interactive qualification.
 - Display-ready timing, brightness transfer function and exact optical geometry still require physical calibration. The independent expansion DSP, FSK and call-alert functions are outside this display model and require their own qualification.

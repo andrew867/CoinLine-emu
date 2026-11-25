@@ -50,6 +50,13 @@ void reset_to_idle_fixture(composite_state &s);
 bool call_state_established(call_state c) noexcept;
 bool dialpad_line_tone_enabled(composite_state const &s, bool hook_off, bool voice_loop, bool modem_data_active) noexcept;
 
+// Three physical control-board relays: R2 selects the supplementary handset
+// supply, R1 connects the modem, and R3 selects modem current sink vs monitor.
+bool handset_co_loop(bool handset_relay_seized, std::uint8_t relay_latch) noexcept;
+bool modem_co_loop(std::uint8_t relay_latch) noexcept;
+bool co_loop_seized(bool handset_relay_seized, std::uint8_t relay_latch) noexcept;
+bool local_dial_tone_enabled(bool hook_off, bool requested, bool co_loop, bool co_dial_tone, bool co_rx_open) noexcept;
+
 /// Integration label for optional `call_state_if_known` trace field (`audio-call-state-integration.spec.md`).
 /// Empty string when not confidently derivable from composite hardware state alone.
 void snapshot_integration_call_state(composite_state const &s, std::string &out);
