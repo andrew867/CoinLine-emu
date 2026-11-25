@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 
-from run import ROOT, central_office, port
+from run import ROOT, central_office, port, validate_data_routes
 from hardware import PRESETS, program_tag, select_hardware
 
 
@@ -83,6 +83,7 @@ def main():
         settings["line"] = settings["wireId"]
     if "ncc_port" not in settings and "nccPort" in settings:
         settings["ncc_port"] = settings["nccPort"]
+    validate_data_routes(settings)
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
     print(out, flush=True)
@@ -127,6 +128,9 @@ def main():
     for key in ("line", "serial", "pin"):
         if key in settings:
             env["COINLINE_ACCEPTANCE_" + key.upper()] = str(settings[key])
+    if settings.get("code_server_number"):
+        env.update(COINLINE_CODE_SERVER_NUMBER=settings["code_server_number"],
+                   COINLINE_CODE_SERVER_PORT=str(settings["code_server_port"]))
     if settings.get("free_call"):
         env["COINLINE_OUTBOUND"] = str(settings["free_call"])
     if args.adsi:

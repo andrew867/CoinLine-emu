@@ -70,9 +70,19 @@ def synthetic_image():
 PROBE_LUA = """
 local machine = manager.machine
 local space = machine.devices[":maincpu"].spaces["program"]
+local interrupted = os.getenv("COINLINE_FLASH_INTERRUPT_PROBE") == "1"
 local frames = 0
 emu.register_frame_done(function()
     frames = frames + 1
+    if interrupted and frames == 6 then
+        -- The synthetic CPU has started sector erase but its 600 ms
+        -- completion is still pending. Two actual bus reads observe toggle.
+        local first, second = space:read_u8(0x1234), space:read_u8(0x1234)
+        assert((first ~ second) & 0x40 ~= 0, "flash was not busy before interruption")
+        print("FLASH_INTERRUPTED_BUSY")
+        machine:exit()
+        return
+    end
     if frames == 180 then
         print(string.format(
             "FLASH_PROBE marker=%02X chip0=%02X chip1=%02X erased=%02X/%02X adjacent=%02X/%02X",
@@ -92,6 +102,8 @@ def main():
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/flash-bus-probe")
+    parser.add_argument("--interrupt-before-complete", action="store_true",
+                        help="close a synthetic run while erase is busy, then verify retry and restart")
     args = parser.parse_args()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     test = args.output.resolve() / stamp
@@ -119,7 +131,16 @@ def main():
                "-cfg_directory", str(test / "cfg"), "-seconds_to_run", "4",
                "-autoboot_delay", "0", "-autoboot_script", str(test / "probe.lua")]
     print(test, flush=True)
-    for phase, marker, load_message in (("cold", "A0", "program flash seed"),
+    if args.interrupt_before_complete:
+        result = subprocess.run(command, cwd=test, env=dict(env, COINLINE_FLASH_INTERRUPT_PROBE="1"),
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
+        log = result.stdout.decode(errors="replace")
+        (test / "interrupted.log").write_text(log, encoding="utf-8")
+        saved = (test / "nvram/cl_millennium/program_flash").read_bytes()
+        if result.returncode or "FLASH_INTERRUPTED_BUSY" not in log or saved != digest.encode("ascii") + image:
+            raise RuntimeError("Busy-erase interruption did not preserve the prior completed image")
+        print("interrupted flash bus verified; saved image unchanged", flush=True)
+    for phase, marker, load_message in (("cold", "A0", "program flash load" if args.interrupt_before_complete else "program flash seed"),
                                        ("warm", "A1", "program flash load")):
         result = subprocess.run(command, cwd=test, env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, timeout=60)
