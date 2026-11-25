@@ -10,6 +10,10 @@ Open the included **Quick Start.txt** for setup. The [Windows operator guide](to
 
 Start CoinLine Server with its NCC listener on loopback TCP 4000. Use the lab terminal’s configured 10-digit wire ID as the line number and assign the table set for its firmware. The default MTR 1.9 Multi-Pay lab set includes the test card and free-call screening records. The decimal NCC number for `127.0.0.1` is `2130706433`. For a different local TCP port, copy `coinline.example.ini` to `coinline.ini` and set `ncc_port`.
 
+For a future MTR 2.x remote code-server trial, the same configuration supports
+a separate `code_server_number` and `code_server_port`. Leave both at their
+defaults for ordinary operation. See the [remote download setup](docs/firmware-download-storage.md).
+
 An out-of-service display on first launch is expected. Complete the firmware’s INSTALL with the CO and answer checks, NCC download, keypad, card, and coin checks. The portable launcher never writes the terminal tables or installation flags. When the terminal enters service, later runs reuse its firmware-written battery file.
 
 ## Hardware selection

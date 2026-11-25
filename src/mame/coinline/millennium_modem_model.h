@@ -40,7 +40,7 @@ public:
 	void note_tx(std::uint8_t b);
 	void push_rx(std::uint8_t b);
 
-	/// Pad/TP outpulse digit. IPv4-decimal strings still open NCC (lab management dial).
+	/// Pad/TP outpulse digit. Configured local data-call routes use the same serial path.
 	void note_outpulse_digit(char digit, double now_sec);
 	void poll_ncc_link(double now_sec);
 	bool ncc_link_up() const noexcept { return m_ncc_up; }
@@ -96,7 +96,7 @@ private:
 
 	void ncc_close() noexcept;
 	bool ncc_connect_dialed(double now_sec);
-	bool ncc_connect_host(std::uint32_t host, unsigned port, double now_sec);
+	bool ncc_connect_host(std::uint32_t host, unsigned port, double now_sec, bool code_server);
 	void ncc_send_bytes(std::uint8_t const *data, std::size_t n);
 	void ncc_maybe_lab_hello();
 	void flush_ncc_tx();

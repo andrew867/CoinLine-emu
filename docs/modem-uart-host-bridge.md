@@ -10,6 +10,15 @@ Firmware SSI writes control the modem and generate the management dial digits. T
 
 The verified manager connection uses TCP. The firmware dials the decimal address `2130706433` for `127.0.0.1`, and the modem opens the local CoinLine connection after that outpulse sequence. The default NCC port is 4000. Set `ncc_port` in the portable launcher configuration or `COINLINE_NCC_PORT` when launching the driver directly.
 
+For MTR 2.x remote program downloads, an optional second ten-digit dialing
+alias selects a separate loopback TCP code server. Set `code_server_number`
+and `code_server_port` under `[line]` in the launcher configuration, or set
+`COINLINE_CODE_SERVER_NUMBER` and `COINLINE_CODE_SERVER_PORT` directly.
+The firmware's outpulsed number determines the route. The modem preserves
+the raw serial byte stream and uses the existing carrier sequence. Unmatched
+numbers do not open data sessions. See [remote firmware downloads](firmware-download-storage.md)
+for the configuration and qualification plan.
+
 A separate loopback TCP connection carries line-jack signals and handset audio to the central-office process. The portable launcher starts one office for each running profile. Local mode supplies dial tone, answer supervision, and a local test destination. With a configured SIP account, SIP mode connects outbound calls and bridges audio between the jack and the SIP peer.
 
 ## Verified NCC exchanges

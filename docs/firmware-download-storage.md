@@ -8,11 +8,29 @@ The terminal initiates its own call to the code server when the download
 conditions are satisfied. The Manager database design report, Issue 00.02,
 pp. 2-119 to 2-122, describes these fields.
 
+The local modem supports a separate dial alias for this call. Configure
+the following in the operator's `coinline.ini` before assigning MT94
+in CoinLine. The number and port shown are example lab settings.
+
+```ini
+[line]
+ncc_port = 4000
+code_server_number = 2130706434
+code_server_port = 4001
+```
+
+The code-server alias must be a distinct ten-digit string, and the server
+must listen on the configured loopback TCP port. The ordinary NCC number
+still selects the NCC port. The same firmware-controlled modem, carrier,
+and ASCI1 path transports raw code-server bytes without adding an NCC frame.
+The alias is disabled by default. The format and timing of the actual
+download protocol still need qualification with a compatible code server.
+
 The download application processes validated 4 KiB blocks. The application
 retains checksum tables and progress information, backs up unaffected data
 from an erase sector to SRAM, erases the selected NOR sector, and programs
-and verifies the received blocks and unaffected data. It can resume an
-interrupted transfer using the retained information. The full upgrade
+and verifies the received blocks and unaffected data. The retained information
+is intended to support interrupted-transfer recovery. The full upgrade
 sequence, wire transfer and recovery behavior still require live acceptance.
 
 ## Later control-board flash
@@ -42,7 +60,12 @@ and a separate launch restores the same chip contents. An incomplete
 operation at emulator power-off preserves the last completed writes.
 Physical partial-program or partial-erase corruption is not modeled.
 
-[ST M29F040B data sheet, tables 5–7](https://media.digikey.com/pdf/Data%20Sheets/ST%20Microelectronics%20PDFS/M29F040B.pdf)
+Normal INSTALL and a separate in-service restart passed on both V1.1
+MTR 2.11 references and the V1.3 MTR 2.12 reference through the restored
+bootstrap. Each restored its firmware-written battery state and persisted
+flash, with no change to its active flash digest during ordinary provisioning.
+
+[ST M29F040B data sheet, tables 5 to 7](https://media.digikey.com/pdf/Data%20Sheets/ST%20Microelectronics%20PDFS/M29F040B.pdf)
 
 ## Acceptance gates
 
@@ -66,6 +89,9 @@ timing, electronic identification, zero-to-one programming restrictions, and
 the later-board low-window address remap.
 
 `test_mach_pio_c0` checks the separate SRAM bank selection and wrap.
+`test_modem_code_server` checks the independent loopback data-call route,
+carrier establishment, unchanged binary data in both directions, relay
+release and ordinary NCC route selection.
 The native synthetic flash-bus probe writes one byte to each chip with
 normal Z180 instructions executing from SRAM. On the second launch, the
 program reads both saved values without issuing program commands again.
@@ -78,6 +104,8 @@ python tools/acceptance/flash_probe.py --mame <path-to-mamecoinline>
 
 Both phases passed in
 `build/firmware-acceptance/flash-bus-probe/20261125T004352.488404Z/`.
+The final build with the independent code-server route also passed both phases
+in `build/firmware-acceptance/flash-bus-probe/20261125T010329.378553Z/`.
 This establishes native CPU-bus programming and restart persistence for
 the synthetic image. Actual code-server delivery and OEM application
 upgrade validation remain separate acceptance gates.

@@ -17,7 +17,7 @@ and individual published table sets.
 | --- | --- | --- |
 | `mtr113-multipay` | MTR 1.13 Multi-Pay or TTY | Public manager classification 10. The live MT60 report identifies `NNK1F05`, V1.0, operating mode 2. |
 | `mtr120-multipay` | MTR 1.20 Multi-Pay | Public manager classifications 20 and 58. Live MT60 reports identify `NPA1S01` and `NPA1F01`, V1.0, operating mode 2. |
-| `mtr120-coin-basic` | MTR 1.20 Coin Basic | Public manager classification 18. Terminal report remains unverified. |
+| `mtr120-coin-basic` | MTR 1.20 Coin Basic | Public manager classification 18. CRC-verified MT60 identifies `NPE1S01`, V1.0, operating mode 3 after configuration. Its first report used mode 2. |
 | `mtr211-multipay` | MTR 2.11 Multi-Pay | Public inventory classification 51. Live MT60 reports identify `NKA1X02` and `NKA1X05`, V1.1, operating mode 2. |
 | `mtr2x-multipay` | Later MTR 2.x Multi-Pay | Live MT60 reports identify `NLA1X05`, `NQA1X01`, `NOK1X03`, and `NOA1X04`, V1.3, operating mode 2. |
 
@@ -30,6 +30,9 @@ registered firmware profile. The public manager uses a universal layout for the 
 type 36 and an expanded layout for MTR 2.11 Multi-Pay. Assign only the matching
 acceptance lab rows when adding family entries and retain their tested table
 sets. Read the family and assignment back through the API after updating them.
+Both MTR 1.7 Coin Basic images, `NAD4K02` and `NAD4S02`, also reported
+their exact ROM identifiers, V1.0, and operating mode 3 in CRC-verified MT60
+records during the complete portable-display INSTALL tests.
 
 [Public manager compatibility](https://github.com/hharte/mm_manager#compatibility) ·
 [Public manager wire type mapping](https://github.com/hharte/mm_manager/blob/main/src/mm_util.c)
@@ -90,3 +93,23 @@ INSTALL and reached the later board's CO line check. The later board's modem
 serial readback and DTMF routing corrections also enabled the first expanded
 firmware download. Retain the additional MT72 record for the affected later
 profiles. Its default payload comes from the public manager's table 0x48.
+
+## Remote program download coordination
+
+The later-board emulator has writable persistent flash and executes the
+resident bootstrap on reset. The code-server call uses a separate configured
+loopback TCP port, selected by the number outpulsed by the terminal modem.
+The ordinary NCC connection remains unchanged. The V1.1 references
+`NKA1X02` and `NKA1X05` and the V1.3 reference `NLA1X05` all completed
+INSTALL and returned to service on the corrected bootstrap build with both
+battery and flash restored.
+
+For the first upgrade trial, prepare a compatible, authorized MTR 2.x
+download image and its block/checksum metadata. Publish a terminal-specific
+MT94 with the agreed code-server alias, target version, schedule and block
+selection. Keep code delivery separate from ordinary NCC table transfers.
+Record the actual initial dialogue and data-transfer format with the
+firmware, and check version change, persistent flash and recovery as
+described in the emulator's remote firmware download acceptance plan.
+The host code-server implementation and complete OEM download have yet
+to be exercised together.

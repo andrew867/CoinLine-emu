@@ -82,6 +82,12 @@ Add `desk_key_card` to the settings with a path to a synthetic Desk craft card f
 
 When firmware types need different NCC table sets, provision separate lab terminals and add a `firmware_overrides` object keyed by firmware ID. Each value can override the default terminal `line`, `serial`, `pin`, or other lab settings. This keeps the batch on the firmware-specific lab profiles without changing their assignments during a run.
 
+For a later remote-download test, the lab settings also accept
+`code_server_number` and integer `code_server_port`. They select the
+optional local code-server route, separate from NCC, when the firmware
+dials the matching alias. The complete upgrade protocol is outside the
+current INSTALL runner.
+
 ### Provision local CoinLine
 
 `provision.py` prepares lab firmware inventory entries, synthetic wire IDs, and

@@ -94,8 +94,11 @@ coinline_add_test(test_modem_ncc_framing telephony tests/devices/test_modem_ncc_
 coinline_add_test(test_modem_ncc_session_vectors telephony tests/devices/test_modem_ncc_session_vectors.cpp)
 coinline_add_test(test_modem_ssi telephony tests/devices/test_modem_ssi.cpp
 	src/mame/coinline/millennium_modem_model.cpp)
+coinline_add_test(test_modem_code_server telephony tests/devices/test_modem_code_server.cpp
+	src/mame/coinline/millennium_modem_model.cpp)
 if(WIN32)
 	target_link_libraries(test_modem_ssi PRIVATE ws2_32)
+	target_link_libraries(test_modem_code_server PRIVATE ws2_32)
 endif()
 coinline_add_test(test_terminal_peripherals_vectors telephony tests/devices/test_terminal_peripherals_vectors.cpp)
 coinline_add_test(test_voiceware_runtime_vectors telephony tests/devices/test_voiceware_runtime_vectors.cpp)

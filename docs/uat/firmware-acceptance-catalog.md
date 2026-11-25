@@ -275,9 +275,19 @@ Both V1.1 images reached their initial display using the corrected
 bootstrap, then accepted all fourteen records in the first full retest.
 Both reached the peripheral tests before the 600-second wall deadline.
 The runner now allows 1200 seconds by default for full acceptance.
+The extended retests completed INSTALL and returned to service on both
+images in `build/firmware-acceptance/runs/20261125T005216.733789Z/`
+for `NKA1X02` and
+`build/firmware-acceptance/runs/20261125T005215.631502Z/`
+for `NKA1X05`. Each accepted all fourteen records and reported battery and
+program flash restoration on the separate warm launch. Their active and
+per-chip flash hashes were unchanged across the ordinary INSTALL and restart.
 The MTR 2.0 bootstrap retest still acknowledged all eleven records in each
 of two calls and reported status 34 in
 `build/firmware-acceptance/runs/20261125T001335.925140Z/`.
+The corrected reset-latch build reproduced the same two complete eleven-record
+exchanges followed by status 34 in
+`build/firmware-acceptance/runs/20261125T004738.480200Z/`.
 The Inmate candidate `M06KEC12` remains blocked because no runnable image
 was located in the reviewed public archives.
 The explicit inventory-only check is in

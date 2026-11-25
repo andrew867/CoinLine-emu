@@ -360,6 +360,9 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
                COINLINE_ACCEPTANCE_PIN=settings["pin"],
                COINLINE_ACCEPTANCE_KEYS="+-LN1234567890*#" + "abcdefghij"[:len(profile["keypad"]["quick_access_keys"])],
                COINLINE_ACCEPTANCE_DIAL=settings["free_call"] if args.test_call else "")
+    if settings.get("code_server_number"):
+        env.update(COINLINE_CODE_SERVER_NUMBER=settings["code_server_number"],
+                   COINLINE_CODE_SERVER_PORT=str(settings["code_server_port"]))
     if len(program) == 1:
         env["COINLINE_FIRMWARE"] = str(cpu / "flash0.bin")
     else:
@@ -426,6 +429,12 @@ def validate_terminal(settings, test_call):
     settings.setdefault("ncc_port", 4000)
     if type(settings["ncc_port"]) is not int or not 1 <= settings["ncc_port"] <= 65535:
         raise ValueError("ncc_port must be an integer port on loopback")
+    code_number = settings.get("code_server_number", "")
+    code_port = settings.get("code_server_port", 0)
+    if code_number or code_port:
+        if (not isinstance(code_number, str) or not re.fullmatch(r"[0-9]{10}", code_number)
+                or code_number == "2130706433" or type(code_port) is not int or not 1 <= code_port <= 65535):
+            raise ValueError("Set a distinct 10-digit code_server_number and a valid code_server_port")
     if "desk_key_card" in settings and not Path(settings["desk_key_card"]).is_file():
         raise ValueError("desk_key_card must point to a local synthetic magstripe fixture")
     return settings

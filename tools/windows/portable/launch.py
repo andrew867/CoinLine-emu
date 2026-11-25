@@ -141,6 +141,12 @@ def run(args, config, hardware):
     mode = "sip" if use_sip else "local"
     if not 1 <= port <= 65535:
         raise ValueError("Set a valid ncc_port under [line] in coinline.ini.")
+    code_number = config["line"].get("code_server_number", "").strip()
+    code_port = config["line"].getint("code_server_port", 0)
+    if code_number or code_port:
+        if (len(code_number) != 10 or any(digit not in "0123456789" for digit in code_number)
+                or code_number == "2130706433" or not 1 <= code_port <= 65535):
+            raise ValueError("Set a distinct 10-digit code_server_number and a valid code_server_port under [line].")
     if not use_sip and (not digits or any(digit not in "0123456789*#" for digit in digits)):
         raise ValueError("Set valid outbound_digits for the local CO under [line] in coinline.ini.")
     if args.check:
@@ -173,6 +179,8 @@ def run(args, config, hardware):
         env["COINLINE_OUTBOUND"] = digits
     if input_device := config.get("audio", "input_device", fallback="").strip():
         env["COINLINE_MIC_INPUT"] = input_device
+    if code_number:
+        env.update(COINLINE_CODE_SERVER_NUMBER=code_number, COINLINE_CODE_SERVER_PORT=str(code_port))
 
     cmd = [str(ROOT / EXECUTABLE), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
            "-rompath", str(rompath), "-artpath", str(ROOT / "artwork"),

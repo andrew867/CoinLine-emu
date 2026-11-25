@@ -380,15 +380,15 @@ bool decimal_digits_to_ipv4(std::string const &digits, std::uint32_t &host_order
 	return true;
 }
 
-unsigned ncc_port_from_env()
+unsigned data_port_from_env(char const *key, unsigned fallback)
 {
-	unsigned port = 4000;
-	if (char const *env = std::getenv("COINLINE_NCC_PORT")) {
-		unsigned long const v = std::strtoul(env, nullptr, 10);
-		if (v > 0 && v < 65536)
-			port = unsigned(v);
+	if (char const *env = std::getenv(key)) {
+		char *end = nullptr;
+		unsigned long const v = std::strtoul(env, &end, 10);
+		if (*end == '\0' && v > 0 && v < 65536)
+			return unsigned(v);
 	}
-	return port;
+	return fallback;
 }
 
 } // namespace
@@ -595,7 +595,7 @@ void millennium_modem_model::note_outpulse_digit(char digit, double now_sec)
 	}
 }
 
-bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port, double now_sec)
+bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port, double now_sec, bool code_server)
 {
 	if (m_ncc_up)
 		return true;
@@ -660,14 +660,16 @@ bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port,
 	m_ncc_attempted = true;
 	m_ncc_up = true;
 	m_ncc_connected_at = now_sec;
-	m_ncc_lab_hello_sent = false;
-	m_ncc_lab_hello_at = now_sec + 0.4;
+	// A code-server call is a transparent modem link, not an NCC dialogue.
+	m_ncc_lab_hello_sent = code_server;
+	m_ncc_lab_hello_at = code_server ? -1.0 : now_sec + 0.4;
 	m_ncc_tx_pending.clear();
 	unsigned const a = (host >> 24) & 0xffU;
 	unsigned const b = (host >> 16) & 0xffU;
 	unsigned const c = (host >> 8) & 0xffU;
 	unsigned const d = host & 0xffU;
-	std::fprintf(stderr, "ncc connected %u.%u.%u.%u:%u (tcp; dcd deferred)\n", a, b, c, d, port);
+	std::fprintf(stderr, "%s connected %u.%u.%u.%u:%u (tcp; dcd deferred)\n",
+		code_server ? "code server" : "ncc", a, b, c, d, port);
 	return true;
 }
 
@@ -677,13 +679,20 @@ bool millennium_modem_model::ncc_connect_dialed(double now_sec)
 		return m_ncc_up;
 	if (now_sec < m_ncc_retry_after)
 		return false;
-	std::uint32_t host = 0;
-	if (m_dialed.size() != 10 || !decimal_digits_to_ipv4(m_dialed, host) || host != 0x7f000001U)
+	if (m_dialed.size() != 10)
 		return false;
-	bool const ok = ncc_connect_host(host, ncc_port_from_env(), now_sec);
-	if (ok)
-		std::fprintf(stderr, "ncc dialed=%s (dcd deferred to SSI carrier)\n", m_dialed.c_str());
-	return ok;
+	std::uint32_t host = 0;
+	if (decimal_digits_to_ipv4(m_dialed, host) && host == 0x7f000001U) {
+		bool const connected = ncc_connect_host(host, data_port_from_env("COINLINE_NCC_PORT", 4000), now_sec, false);
+		if (connected)
+			std::fprintf(stderr, "ncc dialed=%s (dcd deferred to SSI carrier)\n", m_dialed.c_str());
+		return connected;
+	}
+	char const *const number = std::getenv("COINLINE_CODE_SERVER_NUMBER");
+	unsigned const port = data_port_from_env("COINLINE_CODE_SERVER_PORT", 0);
+	if (number && port && m_dialed == number)
+		return ncc_connect_host(0x7f000001U, port, now_sec, true);
+	return false;
 }
 
 void millennium_modem_model::poll_ncc_link(double now_sec)
