@@ -119,7 +119,8 @@ bool millennium_smartcard_device::nvram_write(util::write_stream &file)
 
 void millennium_smartcard_device::insert_card(u64 cycle, u64 cpu_hz)
 {
-	stop_async_serial();
+	if (m_serial_model == &m_model)
+		stop_async_serial();
 	m_async_hz = cpu_hz ? cpu_hz : 12288000;
 	m_model.insert_card_at(cycle, cpu_hz);
 }
@@ -127,7 +128,8 @@ void millennium_smartcard_device::insert_card(u64 cycle, u64 cpu_hz)
 void millennium_smartcard_device::remove_card()
 {
 	m_model.remove_card();
-	stop_async_serial();
+	if (m_serial_model == &m_model)
+		stop_async_serial();
 }
 
 std::uint8_t millennium_smartcard_device::read_fifo(u64 cycle)
@@ -176,6 +178,7 @@ u8 millennium_smartcard_device::inverse_octet(u8 value)
 void millennium_smartcard_device::stop_async_serial()
 {
 	m_async_serial = false;
+	m_serial_model = nullptr;
 	m_async_timer->adjust(attotime::never);
 	set_rate(attotime::never);
 	receive_register_reset();
@@ -185,21 +188,21 @@ void millennium_smartcard_device::stop_async_serial()
 	m_txd(1);
 }
 
-void millennium_smartcard_device::later_async_pins(u8 h, u8 d, u8 e)
+void millennium_smartcard_device::later_async_pins(u8 h, u8 d, u8 e, millennium_smartcard_model *internal_contact)
 {
-	bool const prior = m_model.async_active();
 	m_model.update_async_later_pins(h, d, e, async_cycle());
-	if (!m_model.async_active()) {
-		if (m_async_serial)
-			stop_async_serial();
+	auto *next = m_model.async_active() ? &m_model : internal_contact;
+	if (next == m_serial_model)
 		return;
-	}
-	if (!prior) {
+	if (m_async_serial)
+		stop_async_serial();
+	if (next) {
 		// Default ISO 7816 ETU is 372 card-clock periods. A minimal ATR
 		// does not negotiate a different F/D value. Do not copy a wrong
 		// terminal baud setting into the independent card clock.
 		m_async_serial = true;
-		set_data_frame(1, 8, m_model.async_inverse() ? PARITY_ODD : PARITY_EVEN, STOP_BITS_1);
+		m_serial_model = next;
+		set_data_frame(1, 8, next->async_inverse() ? PARITY_ODD : PARITY_EVEN, STOP_BITS_1);
 		m_async_period = attotime::from_ticks(372, 3579540);
 		set_rate(m_async_period);
 		m_txd(1);
@@ -211,9 +214,9 @@ void millennium_smartcard_device::later_async_pins(u8 h, u8 d, u8 e)
 
 void millennium_smartcard_device::schedule_async_serial()
 {
-	if (!m_async_serial || !m_model.async_active() || !is_transmit_register_empty() || is_receive_register_shifting())
+	if (!m_async_serial || !m_serial_model || !m_serial_model->async_active() || !is_transmit_register_empty() || is_receive_register_shifting())
 		return;
-	if (auto const ready = m_model.async_next_ready_cycle()) {
+	if (auto const ready = m_serial_model->async_next_ready_cycle()) {
 		u64 const cycle = async_cycle();
 		attotime const now = machine().time();
 		attotime delay = *ready > cycle ? attotime::from_ticks(*ready - cycle, m_async_hz) : attotime::zero;
@@ -225,15 +228,15 @@ void millennium_smartcard_device::schedule_async_serial()
 
 TIMER_CALLBACK_MEMBER(millennium_smartcard_device::async_serial_tick)
 {
-	if (!m_async_serial || !m_model.async_active() || !is_transmit_register_empty() || is_receive_register_shifting())
+	if (!m_async_serial || !m_serial_model || !m_serial_model->async_active() || !is_transmit_register_empty() || is_receive_register_shifting())
 		return;
 	if (machine().time() < m_async_guard_until) {
 		schedule_async_serial();
 		return;
 	}
-	if (auto const byte = m_model.async_read_byte(async_cycle())) {
-		transmit_register_setup(m_model.async_inverse() ? inverse_octet(*byte) : *byte);
-		if (m_lab_serial_trace && m_model.async_lab_application())
+	if (auto const byte = m_serial_model->async_read_byte(async_cycle())) {
+		transmit_register_setup(m_serial_model->async_inverse() ? inverse_octet(*byte) : *byte);
+		if (m_lab_serial_trace && m_serial_model->async_lab_application())
 			osd_printf_info("synthetic card TX %02X\n", unsigned(*byte));
 		if (m_pin_trace)
 			osd_printf_info("smart-card serial character transmitted at %llu\n", static_cast<unsigned long long>(async_cycle()));
@@ -255,13 +258,15 @@ void millennium_smartcard_device::tra_callback()
 
 void millennium_smartcard_device::tra_complete()
 {
+	if (!m_async_serial || !m_serial_model)
+		return;
 	// The previous character's stop bit is still on the wire. Leave at
 	// least two additional ETUs before the next card start bit.
 	m_async_guard_until = machine().time() + m_async_period * 3;
 	// A lab fixture may explicitly declare additional device processing time
 	// between characters; it is not inferred from the terminal's baud rate.
-	m_async_guard_until += attotime::from_usec(m_model.async_inter_character_delay_us());
-	if (auto const parameters = m_model.async_take_parameters()) {
+	m_async_guard_until += attotime::from_usec(m_serial_model->async_inter_character_delay_us());
+	if (auto const parameters = m_serial_model->async_take_parameters()) {
 		// PPS is echoed at the initial rate; change the serial clock only
 		// after the last response character has been transmitted.
 		m_async_period = attotime::from_ticks(parameters->fi, 3579540U * parameters->di);
@@ -273,12 +278,12 @@ void millennium_smartcard_device::tra_complete()
 void millennium_smartcard_device::rcv_complete()
 {
 	receive_register_extract();
-	if (!m_async_serial || !is_transmit_register_empty() || is_receive_framing_error() || is_receive_parity_error())
+	if (!m_async_serial || !m_serial_model || !is_transmit_register_empty() || is_receive_framing_error() || is_receive_parity_error())
 		return;
 	u8 const byte = get_received_char();
-	if (m_lab_serial_trace && m_model.async_lab_application())
-		osd_printf_info("synthetic card RX %02X\n", unsigned(m_model.async_inverse() ? inverse_octet(byte) : byte));
-	m_model.async_write_byte(m_model.async_inverse() ? inverse_octet(byte) : byte, async_cycle());
+	if (m_lab_serial_trace && m_serial_model->async_lab_application())
+		osd_printf_info("synthetic card RX %02X\n", unsigned(m_serial_model->async_inverse() ? inverse_octet(byte) : byte));
+	m_serial_model->async_write_byte(m_serial_model->async_inverse() ? inverse_octet(byte) : byte, async_cycle());
 	schedule_async_serial();
 	if (m_pin_trace)
 		osd_printf_info("smart-card serial character received at %llu\n", static_cast<unsigned long long>(async_cycle()));

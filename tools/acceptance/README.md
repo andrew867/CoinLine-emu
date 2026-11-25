@@ -38,6 +38,16 @@ list of physical RAM byte addresses to snapshot. Watch output is restricted
 to off-hook activity and at most 2,000 samples. The option is disabled by
 default and never changes the observed data, CPU state, or installation.
 
+For later boards with the internal contact-module expansion, the native
+`smartcard_async_probe.py --protocol slots` test runs a synthetic CPU program
+through all three module selectors and the customer contact. It checks
+actual ASCI0 receive status and distinct read-only data. For real firmware
+observation, `graphic_session.py --sam-pin-trace` records at most 4,096
+changed selection/latch observations. The optional `--sam-slot0`,
+`--sam-slot1` and `--sam-slot2` paths configure separate generic non-payment
+async fixtures; absent paths leave the respective sockets unpopulated.
+These tests do not provide or qualify historical payment authentication.
+
 ## Independent analogue hardware probes
 
 Generate a single deterministic CAS/CONNECT line stimulus and run the installed

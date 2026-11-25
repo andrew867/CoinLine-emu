@@ -2,11 +2,12 @@
 
 ## Implemented hardware
 
-The later motherboard now routes the customer contact to the actual Z180
+The later motherboard routes the customer contact to the actual Z180
 ASCI0 pins only when the asynchronous gate, customer selector, supply latch
 and generated clock are selected. The existing earlier-board coin ASCI0
-and later-board external coin UART remain independent. The other selectable
-module positions do not receive or emit customer-card bytes.
+and later-board external coin UART remain independent. The separately
+selected internal contact positions do not receive or emit customer-card
+bytes.
 
 The virtual card begins its ATR only after its configured internal or external
 reset activation. Direct and inverse convention have distinct serial bit
@@ -26,6 +27,31 @@ The supplied lab application selects an invented read-only object, by an
 invented application identifier or synthetic file ID. Its response is an
 immutable test string, not an issued payment product or a funded balance.
 Transport and application acceptance remain separate.
+
+## Internal socket transport
+
+The three later-board internal sockets now decode their own reset, supply
+and clock controls and share the ASCI0 serial adapter with the separately
+selected customer contact. Each holds its own read-only laboratory
+fixture and pending protocol state. Unconfigured sockets remain absent.
+The component test checks independent activation and power-off, shared
+clock gating, deselection with queued data, and distinct read-only test
+values. Reselecting an externally reset contact does not replay its old
+response.
+
+The native `slots` probe selected each of the three sockets, received its
+ATR and read its distinct immutable value (T=0 on 0 and 2, T=1 on 1).
+It then read the separate customer fixture. The native CPU reached success
+marker A5 and its receive assertions checked parity, framing and overrun
+status. The four standalone customer transport variants also passed on
+the same executable. Evidence:
+`build/firmware-acceptance/smartcard-async-probe/20261125T220637.738811Z/`.
+No issued-card or historical scheme authentication response was supplied.
+The synthetic control sequence does not independently prove the physical
+daughterboard's analogue clock polarity or scheme compatibility.
+The synchronous contact programming/restart probe also passed again, and a
+fresh component build ran 65 passing tests with two optional ROM-dependent
+skips. The Python fixture suite passed all 22 tests.
 
 ## Native synthetic CPU verification
 

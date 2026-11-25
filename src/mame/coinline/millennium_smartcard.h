@@ -24,8 +24,8 @@ public:
 
 	void notify_reset(u64 cycle);
 	void later_pins(u8 d, u8 e, u8 f, u64 cycle);
-	void later_async_pins(u8 h, u8 d, u8 e);
-	bool async_routed() const noexcept { return m_model.async_routed(); }
+	void later_async_pins(u8 h, u8 d, u8 e, millennium_smartcard_model *internal_contact = nullptr);
+	bool async_routed() const noexcept { return m_serial_model != nullptr; }
 	void rxd_w(int state);
 	auto txd_handler() { return m_txd.bind(); }
 	void earlier_pins(u8 a, u8 c, u64 cycle);
@@ -53,6 +53,7 @@ private:
 	bool m_async_serial = false;
 	u64 m_async_hz = 12288000;
 	millennium_smartcard_model m_model{};
+	millennium_smartcard_model *m_serial_model = nullptr;
 	bool m_pin_trace = false;
 	bool m_lab_serial_trace = false;
 	std::string m_fixture_path;

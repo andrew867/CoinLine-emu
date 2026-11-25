@@ -166,6 +166,60 @@ int check_pps()
 	if (!pps || pps->fi != 372 || pps->di != 2 || card.async_take_parameters()) return 45;
 	return 0;
 }
+
+int check_internal_slots()
+{
+	millennium_sam_model board;
+	std::string error;
+	for (unsigned slot = 0; slot < 3; ++slot) {
+		std::string const fixture = R"({"protocol":"async","application":"lab-readonly","atr_hex":"3B 00","memory_hex":"5)"
+			+ std::to_string(slot) + R"("})";
+		if (!board.configure_lab_slot(slot, fixture, 0, 1000000, error)) return 50;
+	}
+	if (board.configure_lab_slot(0, R"({"protocol":"async","atr_hex":"3B 00"})", 0, 1000000, error)) return 51;
+	if (board.configure_lab_slot(3, R"({"protocol":"async","application":"lab-readonly","atr_hex":"3B 00"})", 0, 1000000, error)) return 52;
+	std::uint64_t now = 10000;
+	auto read_board = [&](std::uint64_t at) {
+		bytes result;
+		while (auto next = board.read(at)) result.push_back(*next);
+		return result;
+	};
+	for (unsigned slot = 0; slot < 3; ++slot) {
+		unsigned const clock = 8U << slot;
+		// The customer selector and disabled gate cannot activate a module.
+		board.later_pins(0, 3, 2, 0, clock, now);
+		board.later_pins(8, slot, 2, 0, clock, now);
+		if (board.active() || board.read(now + 5000)) return 53;
+		// Wrong shared clock, then correct clock with reset asserted.
+		board.later_pins(0, slot, 0, 0, clock, now);
+		if (board.active()) return 54;
+		board.later_pins(0, slot, 2, 0, clock, now);
+		if (board.active()) return 55;
+		board.later_pins(0, slot, 2, 1U << slot, clock, now + 1000);
+		if (!board.active() || read_board(now + 4999).size() || read_board(now + 5000) != bytes{0x3b, 0}) return 56;
+		for (auto byte : bytes{0, 0xa4, 4, 0, 5}) board.write(byte, now + 6000);
+		if (read_board(now + 7000) != bytes{0xa4}) return 57;
+		for (auto byte : bytes{0xf0, 0x4c, 0x41, 0x42, 1}) board.write(byte, now + 8000);
+		if (read_board(now + 9000) != bytes{0x90, 0}) return 58;
+		for (auto byte : bytes{0, 0xb0, 0, 0, 1}) board.write(byte, now + 10000);
+		if (read_board(now + 11000) != bytes{0xb0, std::uint8_t(0x50 + slot), 0x90, 0}) return 59;
+		for (auto byte : bytes{0, 0xb0, 0, 0, 1}) board.write(byte, now + 12000);
+		// Disconnect while a response is queued. No byte may leak to the customer.
+		board.later_pins(0, 3, 2, 1U << slot, clock, now + 12500);
+		if (board.active() || board.read(now + 14000)) return 60;
+		board.later_pins(0, slot, 2, 1U << slot, clock, now + 15000);
+		if (board.active() || board.read(now + 20000)) return 61;
+		// Power is active low and slot 0 uses the separate port-C latch.
+		board.later_pins(0, slot, 2, slot == 0 ? 8 : 0,
+			clock | (slot == 0 ? 0 : 1U << slot), now + 21000);
+		board.later_pins(0, slot, 2, (slot == 0 ? 8 : 0) | (1U << slot),
+			clock | (slot == 0 ? 0 : 1U << slot), now + 22000);
+		if (board.active() || board.read(now + 27000)) return 62;
+		board.remove(slot, now + 28000);
+		now += 30000;
+	}
+	return 0;
+}
 }
 
 int main()
@@ -173,6 +227,7 @@ int main()
 	if (int const result = check_t0()) { std::cerr << "T=0 failure " << result << '\n'; return result; }
 	if (int const result = check_t1()) { std::cerr << "T=1 failure " << result << '\n'; return result; }
 	if (int const result = check_pps()) { std::cerr << "PPS failure " << result << '\n'; return result; }
+	if (int const result = check_internal_slots()) { std::cerr << "internal slot failure " << result << '\n'; return result; }
 	std::cout << "smartcard_async_transport ok\n";
 	return 0;
 }
