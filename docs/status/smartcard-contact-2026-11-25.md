@@ -25,11 +25,23 @@
 
 ## Remaining card application gates
 
-- Native asynchronous ATR/APDU transport and stored-value programming remain
-  unqualified. The generic contact fixture is not a recognized payment card.
+- Native asynchronous ATR/APDU transport and application-specific
+  stored-value programming remain unqualified. A bounded one-way test
+  memory programming model has unit coverage for pulse duration, address
+  range, interrupted programming and removal persistence. The native bus
+  probe in `build/firmware-acceptance/smartcard-pin-probe/20261125T062620.883573Z/`
+  verified a programmed bit survived physical removal and reinsertion.
+  It does not
+  create a recognized payment card or implement a monetary counter.
 - Runtime magnetic-stripe authorization and rating require the test-only
   host provider and provisioned synthetic account. Record firmware response,
   local call connection, authorization, CDR and settlement separately.
+- A warm NLA1X05 copy connected to a separate loopback-only synthetic
+  authorization listener. The firmware accepted the magnetic swipe and
+  displayed **Thank You / Dial the number**. Its installed screening data
+  rejected the reserved test number before any quote or authorization
+  request. No call was connected and the simulated balance was unchanged.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T062215.858884Z/`.
 - Do not infer a card payment from a successful Craft contact test or table
   acknowledgement. Test fixtures and payments must be confined to the lab;
   no real issuer credentials or production transactions are included.

@@ -31,4 +31,6 @@ public:
 private:
 	millennium_smartcard_model m_model{};
 	bool m_pin_trace = false;
+	std::string m_fixture_path;
+	std::vector<std::uint8_t> m_fixture_bytes;
 };

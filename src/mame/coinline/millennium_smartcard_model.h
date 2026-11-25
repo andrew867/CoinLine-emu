@@ -14,6 +14,11 @@ struct millennium_smart_fixture {
 	unsigned atr_delay_us = 4000;
 	unsigned apdu_response_delay_us = 1000;
 	bool requires_authorization = false;
+	// Optional, bounded test memory programming. The contact-test card is read-only.
+	bool sync_program_enabled = false;
+	unsigned sync_program_first_bit = 0;
+	unsigned sync_program_end_bit = 0; // exclusive
+	unsigned sync_program_us = 10000;
 };
 
 class millennium_smartcard_model {
@@ -36,8 +41,8 @@ public:
 
 	// Synchronous contact-card interface. The board drives real power,
 	// reset and clock pins; the card exposes one bit, not a byte FIFO.
-	void update_later_pins(std::uint8_t port_d, std::uint8_t port_e, std::uint8_t port_f);
-	void update_earlier_pins(std::uint8_t port_a, std::uint8_t port_c);
+	void update_later_pins(std::uint8_t port_d, std::uint8_t port_e, std::uint8_t port_f, std::uint64_t cycle = 0);
+	void update_earlier_pins(std::uint8_t port_a, std::uint8_t port_c, std::uint64_t cycle = 0);
 	bool sync_data_selected() const noexcept { return m_sync_selected; }
 	bool sync_data_high() const noexcept;
 	bool sync_powered() const noexcept { return m_sync_powered; }
@@ -55,8 +60,9 @@ public:
 
 private:
 	void schedule_atr(std::uint64_t cycle);
-	void drive_sync_pins(bool selected, bool power, bool reset, bool clock, bool released);
+	void drive_sync_pins(bool selected, bool power, bool reset, bool clock, bool released, std::uint64_t cycle);
 	void clear_sync_session();
+	void finish_sync_program(std::uint64_t cycle);
 
 	millennium_smart_fixture m_fixture{};
 	std::deque<std::uint8_t> m_rx{};
@@ -82,4 +88,7 @@ private:
 	bool m_later_power_latch = false;
 	bool m_later_power_clock = false;
 	std::size_t m_sync_bit_address = 0;
+	bool m_sync_program_armed = false;
+	bool m_sync_program_active = false;
+	std::uint64_t m_sync_program_start = 0;
 };

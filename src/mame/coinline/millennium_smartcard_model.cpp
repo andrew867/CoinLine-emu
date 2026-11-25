@@ -76,13 +76,22 @@ bool parse_json_bool(std::string const &json, char const *key, bool &out)
 	auto const colon = json.find(':', kpos);
 	if (colon == std::string::npos)
 		return false;
-	auto p = json.find("true", colon);
-	if (p != std::string::npos && p < colon + 20) {
+	std::size_t p = colon + 1;
+	while (p < json.size() && std::isspace(static_cast<unsigned char>(json[p])))
+		++p;
+	auto const token = [&](char const *value, std::size_t length) {
+		if (json.compare(p, length, value) != 0)
+			return false;
+		std::size_t end = p + length;
+		while (end < json.size() && std::isspace(static_cast<unsigned char>(json[end])))
+			++end;
+		return end == json.size() || json[end] == ',' || json[end] == '}';
+	};
+	if (token("true", 4)) {
 		out = true;
 		return true;
 	}
-	p = json.find("false", colon);
-	if (p != std::string::npos && p < colon + 22) {
+	if (token("false", 5)) {
 		out = false;
 		return true;
 	}
@@ -174,6 +183,22 @@ bool millennium_smartcard_model::parse_fixture_json(std::string const &json_text
 	bool auth = false;
 	if (parse_json_bool(json_text, "\"requires_authorization\"", auth))
 		m_fixture.requires_authorization = auth;
+	(void)parse_json_bool(json_text, "\"sync_program_enabled\"", m_fixture.sync_program_enabled);
+	if (m_fixture.sync_program_enabled) {
+		if (m_fixture.protocol != "sync" ||
+			!parse_json_uint(json_text, "\"sync_program_first_bit\"", m_fixture.sync_program_first_bit) ||
+			!parse_json_uint(json_text, "\"sync_program_end_bit\"", m_fixture.sync_program_end_bit) ||
+			m_fixture.sync_program_first_bit >= m_fixture.sync_program_end_bit ||
+			m_fixture.sync_program_end_bit > m_fixture.memory.size() * 8U) {
+			error_out = "invalid synchronous programming bounds";
+			return false;
+		}
+		(void)parse_json_uint(json_text, "\"sync_program_us\"", m_fixture.sync_program_us);
+		if (!m_fixture.sync_program_us || m_fixture.sync_program_us > 1000000U) {
+			error_out = "invalid synchronous programming delay";
+			return false;
+		}
+	}
 
 	return true;
 }
@@ -234,10 +259,13 @@ void millennium_smartcard_model::clear_sync_session()
 	m_sync_bit_address = 0;
 	m_later_power_latch = false;
 	m_later_power_clock = false;
+	m_sync_program_armed = false;
+	m_sync_program_active = false;
+	m_sync_program_start = 0;
 }
 
 void millennium_smartcard_model::drive_sync_pins(bool selected, bool power, bool reset,
-	bool clock, bool released)
+	bool clock, bool released, std::uint64_t cycle)
 {
 	bool const clock_rise = clock && !m_sync_clock;
 	bool const reset_rise = reset && !m_sync_reset;
@@ -249,28 +277,67 @@ void millennium_smartcard_model::drive_sync_pins(bool selected, bool power, bool
 		m_sync_ready = false;
 		m_sync_reset_clocked = false;
 		m_sync_bit_address = 0;
+		m_sync_program_armed = false;
+		m_sync_program_active = false;
 	} else {
-		if (!m_sync_powered || reset_rise) {
+		if (!m_sync_powered) {
 			m_sync_ready = false;
 			m_sync_reset_clocked = false;
 			m_sync_bit_address = 0;
 		}
 		m_sync_powered = true;
+		if (reset_rise) {
+			// A reset with a clock edge seeks to zero. A pulse without a
+			// clock edge is a distinct programming request on writable fixtures.
+			finish_sync_program(cycle);
+			m_sync_program_armed = false;
+			m_sync_reset_clocked = false;
+		}
 		if (reset && clock_rise)
 			m_sync_reset_clocked = true;
 		if (reset_fall && m_sync_reset_clocked) {
 			m_sync_ready = true;
 			m_sync_bit_address = 0;
+			m_sync_program_armed = false;
+		} else if (reset_fall && m_sync_ready && m_fixture.sync_program_enabled) {
+			m_sync_program_armed = true;
+			if (clock) {
+				m_sync_program_start = cycle;
+				m_sync_program_active = true;
+				m_sync_program_armed = false;
+			}
 		} else if (!reset && clock_rise && m_sync_ready) {
-			if (m_sync_bit_address < m_fixture.memory.size() * 8U)
+			if (m_sync_program_armed) {
+				m_sync_program_start = cycle;
+				m_sync_program_active = true;
+				m_sync_program_armed = false;
+			} else if (m_sync_bit_address < m_fixture.memory.size() * 8U)
 				++m_sync_bit_address;
 		}
+		if (!clock && m_sync_clock)
+			finish_sync_program(cycle);
 	}
 	m_sync_reset = reset;
 	m_sync_clock = clock;
 }
 
-void millennium_smartcard_model::update_later_pins(std::uint8_t d, std::uint8_t e, std::uint8_t f)
+void millennium_smartcard_model::finish_sync_program(std::uint64_t cycle)
+{
+	if (!m_sync_program_active)
+		return;
+	m_sync_program_active = false;
+	std::uint64_t const minimum = (std::uint64_t(m_fixture.sync_program_us) * m_cpu_hz + 999999U) / 1000000U;
+	if (cycle < m_sync_program_start || cycle - m_sync_program_start < minimum ||
+		m_sync_bit_address < m_fixture.sync_program_first_bit ||
+		m_sync_bit_address >= m_fixture.sync_program_end_bit ||
+		(m_fixture.requires_authorization && !m_authorized))
+		return;
+	// The synthetic memory card permits only one-way programming. It cannot
+	// restore an erased bit or modify data outside the explicit lab range.
+	m_fixture.memory[m_sync_bit_address / 8U] &= std::uint8_t(~(0x80U >> (m_sync_bit_address % 8U)));
+}
+
+void millennium_smartcard_model::update_later_pins(std::uint8_t d, std::uint8_t e, std::uint8_t f, std::uint64_t cycle)
 {
 	bool const request = (e & 0x08U) != 0U;
 	bool const power_clock = (f & 0x02U) != 0U;
@@ -280,22 +347,22 @@ void millennium_smartcard_model::update_later_pins(std::uint8_t d, std::uint8_t 
 		m_later_power_latch = true;
 	m_later_power_clock = power_clock;
 	drive_sync_pins(request && !(e & 0x01U) && (d & 0x03U) == 0x03U, m_later_power_latch,
-		(e & 0x04U) != 0U, (d & 0x08U) != 0U, (d & 0x04U) != 0U);
+		(e & 0x04U) != 0U, (d & 0x08U) != 0U, (d & 0x04U) != 0U, cycle);
 }
 
-void millennium_smartcard_model::update_earlier_pins(std::uint8_t a, std::uint8_t c)
+void millennium_smartcard_model::update_earlier_pins(std::uint8_t a, std::uint8_t c, std::uint64_t cycle)
 {
 	bool const power = (a & 0x40U) != 0U;
 	// On the earlier board the bidirectional contact has a pull-up while
 	// the low nibble of port C is configured as input.
-	drive_sync_pins(power, power, (c & 0x80U) != 0U, (c & 0x40U) != 0U, true);
+	drive_sync_pins(power, power, (c & 0x80U) != 0U, (c & 0x40U) != 0U, true, cycle);
 }
 
 bool millennium_smartcard_model::sync_data_high() const noexcept
 {
 	if (!m_sync_released)
 		return false;
-	if (!m_sync_powered || !m_sync_ready || m_fixture.protocol != "sync")
+	if (!m_sync_powered || !m_sync_ready || m_sync_reset || m_fixture.protocol != "sync")
 		return true; // undriven contact
 	if (m_sync_bit_address >= m_fixture.memory.size() * 8U)
 		return true;

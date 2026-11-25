@@ -33,6 +33,16 @@ edge, then advances one bit on each rising clock with reset inactive. The
 data is read MSB first. Removal clears its power and reset state. No card
 data is returned through a fabricated byte FIFO on the native bus.
 
+Optional synthetic memory fixtures may enable bounded one-way bit
+programming. Programming requires an explicit permitted address interval
+and minimum clock-hold duration; an interrupted or out-of-range operation
+does not change the card. Repeated writes cannot restore a cleared bit.
+Reinsertion of the same fixture retains its in-process memory state. The
+default contact fixture is read-only, and the emulator does not write
+changes back to the input file. Application-specific erase/carry rules,
+credentials and monetary balance validation are not implemented by this
+generic programming model.
+
 ## State machine
 
 ```
@@ -81,7 +91,12 @@ Fixture format:
 - `tests/devices/test_smartcard_memory_read.cpp` — verifies memory-card read.
 - `tests/devices/test_smartcard_protocol_negotiation.cpp` exercises rising
   clock edges, reset qualification, later-board power latch, earlier-board
-  direct supply, serial ordering and removal.
+  direct supply, serial ordering and removal. It also verifies the bounded
+  synthetic programming rules, including aborted and undersized pulses.
+- `tools/acceptance/smartcard_pin_probe.py` uses the native board I/O and
+  actual card insertion input to verify a synthetic memory bit changes
+  only after a timed programming pulse, survives reset and reinsertion,
+  and leaves its read-only neighbour unchanged.
 
 On NLA1X08, maintenance item 728 (Check Smart Card) displayed **Smart Card
 Test Okay** twice after real insert/remove input. The eight contact reads
