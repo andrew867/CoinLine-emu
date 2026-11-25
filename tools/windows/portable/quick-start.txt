@@ -26,7 +26,8 @@ The V1.1 and V1.3 presets route the magnetic reader through DMA channel 1.
   Craft. Exit, then use --portable-display detached for normal operation.
   For compatible later-board graphical firmware, --display 11line selects
   the large display and its six side keys and four navigation keys.
-  Graphical firmware acceptance is pending; the default remains 2line.
+  The default auto selects the display from the verified firmware registry,
+  falling back to 2line for conventional firmware.
 See the project runtime guide for the acceptance gates on these presets.
 
 Keep packages that contain local ROM inputs private. The ZIP includes no saved

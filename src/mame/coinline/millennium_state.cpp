@@ -6736,7 +6736,8 @@ uint32_t millennium_state::render_graphic_vfd(screen_device &screen, bitmap_rgb3
 	int const scale = std::max(1, std::min(bitmap.width() / width, bitmap.height() / height));
 	int const left = (bitmap.width() - width * scale) / 2;
 	int const top = (bitmap.height() - height * scale) / 2;
-	float const gain = std::clamp(float(luminance) / 255.f, 0.12f, 1.f);
+	unsigned const levels = m_display_profile.graphic_brightness_levels;
+	float const gain = std::clamp(float(std::min(unsigned(luminance), levels - 1) + 1) / float(levels), 0.12f, 1.f);
 	auto const channel = [gain](u8 value) { return static_cast<u8>(std::lround(float(value) * gain)); };
 	rgb_t const phosphor(channel(0x38), channel(0xff), channel(0xb8));
 	bitmap.fill(rgb_t(0x02, 0x06, 0x04), cliprect);

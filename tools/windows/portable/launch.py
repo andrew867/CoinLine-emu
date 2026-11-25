@@ -93,10 +93,10 @@ def prepare_hardware(args, config):
     second = args.flash1 or (settings.get("flash1", "").strip() if args.firmware is None else "")
     program = (flash, ROOT / second) if second else (flash,)
     rompath = ROOT / (args.rompath or settings.get("rompath", "").strip() or "roms")
-    display_profile = getattr(args, "display", None) or settings.get("display", "2line").strip()
-    if display_profile not in ("2line", "11line"):
-        raise ValueError("Set display to 2line or 11line under [hardware].")
-    check_files(program, rompath, display_profile)
+    display_profile = getattr(args, "display", None) or settings.get("display", "auto").strip()
+    if display_profile not in ("auto", "2line", "11line"):
+        raise ValueError("Set display to auto, 2line or 11line under [hardware].")
+    check_files(program, rompath, "2line" if display_profile == "auto" else display_profile)
     image = program[0].read_bytes()
     if second and (len(image) != 524288 or program[1].stat().st_size != 524288):
         raise ValueError("Split flash requires two 512 KiB images in boot-chip then expansion-chip order.")
@@ -109,6 +109,12 @@ def prepare_hardware(args, config):
     entry = next((entry for entry in registry["entries"] if entry["sha256_hex"] == digest), None)
     if entry is None:
         raise ValueError(f"Register the verified mapped-flash SHA-256 {digest} in fixtures/firmware/firmware-hashes.json.")
+    if display_profile == "auto":
+        display_profile = entry.get("display", "2line")
+        if display_profile not in ("2line", "11line"):
+            raise ValueError("Invalid display profile in firmware hash registry.")
+        if display_profile == "11line":
+            check_files(program, rompath, display_profile)
     preset, reason = select_hardware(args.hardware or settings.get("profile", "auto").strip(),
                                     image, entry.get("firmware_id"))
     mapping = PRESETS[preset].motherboard if preset else entry.get("motherboard", "later")
@@ -241,7 +247,7 @@ def main():
     parser = argparse.ArgumentParser(description="Start the CoinLine Terminal Emulator")
     parser.add_argument("profile", choices=("oem",))
     parser.add_argument("--hardware", choices=("auto", *PRESETS), help="select hardware by program tag or override it")
-    parser.add_argument("--display", choices=("2line", "11line"), help="select the character or graphical display board")
+    parser.add_argument("--display", choices=("auto", "2line", "11line"), help="select the display board or use the verified registry")
     parser.add_argument("--firmware", type=Path, help="single program image or first half of split flash")
     parser.add_argument("--flash1", type=Path, help="second half of split flash")
     parser.add_argument("--rompath", type=Path, help="directory containing cl_millennium/ Voiceware images")

@@ -85,5 +85,17 @@ int main()
 	if (!check((vfd.read_keys(0, 0x11) & 0x78) == 0x68
 		&& (vfd.read_keys(0, 0x01) & 0x78) == 0x78, "Concurrent raw switch states or release incorrect"))
 		return 1;
+	vfd.configure(0, 0, false);
+	vfd.reset();
+	vfd.release_reset();
+	vfd.write_control(0x33, 0);
+	vfd.write_pixel(0x1780, 0x01, 0);
+	if (!check(vfd.lit(0, 0) && !vfd.lit(1, 0),
+		"Active-low lamp profile must render normal data with bit 5 high"))
+		return 1;
+	vfd.write_control(0x13, 1);
+	if (!check(vfd.lit(1, 0) && vfd.byte(0, 0x501) == 0,
+		"Active-low lamp test must not write display memory"))
+		return 1;
 	return 0;
 }

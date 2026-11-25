@@ -34,6 +34,24 @@ compares the four saved pages between headless and artwork runs. It saves the
 bus JSONL, page JSON and screenshots. This tests the hardware path, not an
 OEM graphical application or an ADSI service.
 
+For real graphical firmware, start a separate local session using an authorized
+mapped image and a provisioned lab terminal:
+
+```sh
+python tools/acceptance/graphic_session.py --mame <path-to-mamecoinline> \
+  --firmware <mapped-flash.bin> --settings <local-settings.json> --open --trace
+```
+
+The session writes `live.png`, optional graphical bus traces and a
+`commands.txt` file. Append one command per line to actuate physical inputs,
+for example `keyseq #`, `hook off`, `wait 180`, `snapshot co-check`,
+`line`, `serial`, `ncc`, `soft 1`, `mag`, `smart`,
+`coin nickel`, and `cabinet close`. The local settings supply the
+configured lab identifiers. `exit` saves terminal memory normally.
+Use `--battery <prior-run/nvram>` for an independent restart with a copy
+of the firmware-written state. The session does not alter terminal RAM
+or configuration flags.
+
 | Tier | Scope | Speed | Run on every push? |
 | ---- | ----- | ----- | ------------------ |
 | Unit | Single device, in isolation, no firmware | Sub-second | Yes |

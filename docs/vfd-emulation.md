@@ -37,8 +37,10 @@ Two spare positions are available to diagnostic fixtures.
 The ready bit is merged with the existing status inputs; the separate DSP
 interface is not implemented by the display model. The graphical profile
 exposes independent write and clear busy-cycle settings and a lamp-test
-polarity setting. The defaults, zero busy cycles and active-high lamp
-test, are provisional. Brightness uses a provisional linear intensity mapping.
+polarity setting. Native graphical firmware initializes with bit 5 high
+while writing ordinary display data, so the profile now uses active-low
+lamp test. It writes brightness code 3 at startup. The optical model
+uses four provisional brightness steps and zero busy cycles.
 Panel pitch and optical placement remain subject to bench verification.
 
 See the [black-box hardware contract](../specs/hardware/11-line-vfd-black-box-handoff.md)

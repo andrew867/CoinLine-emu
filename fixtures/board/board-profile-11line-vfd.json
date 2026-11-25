@@ -11,7 +11,8 @@
     "busy_cycles_cursor": 64,
     "graphic_write_cycles": 0,
     "graphic_clear_cycles": 0,
-    "graphic_lamp_active_high": 1
+    "graphic_lamp_active_high": 0,
+    "graphic_brightness_levels": 4
   },
   "keypad": {
     "layout": "3x4",

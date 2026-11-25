@@ -39,7 +39,7 @@ def synthetic_image(page):
 
     out(0xf0, 0)
     for index in range(4):
-        out(0x80, 0x13 | ((index & 2) << 5))
+        out(0x80, 0x33 | ((index & 2) << 5))
         base = 0x1280 + (index & 1) * 0x800
         if index == 1:
             for offset, value in enumerate(page):
@@ -49,14 +49,14 @@ def synthetic_image(page):
             for offset in (0, 0x7f, 0x80, 0x500, 0x57f):
                 out(base + offset, index + 1)
     # Clear page 2, preserving the other three. Establish the low select bit.
-    out(0x80, 0x53)
+    out(0x80, 0x73)
     out(0x1280, 0x55)
-    out(0x80, 0x52)
-    out(0x80, 0x53)
+    out(0x80, 0x72)
+    out(0x80, 0x73)
     # Display page 1; brightness access must not overwrite its base byte.
-    out(0x80, 0x15)
-    out(0x1a80, 0xff)
-    out(0x80, 0x17)
+    out(0x80, 0x35)
+    out(0x1a80, 0x03)
+    out(0x80, 0x37)
     program.extend((0x76, 0x18, 0xfd))
     image = bytearray(b"\xff" * 1048576)
     image[0xc0000:0xc0000 + len(program)] = program
@@ -173,7 +173,7 @@ def run(args, root, page, image, graphical):
     for index in (0, 3):
         for offset in (0, 0x7f, 0x80, 0x500, 0x57f):
             expected[index][offset] = index + 1
-    if pages != expected or snapshot["visible_page"] != 1 or snapshot["brightness"] != 255:
+    if pages != expected or snapshot["visible_page"] != 1 or snapshot["brightness"] != 3:
         raise RuntimeError(f"Native page state mismatch: {directory}")
     trace = [json.loads(line) for line in (directory / "bus.jsonl").read_text().splitlines()]
     if not all(any(event["port"] == p and event["direction"] == "w" for event in trace)

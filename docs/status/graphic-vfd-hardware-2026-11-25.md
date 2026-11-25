@@ -15,6 +15,7 @@ The standard character display and its artwork view remain available.
 
 ## Remaining gates
 
-- No compatible 11-line application image has been qualified. Normal graphical INSTALL, firmware-mediated key qualification, graphical menus and ADSI interoperability remain pending.
+- The NLA1X08 V1.3 graphical image booted and wrote its own out-of-service and Craft prompts. The initial trace in `build/firmware-acceptance/graphic-firmware/20261125T041119.921760Z/` established that normal display traffic uses bit 5 high and brightness code 3. The corrected profile uses active-low lamp test and four provisional brightness levels.
+- In the corrected native build, the CO and answer detection tests both completed 00 from blank terminal state, followed by the firmware's NCC download prompt. The run is documented in `build/firmware-acceptance/graphic-firmware/20261125T041631.974416Z/`. The network download, firmware-mediated key qualification, graphical menus and ADSI interoperability remain pending.
 - The new artwork input regions use the existing MAME input mechanism. The twelve raw inputs have been exercised through the scanner; actual pointer clicks and resize behavior still require interactive qualification.
-- Display-ready timing, lamp-test polarity, brightness transfer function and exact optical geometry are provisional. The independent expansion DSP, FSK and call-alert functions are outside this display model and require their own qualification.
+- Display-ready timing, brightness transfer function and exact optical geometry still require physical calibration. The independent expansion DSP, FSK and call-alert functions are outside this display model and require their own qualification.

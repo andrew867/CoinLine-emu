@@ -16,6 +16,7 @@ struct millennium_display_profile {
 	unsigned graphic_write_cycles = 0;
 	unsigned graphic_clear_cycles = 0;
 	bool graphic_lamp_active_high = true;
+	unsigned graphic_brightness_levels = 256;
 	/// Reference snapshot JSON (fixtures/display/vfd-*-idle.json) used for M10 idle detection.
 	std::string idle_fixture_relpath;
 };

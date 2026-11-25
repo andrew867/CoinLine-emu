@@ -25,11 +25,13 @@ map when no preset is identified. Use `--hardware` to override selection.
 
 The optional large graphical display is selected separately from the control
 board revision with `--display 11line`, or `display = 11line` under
-`[hardware]` in the launcher configuration. The default is `2line`.
+`[hardware]` in the launcher configuration. The default is `auto`, which
+uses the verified firmware registry and otherwise selects `2line`.
 Use a compatible later-board program image and its matching hardware preset.
 The launcher selects the graphical artwork and isolates its persistent terminal
-state. Synthetic hardware tests pass; graphical firmware INSTALL and ADSI
-service interoperability still require acceptance with the appropriate firmware.
+state. The registered NLA1X08 image automatically selects its graphical profile.
+Its initial graphical Craft and line checks pass; NCC INSTALL and ADSI
+service interoperability remain separate acceptance gates.
 
 | Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
 | --- | --- | --- | --- |
