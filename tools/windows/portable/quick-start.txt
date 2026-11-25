@@ -119,13 +119,18 @@ the local office. Use a different local_port if another application owns it.
 The launcher also learns the public RTP address from the SIP registrar when
 available. If your router uses a fixed UDP mapping for media, set rtp_port to
 that port and rtp_public_address to the public IPv4 address.
+dtmf_mode = auto prefers negotiated RTP telephone events (RFC 4733), then
+explicitly supported SIP INFO, otherwise in-band audio. Use inband or info
+only when required by your SIP peer. Local ADSI remains in-band.
 
 For the graphical InfoLine bench, configure [adsi] with the local aliases,
 target and UDP port from the running voice-service instance. Enable it or pass
 --adsi. The terminal's installed screening tables must allow the aliases.
 This is an exact loopback-only route with no PSTN fallback. Real firmware
-CAS, A, CONNECT and D1 signaling have been observed; initial D1 timing still
-blocks the welcome/menu exchange. See docs/status/adsi-interop-2026-11-25.md.
+CAS, A, CONNECT, D1 and the welcome menu have been observed within the live
+protocol deadlines. With the service's voice-between-screens profile, real
+keypad News/Back and softkey Exit passed with clean release; see
+docs/status/connected-dtmf-adsi-welcome-2026-11-25.md.
 
 If a CO check fails with 41, check the latest central-office.log under the profile's
 logs folder. If NCC fails with 24, verify the listener, matching terminal ID, and

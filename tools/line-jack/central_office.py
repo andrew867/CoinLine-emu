@@ -13,6 +13,8 @@ Optional SIP (env, never hard-coded secrets):
   COINLINE_SIP_MY_IP  local UDP bind address
   COINLINE_SIP_PUBLIC_IP  optional public IPv4 address advertised in SDP
   COINLINE_SIP_RTP_PORT  optional fixed local UDP media port
+  COINLINE_SIP_DTMF_MODE  auto|inband|info (default auto: negotiated RTP,
+                          explicitly advertised legacy INFO, then in-band)
   COINLINE_OUTBOUND  expected digits for local and fixed-target tests (default 5551234)
   COINLINE_SIP_DEST   optional fixed target for a matched dial in a lab test.
                      Use "local" to INVITE the host SipModem (COINLINE_SIP_PEER,
@@ -40,9 +42,10 @@ import struct
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from urllib.request import parse_http_list, parse_keqv_list
-from sip_media import AudioOffer, RtpWireSocket, SECURE_PROFILES, SdesSessions, sdes_offer, sdp_answer
+from sip_media import (AudioOffer, DTMF_DIGITS, RtpDtmfSender, RtpWireSocket, SECURE_PROFILES, SdesSessions,
+					   sdes_offer, sdp_answer, telephone_event_offer)
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("COINLINE_LINE_PORT", "4010"))
@@ -539,7 +542,8 @@ class SipDialog:
 		return (message.headers["To"]["tag"].split(";", 1)[0] == self.local.partition(";tag=")[2]
 				and message.headers["From"]["tag"].split(";", 1)[0] == self.remote.partition(";tag=")[2])
 
-	def request(self, method: str, sequence: int, address: str, port: int, branch: str) -> tuple[bytes, tuple[str, int]]:
+	def request(self, method: str, sequence: int, address: str, port: int, branch: str,
+				content_type: str | None = None, body: bytes = b"") -> tuple[bytes, tuple[str, int]]:
 		target = self.target
 		routes = self.routes
 		hop = routes[0] if routes else target
@@ -548,8 +552,21 @@ class SipDialog:
 		lines = [f"{method} {target} SIP/2.0", f"Via: SIP/2.0/UDP {address}:{port};branch={branch};rport",
 				 "Max-Forwards: 70", f"From: {self.local}", f"To: {self.remote}", f"Call-ID: {self.call_id}",
 				 f"CSeq: {sequence} {method}", *(f"Route: <{route}>" for route in routes),
-				 "Content-Length: 0", "", ""]
-		return "\r\n".join(lines).encode(), sip_hop(hop)
+				 *( [f"Content-Type: {content_type}"] if content_type else []), f"Content-Length: {len(body)}", "", ""]
+		return "\r\n".join(lines).encode() + body, sip_hop(hop)
+
+
+def supports_dtmf_info(raw: bytes) -> bool:
+	"""Legacy INFO DTMF is not a standardized SIP Info Package.
+
+	Only auto-select it when the peer explicitly permits INFO and advertises
+	application/dtmf-relay. Allow: INFO alone is not a DTMF capability.
+	"""
+	head = raw.split(b"\r\n\r\n", 1)[0]
+	allow = b",".join(re.findall(rb"(?im)^Allow:[ \t]*([^\r\n]*)", head)).lower()
+	accept = b",".join(re.findall(rb"(?im)^Accept:[ \t]*([^\r\n]*)", head)).lower()
+	return b"info" in (item.strip() for item in allow.split(b",")) and any(
+		item.split(b";", 1)[0].strip() == b"application/dtmf-relay" for item in accept.split(b","))
 
 
 class MediaOfferError(ValueError):
@@ -618,7 +635,8 @@ def select_g711_media(raw: bytes) -> tuple[bytes, AudioOffer | None]:
 		if len(media_header) < 4:
 			raise MediaOfferError("invalid media line")
 		layout.append(None if slot == index else b"m=" + b" ".join((media_header[0], b"0", *media_header[2:])))
-	return head + sep + new_body, AudioOffer(transport, tuple(selected.items()), tuple(layout), crypto)
+	return head + sep + new_body, AudioOffer(transport, tuple(selected.items()), tuple(layout), crypto,
+		telephone_event_offer(audio[1:], payloads))
 
 
 @dataclass
@@ -764,7 +782,7 @@ class PcmBridge:
 		with self._lock:
 			self.from_phone.append(int(sample))
 
-	def queue_line_dtmf(self, digit: str) -> None:
+	def queue_line_dtmf(self, digit: str, duration_ms: int = 60, gap_ms: int = 60) -> None:
 		if len(digit) != 1:
 			return
 		keys = ("123A", "456B", "789C", "*0#D")
@@ -775,9 +793,8 @@ class PcmBridge:
 			high = (1209, 1336, 1477, 1633)[group.index(digit)]
 			with self._lock:
 				self.from_phone_tones.extend(round(5000 * (math.sin(math.tau * low * i / 8000)
-					+ math.sin(math.tau * high * i / 8000))) for i in range(480))
-				# ADSI acknowledgment and digit tone cadence is 60 ms on / 60 ms off.
-				self.from_phone_tones.extend([0] * 480)
+					+ math.sin(math.tau * high * i / 8000))) for i in range(duration_ms * 8))
+				self.from_phone_tones.extend([0] * (gap_ms * 8))
 			return
 
 	def clear_line_dtmf(self) -> None:
@@ -887,6 +904,10 @@ class SipSide:
 		self._thread: threading.Thread | None = None
 		self.inbound_pending = threading.Event()
 		self._lock = threading.Lock()
+		self.dtmf_mode = os.environ.get("COINLINE_SIP_DTMF_MODE", "auto").strip().lower()
+		if self.dtmf_mode not in ("auto", "inband", "info"):
+			raise ValueError("invalid SIP DTMF mode")
+		self._send_dtmf_info = None
 		self._local_only = direct is None and ((SIP_DEST.strip().lower() == "local") or (
 			os.environ.get("COINLINE_SIP_PEER_ONLY", "0") == "1"
 		))
@@ -1007,6 +1028,7 @@ class SipSide:
 		pending_invites = {}
 		dialogs = {}
 		pending_byes = {}
+		pending_infos = {}
 		reply_socket = None
 		signaling_contact = None
 
@@ -1049,6 +1071,8 @@ class SipSide:
 			security = getattr(stream, "coinline_sdes", None)
 			if offer is None and stream is not None:
 				offer = getattr(stream, "coinline_audio_offer", None)
+			if offer is not None and (self.direct is not None or self.dtmf_mode != "auto"):
+				offer = replace(offer, telephone_event=None)
 			answer = sdp_answer(answer, offer, security.answer if security is not None else None)
 			return advertise_rtp_address(answer, media_ip) if media_ip else answer
 
@@ -1070,12 +1094,30 @@ class SipSide:
 			dialog = dialogs.pop(call_id, None)
 			if dialog is None:
 				return
+			for key in list(pending_infos):
+				if key[0] == call_id:
+					pending_infos.pop(key, None)
 			dialog.sequence += 1
 			packet, peer = dialog.request("BYE", dialog.sequence, my_ip, local_port, client.gen_branch())
 			client.s.sendto(packet, peer)
 			now = time.monotonic()
 			pending_byes[(call_id, str(dialog.sequence))] = (packet, peer, now + 0.5, now + 32.0, 0.5)
 			print("sip BYE sent on dialog route", flush=True)
+
+		def send_dtmf_info(call, digit, duration_ms):
+			dialog = dialogs.get(call.request.headers["Call-ID"])
+			if dialog is None:
+				return False
+			dialog.sequence += 1
+			body = f"Signal={digit}\r\nDuration={duration_ms}\r\n".encode("ascii")
+			packet, peer = dialog.request("INFO", dialog.sequence, my_ip, local_port, client.gen_branch(),
+				"application/dtmf-relay", body)
+			client.s.sendto(packet, peer)
+			now = time.monotonic()
+			pending_infos[(dialog.call_id, str(dialog.sequence))] = (packet, peer, now + 0.5, now + 32.0, 0.5)
+			return True
+
+		self._send_dtmf_info = send_dtmf_info
 
 		def server_reply(message, status="200 OK"):
 			reply = client.gen_ok(message).replace("SIP/2.0 200 OK", f"SIP/2.0 {status}", 1)
@@ -1104,6 +1146,17 @@ class SipSide:
 					stream.coinline_sdes = SdesSessions(audio.crypto)
 					print("sip using SDES-SRTP audio", flush=True)
 				stream.coinline_audio_offer = audio
+				event = audio.telephone_event if self.direct is None and self.dtmf_mode == "auto" else None
+				# Our ordinary outbound offer uses dynamic payload 101. Do not
+				# accept an unoffered event format in a response.
+				if message.type == SIPMessageType.RESPONSE and event is not None and event.payload != 101:
+					event = None
+				previous = getattr(stream, "coinline_dtmf_sender", None)
+				if event is None:
+					stream.coinline_dtmf_sender = None
+				elif previous is None or previous.offer != event:
+					stream.coinline_dtmf_sender = RtpDtmfSender(event)
+			call.coinline_dtmf_info = supports_dtmf_info(message.raw)
 			send_type = {
 				"sendonly": TransmitType.RECVONLY, "recvonly": TransmitType.SENDONLY, "inactive": TransmitType.INACTIVE,
 			}.get(str(message.body.get("a", {}).get("transmit_type", "sendrecv")), TransmitType.SENDRECV)
@@ -1128,6 +1181,9 @@ class SipSide:
 					server_reply(message, "481 Call/Transaction Does Not Exist")
 				else:
 					dialogs.pop(call_id)
+					for key in list(pending_infos):
+						if key[0] == call_id:
+							pending_infos.pop(key, None)
 					if call is not None:
 						call.bye()
 					server_reply(message)
@@ -1169,9 +1225,9 @@ class SipSide:
 			pending_invites.clear()
 			call_id = client.gen_call_id()
 			session_id = client.sessID.next()
-			if self.direct is not None:
+			if self.direct is not None or self.dtmf_mode != "auto":
 				for payloads in media.values():
-					payloads.pop(101, None)  # direct ADSI route is in-band PCMU
+					payloads.pop(101, None)  # direct ADSI and explicit alternatives are in-band/INFO
 			invite = client.gen_invite(number, str(session_id), media, send_type, client.gen_branch(), call_id)
 			if self.direct is not None:
 				invite = invite.replace(f"INVITE sip:{number}@{host} ", f"INVITE sip:{number}@{host}:{port} ", 1)
@@ -1192,6 +1248,10 @@ class SipSide:
 			if message.type == SIPMessageType.RESPONSE and cseq.get("method") == "BYE":
 				if int(message.status) >= 200 and pending_byes.pop((message.headers["Call-ID"], cseq["check"]), None) is not None:
 					print(f"sip BYE response {int(message.status)}", flush=True)
+				return
+			if message.type == SIPMessageType.RESPONSE and cseq.get("method") == "INFO":
+				if int(message.status) >= 200 and pending_infos.pop((message.headers["Call-ID"], cseq["check"]), None) is not None:
+					print(f"sip DTMF INFO response {int(message.status)}", flush=True)
 				return
 			if message.type != SIPMessageType.RESPONSE or cseq.get("method") != "INVITE":
 				return parse_message(message)
@@ -1256,6 +1316,14 @@ class SipSide:
 						delay = min(4.0, delay * 2.0)
 						pending_byes[key] = (packet, target, now + delay, expiry, delay)
 						client.s.sendto(packet, target)
+				for key, (packet, target, retry, expiry, delay) in list(pending_infos.items()):
+					if now >= expiry:
+						pending_infos.pop(key, None)
+						print("sip DTMF INFO timed out", flush=True)
+					elif now >= retry:
+						delay = min(4.0, delay * 2.0)
+						pending_infos[key] = (packet, target, now + delay, expiry, delay)
+						client.s.sendto(packet, target)
 				raw, peer = client.s.recvfrom(8192)
 				if self.direct is not None and peer[0] != HOST:
 					return
@@ -1298,8 +1366,34 @@ class SipSide:
 			except (SIPParseError, ValueError, KeyError, IndexError, OSError) as exc:
 				print(f"sip packet could not be processed: {type(exc).__name__}", flush=True)
 
+		def receive_loop():
+			# Recheck the running flag after acquiring the SIP lock. The bundled
+			# receive loop can otherwise touch a socket closed by stop/deregister.
+			while client.NSD:
+				idle = False
+				with client.recvLock:
+					if not client.NSD:
+						break
+					try:
+						client.s.setblocking(False)
+						client.recv()
+					except BlockingIOError:
+						idle = True
+					except OSError:
+						if not client.NSD:
+							break
+						idle = True
+					finally:
+						try:
+							client.s.setblocking(True)
+						except OSError:
+							pass
+				if idle:
+					time.sleep(0.01)
+
 		client.invite = send_invite
 		client.recv = receive_sip
+		client.recv_loop = receive_loop
 		client.gen_ack = acknowledge
 		client.bye = end_dialog
 		client.gen_answer = answer_with_media_address
@@ -1362,6 +1456,38 @@ class SipSide:
 
 		with self._lock:
 			return self.call is not None and self.call.state == CallState.ANSWERED
+
+	def send_dtmf(self, digit: str) -> str | None:
+		"""Render exactly one hardware-originated connected-call digit."""
+		if len(digit) != 1 or digit not in DTMF_DIGITS:
+			return None
+		if self.direct is not None:
+			# The ADSI service requires genuine in-band extended digits.
+			self.pcm.queue_line_dtmf(digit)
+			return "inband"
+		if self._local_only:
+			self.pcm.queue_line_dtmf(digit, 90)
+			return "inband"
+		from pyVoIP.RTP import TransmitType
+		from pyVoIP.VoIP import CallState
+		with self._lock:
+			call = self.call
+		if call is None or call.state != CallState.ANSWERED or getattr(call, "coinline_media_direction", TransmitType.SENDRECV) not in (
+			TransmitType.SENDRECV, TransmitType.SENDONLY):
+			return None
+		if self.dtmf_mode == "auto" and call.RTPClients:
+			sender = getattr(call.RTPClients[0], "coinline_dtmf_sender", None)
+			if sender is not None and sender.queue(digit, 90):
+				return "rtp-event"
+		if self.dtmf_mode == "info" or (self.dtmf_mode == "auto" and getattr(call, "coinline_dtmf_info", False)):
+			try:
+				with call.sip.recvLock:
+					if self._send_dtmf_info is not None and self._send_dtmf_info(call, digit, 90):
+						return "info"
+			except (OSError, ValueError):
+				print("sip DTMF INFO could not be sent", flush=True)
+		self.pcm.queue_line_dtmf(digit, 90)
+		return "inband"
 
 	def _on_call(self, call) -> None:
 		print("sip inbound", flush=True)
@@ -1565,9 +1691,12 @@ def run_local_or_sip() -> None:
 				print("released", flush=True)
 				sock.sendall(b"V\n")
 			elif text.startswith("D") and len(text) == 2 and offhook:
-				if answered and active_sip is direct_sip and direct_sip is not None:
-					pcm.queue_line_dtmf(text[1])
-					print("local SIP post-answer DTMF event", flush=True)
+				if answered and sip_bridged and active_sip is not None:
+					transport = active_sip.send_dtmf(text[1])
+					if transport is not None:
+						print(f"SIP post-answer DTMF transport: {transport}", flush=True)
+				elif answered and voice_bridged:
+					print("connected local DTMF event", flush=True)
 				elif seized and not answered:
 					digits += text[1]
 					last_digit_at = time.monotonic()

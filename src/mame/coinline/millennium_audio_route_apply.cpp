@@ -50,6 +50,11 @@ bool call_state_established(call_state c) noexcept
 		c == call_state::CALL_ESTAB_SVD_CHARGE;
 }
 
+bool dialpad_line_tone_enabled(composite_state const &s, bool hook_off, bool voice_loop, bool modem_data_active) noexcept
+{
+	return s.keypad_dtmf_enabled && hook_off && voice_loop && !modem_data_active;
+}
+
 bool lookup_command(std::uint8_t b, char const *&out_label, char const *&out_effect)
 {
 	for (cmd_entry const &e : k_commands) {
@@ -71,6 +76,7 @@ void reset_to_idle_fixture(composite_state &s)
 	s.hook_off = false;
 	s.voice_prompt_path = false;
 	s.modem_carrier_up = false;
+	s.keypad_dtmf_enabled = false;
 	s.rx_gain_step = 0U;
 }
 
@@ -162,9 +168,15 @@ bool apply_effect(composite_state &s, char const *effect, std::string *notes_out
 			++s.rx_gain_step;
 		return true;
 	}
-	// DTMF / tone: acknowledged for decode traces; no mux state in this tranche.
-	if (std::strcmp(effect, "keypad_dtmf_disable") == 0 || std::strcmp(effect, "keypad_dtmf_enable") == 0 ||
-		std::strcmp(effect, "tone_generator_off") == 0)
+	if (std::strcmp(effect, "keypad_dtmf_disable") == 0) {
+		s.keypad_dtmf_enabled = false;
+		return true;
+	}
+	if (std::strcmp(effect, "keypad_dtmf_enable") == 0) {
+		s.keypad_dtmf_enabled = true;
+		return true;
+	}
+	if (std::strcmp(effect, "tone_generator_off") == 0)
 		return true;
 	if (notes_out)
 		*notes_out = "compatibility_validation_required:unknown_effect";

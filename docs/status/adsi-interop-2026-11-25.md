@@ -185,3 +185,9 @@ The remote CO and renderer timing comparisons are documented separately in
 [Windows window timing](windows-window-timing-2026-11-25.md). They reproduce
 the initial live acknowledgement timing limitation without changing the
 service deadlines.
+
+The subsequent real-time runs passed the first acknowledgement deadline,
+rendered the welcome menu and completed native News, Back and softkey Exit
+navigation with the service's voice-between-screens profile. The five
+independently decoded frames and remaining gates are recorded in
+[connected DTMF and live ADSI navigation](connected-dtmf-adsi-welcome-2026-11-25.md).

@@ -9,6 +9,7 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 - [INSTALL verification](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) for the firmware and network evidence.
 - [Card contact and payment qualification](docs/status/smartcard-contact-2026-11-25.md), [ADSI interoperation](docs/status/adsi-interop-2026-11-25.md), and [graphical performance](docs/status/graphical-render-performance-2026-11-25.md) for the latest live trials and remaining gates.
 - [Windows window and artwork timing](docs/status/windows-window-timing-2026-11-25.md) for nonmodal window moves/resizes and native renderer measurements.
+- [Connected DTMF and ADSI navigation qualification](docs/status/connected-dtmf-adsi-welcome-2026-11-25.md) for live menu navigation and SIP transport verification.
 - [Firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) for the tested terminal families, archive hashes and outstanding gates.
 - [Automated INSTALL runner](tools/acceptance/README.md) for cold installation, hardware selection and restart testing.
 - [Remote firmware downloads](docs/firmware-download-storage.md) for the MTR 2.x bootstrap, flash model and upgrade acceptance plan.
@@ -49,14 +50,18 @@ remain separate gates.
 The graphical board now uses its 24.576 MHz oscillator and the local ADSI
 route carries real PCMU audio over SIP/RTP. Live firmware trials produced
 the capability A tone, decoded authentic CONNECT frames and emitted D1
-responses, independently confirmed by a wire capture. The first D response
-still misses the service's strict one-second deadline. Welcome display,
-menu navigation and paid service calls are not yet qualified.
+responses, independently confirmed by a wire capture. After offloading the
+services, a native call completed the first D within the one-second deadline,
+acknowledged the welcome screen and rendered its menu on the physical VFD model.
+With the service returning to voice between screens, the native keypad selected
+News and Back, the native softkey selected Exit, and the call released cleanly.
+Paid service calls remain a separate gate.
 
 A deterministic single CONNECT test produced native D onset in 791.587 ms.
 The live receiver now shares that dedicated emulated 8 kHz sampling clock;
-actual live retries still missed the service window, so the timing gate
-remains open. The ordinary terminal execution and service deadline are intact.
+the latest live result used the unchanged hardware clocks and service deadline.
+Ordinary connected-call keypad DTMF now follows the controller tone gate and
+uses negotiated RTP events, supported SIP INFO, or in-band PCM as appropriate.
 
 The enclosure warning source and gate now follow the later hardware latch,
 with a separate legacy Desk oscillator profile. Native GPIO and recorded

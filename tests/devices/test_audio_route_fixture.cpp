@@ -70,6 +70,20 @@ int main()
 		std::cerr << "expected muted tuple got " << mute << '\n';
 		return 1;
 	}
+	using coinline::audio_route::dialpad_line_tone_enabled;
+	if (dialpad_line_tone_enabled(st, true, true, false))
+		return 1;
+	if (!coinline::audio_route::lookup_command(0x2eU, lb, ef) || !coinline::audio_route::apply_effect(st, ef, nullptr) ||
+		!dialpad_line_tone_enabled(st, true, true, false) || dialpad_line_tone_enabled(st, false, true, false) ||
+		dialpad_line_tone_enabled(st, true, false, false) || dialpad_line_tone_enabled(st, true, true, true))
+		return 1;
+	if (!coinline::audio_route::lookup_command(0x2dU, lb, ef) || !coinline::audio_route::apply_effect(st, ef, nullptr) ||
+		dialpad_line_tone_enabled(st, true, true, false))
+		return 1;
+	coinline::audio_route::apply_effect(st, "keypad_dtmf_enable", nullptr);
+	coinline::audio_route::reset_to_idle_fixture(st);
+	if (dialpad_line_tone_enabled(st, true, true, false))
+		return 1;
 
 	std::cout << "audio route Class A replay ok\n";
 	return 0;

@@ -22,7 +22,7 @@ From the emulator to the office:
 - `E1` / `E0` — firmware ringer enable
 - `S` / `X` — loop seized / released
 - `Q1` / `Q0` : modem relay connected / disconnected, independent of handset seizure. On a management dial, `Q0` restores the CO to its voice-ready state even when the handset continues holding the loop.
-- `D<digit>` — digit the firmware outpulsed
+- `D<digit>` : genuine controller or modem line-tone event, used as initial outpulse before answer and connected DTMF after answer
 - `M<hex>` — 8 kHz PCM from the handset microphone
 
 ## Local office
@@ -81,6 +81,15 @@ The registrar bridge calls the destination outpulsed on the jack. It converts
 10- and 11-digit North American dials and 011 international dials to E.164.
 For a fixed-target lab probe, set `COINLINE_SIP_DEST` and set
 `COINLINE_OUTBOUND` to the exact trigger digits.
+
+Connected DTMF uses `COINLINE_SIP_DTMF_MODE=auto` by default. An accepted
+8 kHz `telephone-event` SDP mapping enables RFC 4733 on the same RTP
+stream, using a constant event onset timestamp and three final packets.
+If the peer permits INFO and explicitly advertises `application/dtmf-relay`,
+the bridge can use the existing dialog route for legacy SIP INFO instead.
+The fallback is an in-band G.711 waveform. Override with `inband` or `info`
+only for a known peer. An INFO method listing alone does not negotiate a
+legacy DTMF body. Each connected digit is sent using exactly one transport.
 
 ### Local ADSI service
 

@@ -74,10 +74,11 @@ the exact local aliases, target and UDP port under `[adsi]` in `coinline.ini`.
 The corresponding terminal tables must permit the aliases. This route is
 loopback only and has no external SIP fallback. See the
 [CO bridge instructions](tools/line-jack/README.md#local-adsi-service).
-Live firmware sent real A and D1 tones and decoded the service's real FSK
-CONNECT frame. The initial D1 remains too late for the service's strict
-response window, so the graphical menu is not yet qualified. See
-[ADSI qualification](docs/status/adsi-interop-2026-11-25.md).
+Live firmware sent real A and D1 tones, decoded the service's FSK CONNECT
+and welcome frame within the deadlines, and displayed the native welcome
+menu. The service's voice-between-screens profile enabled genuine keypad
+News/Back and softkey Exit, followed by clean release; see
+[ADSI navigation qualification](docs/status/connected-dtmf-adsi-welcome-2026-11-25.md).
 
 Coin Basic uses the earlier I/O map with display and Voiceware ports exchanged.
 Use `--portable-display attached` during Craft setup, then exit and start the
@@ -129,6 +130,12 @@ The volume buttons step through four handset receive levels. The VFD brightness 
 With blank SIP settings, the local central office plays dial tone and answers the configured outbound digits, which default to `18005551212`. With the lab free-call policy, the demo places this call without a rating request. The OEM can ask CoinLine for a live quote on a paid lab destination. Its spoken cents use five-cent increments.
 
 For SignalWire, fill in the SIP registrar, username, and password in `coinline.ini` and open **Start OEM.cmd**. The launcher reports **SIP calling** and calls the number the terminal outpulses. Dial a 10-digit North American number with an optional leading 1. For international dialing, use 011 followed by the country code and number. Leave `local_address` blank for automatic IPv4 selection. Launch with `--local` to use the local office even with SIP credentials present. The `outbound_digits` setting controls the local office test number.
+
+Connected keypad digits are separate from initial call routing. The `[sip]`
+`dtmf_mode = auto` default uses negotiated RFC 4733 RTP telephone events,
+then explicitly supported legacy SIP INFO, otherwise in-band G.711 tones.
+Set `dtmf_mode = inband` or `info` only if the peer requires that alternative.
+The exact local ADSI route always uses in-band tones.
 
 The handset uses the default Windows recording device. Set `input_device` under `[audio]` in `coinline.ini` to a unique prefix of a Windows recording device name to choose a microphone or virtual mixer output for the emulator. Restart the emulator after changing the input.
 

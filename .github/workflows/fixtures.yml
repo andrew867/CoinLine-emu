@@ -9,6 +9,7 @@ on:
     paths:
       - "fixtures/**"
       - "tests/fixtures/**"
+      - "tools/line-jack/**"
       - "requirements-dev.txt"
       - ".github/workflows/fixtures.yml"
   pull_request:
@@ -16,6 +17,7 @@ on:
     paths:
       - "fixtures/**"
       - "tests/fixtures/**"
+      - "tools/line-jack/**"
       - "requirements-dev.txt"
       - ".github/workflows/fixtures.yml"
 
@@ -34,3 +36,7 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Run fixture schema tests
         run: pytest tests/fixtures -q
+      - name: Install SIP loopback runtime
+        run: pip install pyVoIP==1.6.8
+      - name: Run central-office and real SIP loopback tests
+        run: pytest tools/line-jack -q

@@ -95,4 +95,8 @@ Runs: `build/firmware-acceptance/remote-adsi-gui/20261125T151145.846360Z/`
 and `build/firmware-acceptance/remote-adsi-headless/20261125T151635.304862Z/`.
 The remote wire captures are retained outside the public source tree.
 
-Long-running real-time audio and the live ADSI menu remain separate gates.
+Subsequent runs after freeing host resources reached 97.97% in the native
+window probe and 98.72% in the successful live ADSI navigation session.
+See [connected DTMF and ADSI navigation](connected-dtmf-adsi-welcome-2026-11-25.md).
+Sustained real-time audio under arbitrary host workloads remains a separate
+qualification gate.

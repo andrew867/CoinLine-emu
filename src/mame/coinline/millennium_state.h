@@ -291,6 +291,7 @@ private:
 	millennium_graphic_vfd m_graphic_vfd;
 	millennium_adsi_rx m_adsi_rx;
 	bool m_adsi_trace = false;
+	bool m_dtmf_trace = false;
 	unsigned m_adsi_status_reads = 0;
 	bool m_adsi_carrier_line = false;
 	double m_adsi_carrier_release_at = 0.0;

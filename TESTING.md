@@ -67,6 +67,19 @@ by 88 display grid, including the record, slot, payload digest and placement.
 An acknowledgement is not a display match, and a bitmap match is not
 evidence of menu navigation or ADSI service operation.
 
+The connected-call CO tests use real loopback SIP dialogs in addition to
+packet and waveform tests. They do not contact a provider:
+
+```sh
+python -m pip install -r requirements-dev.txt pyVoIP==1.6.8
+python -m pytest tools/line-jack -q
+```
+
+The native connected DTMF probe also exercises the original firmware's
+physical keypad and checks the resulting SIP packets. See the
+[acceptance runner instructions](tools/acceptance/README.md#connected-keypad-and-sip-transport)
+and [live ADSI navigation results](docs/status/connected-dtmf-adsi-welcome-2026-11-25.md).
+
 | Tier | Scope | Speed | Run on every push? |
 | ---- | ----- | ----- | ------------------ |
 | Unit | Single device, in isolation, no firmware | Sub-second | Yes |

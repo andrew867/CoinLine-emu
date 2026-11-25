@@ -816,6 +816,8 @@ void millennium_state::driver_start()
 	if (!millennium_board_parse_display_profile(m_board_profile_json, m_display_profile, derr))
 		throw emu_fatalerror("millennium: display profile: %s", derr.c_str());
 	m_graphic_display = m_display_profile.variant == "11line";
+	if (char const *trace = osd_getenv("COINLINE_DTMF_TRACE"); trace && *trace == '1')
+		m_dtmf_trace = true;
 	if (m_graphic_display) {
 		if (char const *trace = osd_getenv("COINLINE_ADSI_TRACE"); trace && *trace == '1')
 			m_adsi_trace = true;
@@ -2718,6 +2720,28 @@ void millennium_state::tp_backend_queue_response_bytes(std::vector<std::uint8_t>
 				m_handset_dial_tone = false;
 				if (m_pad_dtmf_n < sizeof(m_pad_dtmf_q))
 					m_pad_dtmf_q[m_pad_dtmf_n++] = digit;
+				// The controller's autonomous dial-pad generator is independent
+				// of local handset feedback. A qualified make drives the seized
+				// voice loop only when the controller has enabled that path.
+				// Data-mode applications can disable it and issue their own tones.
+				auto const &route = m_audio_route->route_state();
+				bool const modem_relay = m_modem->model().relay_active();
+				bool const modem_data = m_modem->model().ncc_link_up();
+				// The modem relay can remain engaged for answer supervision on a
+				// connected voice loop. It is not an exclusive data-path selector.
+				bool const voice_loop = m_loop_seized && (m_tp_loop_seized || !modem_relay ||
+					coinline::audio_route::call_state_established(route.call));
+				bool const line_tone = coinline::audio_route::dialpad_line_tone_enabled(route,
+					!m_tel_hook_onhook, voice_loop, modem_data);
+				if (m_dtmf_trace)
+					std::fprintf(stderr, "DTMF pad make %.6f %c enabled=%d loop=%d tp=%d modem=%d data=%d call=%u line=%d\n",
+						machine().time().as_double(), digit, route.keypad_dtmf_enabled,
+						m_loop_seized, m_tp_loop_seized, modem_relay, modem_data, unsigned(route.call), line_tone);
+				if (line_tone) {
+					adsi_fixture_outpulse(digit);
+					char const note[] = {'D', digit, '\n', 0};
+					m_line.send_line(note);
+				}
 			}
 		}
 		if (b == 0x70U || b == 0x72U) {
@@ -2767,6 +2791,8 @@ void millennium_state::apply_handset_command(std::uint8_t byte)
 		u64 const cy = m_maincpu->total_cycles();
 		u16 const pc = u16(m_maincpu->pc() & 0xffffU);
 		m_audio_route->apply_telephony_effect(effect, byte, cy, pc, label);
+		if (m_dtmf_trace && (byte == 0x2dU || byte == 0x2eU))
+			std::fprintf(stderr, "DTMF pad control %.6f %s\n", machine().time().as_double(), byte == 0x2eU ? "enabled" : "disabled");
 		update_handset_routing();
 	}
 }
@@ -2788,6 +2814,8 @@ bool millennium_state::tp_backend_handle_cp_byte(std::uint8_t byte, bool frame_p
 				m_pad_dtmf_q[m_pad_dtmf_n++] = digit;
 			// The modem's tone register drives the line while its relay owns the loop.
 			if (!m_modem->model().relay_active()) {
+				if (m_dtmf_trace)
+					std::fprintf(stderr, "DTMF controller tone %.6f %c\n", machine().time().as_double(), digit);
 				adsi_fixture_outpulse(digit);
 				char const note[] = {'D', digit, '\n', 0};
 				m_line.send_line(note);
