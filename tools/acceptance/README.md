@@ -4,7 +4,7 @@ The runner uses MAME's inputs to follow firmware prompts through INSTALL. Each a
 
 ## Run
 
-Use a built `cl_millennium` executable, the generated telephony controller model, a local Voiceware pair for exploratory runs, and a provisioned lab terminal on CoinLine. The default input and output paths are under `build/firmware-acceptance/`. Prepare the firmware archive and read the candidate order in the [firmware acceptance catalog](../../docs/uat/firmware-acceptance-catalog.md).
+Use a built `cl_millennium` executable, the generated telephony controller model, a local Voiceware pair for exploratory runs, and a provisioned lab terminal on CoinLine. The default input and output paths are under `build/firmware-acceptance/`. Prepare the firmware archive and read the candidate order in the [firmware acceptance catalog](../../../docs/uat/firmware-acceptance-catalog.md).
 
 The bundled [inventory](inventory.json) lists source links at pinned commits,
 file roles, sizes, SHA-256 hashes, and the relative path for each archived
@@ -24,7 +24,7 @@ Put the lab settings in `build/firmware-acceptance/settings.json`. Keep this fil
 }
 ```
 
-From repository root, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
+From `coinline-emu`, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
 
 ```sh
 python tools/acceptance/run.py --inventory-only
@@ -79,6 +79,22 @@ This full sequence passed on the three available Coin Basic program images,
 a usable program image.
 
 Add `desk_key_card` to the settings with a path to a synthetic Desk craft card fixture if the lab profile uses a craft card. The runner inserts it when requested after Craft PIN entry. It uses the standard synthetic test card for the separate INSTALL reader check. Add `free_call` with the digits served by the local office and pass `--test-call` to check a locally answered call and hangup after restart.
+
+For an isolated synthetic magnetic-card authorization bench, pass
+`--test-mag-call` instead of `--test-call`. Provision the target's screening,
+rate and test-card validation records first. The test presents the card at
+the firmware prompt, dials the locally served destination, requires CO
+answer supervision and checks return to service. The host-side authorization,
+uploaded call record and synthetic settlement must be recorded independently;
+the emulator result alone does not prove a debit. The synchronous contact
+fixture is not a funded payment card.
+
+For an interactive graphical voice-service bench, `graphic_session.py`
+accepts `--adsi --sound`, the local route and normal terminal settings,
+and a previous firmware-written `--battery` directory. Its command file
+drives real panel inputs. `--keypad-trace` enables focused input and TP
+transaction diagnostics without tracing every serial-clock edge. Neither
+trace option is enabled in normal portable launches.
 
 When firmware types need different NCC table sets, provision separate lab terminals and add a `firmware_overrides` object keyed by firmware ID. Each value can override the default terminal `line`, `serial`, `pin`, or other lab settings. This keeps the batch on the firmware-specific lab profiles without changing their assignments during a run.
 

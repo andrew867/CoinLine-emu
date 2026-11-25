@@ -195,13 +195,14 @@ void pcd3349a_contract::receive_cp_byte(std::uint8_t byte)
 {
 	m_boot_tx_window = false;
 	m_obs.last_cp_opcode = byte;
-	// TP→CP hook relay: \c 0x3C release, \c 0x3D seize — CP ownership of hook relay for audio path.
-	if (byte == 0x3cU)
-		m_relay_cp_seized = false;
-	else if (byte == 0x3dU)
-		m_relay_cp_seized = true;
 	bool const in_cfg = m_cfg_rx_remaining > 0U;
-	if (byte == 0xc0U) {
+	// TP→CP hook relay: \c 0x3C release, \c 0x3D seize — CP ownership of hook relay for audio path.
+	// An octet inside the configuration frame is data, including the checksum.
+	if (!in_cfg && byte == 0x3cU)
+		m_relay_cp_seized = false;
+	else if (!in_cfg && byte == 0x3dU)
+		m_relay_cp_seized = true;
+	if (!in_cfg && byte == 0xc0U) {
 		m_cfg_rx_remaining = 125U;
 	} else if (m_cfg_rx_remaining > 0U) {
 		m_cfg_rx_remaining--;

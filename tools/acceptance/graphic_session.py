@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--open", action="store_true", help="start with the cabinet unlocked and open")
     parser.add_argument("--trace", action="store_true", help="capture the graphical I/O stream")
     parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
+    parser.add_argument("--keypad-trace", action="store_true", help="capture panel inputs and TP command/key transactions without per-edge CSIO logs")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
     parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
@@ -110,6 +111,12 @@ def main():
         env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
+                   COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
+    if args.keypad_trace:
+        env.update(COINLINE_FRONT_PANEL_TRACE=str(out / "front-panel.jsonl"),
+                   COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
+                   COINLINE_TP_8048_KEYPAD_TRACE=str(out / "keypad.jsonl"),
+                   COINLINE_TP_8048_RUNTIME_TRACE=str(out / "telephony-clock.jsonl"),
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     view = "Graphical" if args.display == "11line" else "Standard"
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",

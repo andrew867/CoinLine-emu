@@ -30,3 +30,29 @@
 
 Live graphical firmware CAS, terminal acknowledgements, menu rendering,
 interaction and disconnect supervision are separate acceptance gates.
+
+## Live graphical bench
+
+- The installed graphical firmware entered Craft, selected item 369 and
+  initiated a normal force-download. Its isolated host recorded 18 of 18
+  application acknowledgements, including all three large graphical records;
+  only the screening record was revised to permit the local free route.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T070641.527238Z/`.
+- Cabinet closure did not restore service in that process. A normal exit and
+  restart with its firmware-written battery state brought back the service
+  and dial prompt. The phone subsequently returned out of service, with an
+  acknowledged telephony-board alarm, and did not outpulse the dialed alias.
+  No SIP INVITE, CAS or terminal ACK was observed for this attempt. A targeted
+  TP keypad/command and host-maintenance diagnostic is required.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T072747.194426Z/`.
+- The focused TP trace recorded repeated link initialization attempts and a
+  complete 126-byte configuration message. Its computed and transmitted
+  checksums were both `0xC0`. The original behavioral TP program and its
+  serial wrapper both interpreted that in-frame value as a fresh header,
+  leaving the response and subsequent keypad events blocked. Fixed both
+  parsers to consume every declared frame octet as data, and invoke the TP
+  configuration checksum validation before acknowledgment. Regression tests
+  cover valid `0xFF`, embedded `0xC0` and relay opcodes, a `0xC0` checksum,
+  and a deliberately corrupted checksum. The assembled controller and
+  native C++ test pass. This is not a terminal memory or table change.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T073741.163590Z/`.
