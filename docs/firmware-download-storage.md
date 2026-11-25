@@ -149,3 +149,16 @@ in `build/firmware-acceptance/flash-bus-probe/20261125T223420.771891Z/`.
 The separate code-server modem route, NOR model and bank mapping tests
 also passed. This is preparation for a genuine NCC-issued MT94 job and
 compatible code-server session, not an end-to-end remote upgrade result.
+
+The optional `flash_probe.py --interrupt-before-complete` bench closes
+the synthetic emulator while the actual erase bus returns a busy-toggle
+status. It checks that the saved image still matches the seed byte for
+byte, restarts from that saved state, completes the two-chip erase and
+program operations, then verifies persistence on another launch.
+All three phases passed in
+`build/firmware-acceptance/flash-bus-probe/20261125T223851.710800Z/`.
+This tests the existing deterministic completed-operation persistence
+model and an orderly emulator shutdown during a busy operation. A real
+power failure can produce partial physical corruption, which this model
+does not claim to reproduce. The original firmware's recovery logic after
+an interrupted code-server transfer has not yet been exercised.

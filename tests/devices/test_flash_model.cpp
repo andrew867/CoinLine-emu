@@ -57,6 +57,22 @@ int main()
 	chip.write(0, 0, 600095);
 	if (chip.read(0x4010, 600095) != 0x42)
 		return 8;
+	// Model-level interruption: power-on cancels an incomplete operation
+	// but does not roll back a previously completed write. This deliberately
+	// does not predict partial physical erase/program corruption.
+	command(chip, 0x80, 700000);
+	chip.write(0x555, 0xaa, 700000);
+	chip.write(0x2aa, 0x55, 700000);
+	chip.write(0x4010, 0x30, 700000);
+	auto const busy_first = chip.read(0x4010, 710000);
+	auto const busy_second = chip.read(0x4010, 710001);
+	if (((busy_first ^ busy_second) & 0x40) == 0) return 10;
+	chip.power_on();
+	if (chip.read(0x4010, 1400000) != 0x42) return 11;
+	command(chip, 0xa0, 1400001);
+	chip.write(0x4010, 0x02, 1400001);
+	chip.power_on();
+	if (chip.read(0x4010, 1400010) != 0x42) return 12;
 	if (millennium_mach_flash_address(0, 0x1f) != 0xc001f
 		|| millennium_mach_flash_address(1, 0x1f) != 0xd001f
 		|| millennium_mach_flash_address(2, 0x1f) != 0xe001f
