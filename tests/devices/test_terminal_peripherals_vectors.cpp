@@ -112,6 +112,37 @@ int main()
 			return 11;
 		}
 	}
+	{
+		using hardware = data_jack_hardware;
+		hardware m;
+		if (m.merge_monitor(0xa5U) != 0xa5U || m.selected_route() != hardware::route::unknown) return 40;
+		m.configure(hardware::profile::downloaded, true);
+		m.set_connector(true, false);
+		if (!m.plugged() || m.external_loop() || m.merge_monitor(0x25U) != 0x25U) return 41;
+		m.set_connector(true, true);
+		if (!m.external_loop() || m.merge_monitor(0x25U) != 0xa5U) return 42;
+		m.set_connector(false, true);
+		if (m.external_loop() || m.merge_monitor(0xa5U) != 0x25U) return 43;
+		m.write_hw_control(0xf5U);
+		if (m.raw_internal_relays() != 5U) return 44;
+		struct row { hardware::profile profile; std::uint8_t both, laptop, network, unknown; };
+		for (auto const &p : {row{hardware::profile::downloaded, 0xc0, 0x40, 0x80, 0x00},
+			row{hardware::profile::desktop, 0x40, 0xc0, 0x00, 0x80},
+			row{hardware::profile::universal, 0x80, 0x00, 0xc0, 0x40}}) {
+			m.configure(p.profile, false);
+			if (m.merge_monitor(0x25U) != 0xa5U) return 45;
+			m.set_connector(true, true);
+			if (m.merge_monitor(0xa5U) != 0x25U) return 46;
+			m.write_pio_c(p.both | 0x10U);
+			if (m.selected_route() != hardware::route::laptop_and_network || !m.dtmf_attenuated()) return 47;
+			m.write_pio_c(p.laptop);
+			if (m.selected_route() != hardware::route::laptop_only || m.dtmf_attenuated()) return 48;
+			m.write_pio_c(p.network);
+			if (m.selected_route() != hardware::route::network_only) return 49;
+			m.write_pio_c(p.unknown);
+			if (m.selected_route() != hardware::route::unknown) return 50;
+		}
+	}
 
 	{
 		eeprom_model m(32U);

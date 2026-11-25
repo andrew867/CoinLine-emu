@@ -6,10 +6,13 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 
 - [Windows quick start](RUNNING.md) for the portable ZIP, controls, first INSTALL, and SIP.
 - [Build and package](BUILDING.md) for Windows x64, Ubuntu Linux x64, macOS Apple Silicon, and the operator ROM input layout.
-- [Current verification](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) for the firmware and network evidence.
+- [INSTALL verification](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) for the firmware and network evidence.
+- [Card contact and payment qualification](docs/status/smartcard-contact-2026-11-25.md), [ADSI interoperation](docs/status/adsi-interop-2026-11-25.md), and [graphical performance](docs/status/graphical-render-performance-2026-11-25.md) for the latest live trials and remaining gates.
+- [Windows window and artwork timing](docs/status/windows-window-timing-2026-11-25.md) for nonmodal window moves/resizes and native renderer measurements.
 - [Firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) for the tested terminal families, archive hashes and outstanding gates.
 - [Automated INSTALL runner](tools/acceptance/README.md) for cold installation, hardware selection and restart testing.
 - [Remote firmware downloads](docs/firmware-download-storage.md) for the MTR 2.x bootstrap, flash model and upgrade acceptance plan.
+- [Outstanding hardware reference checklist](specs/hardware/hardware-reference-request-checklist.md) for remaining documentation and physical validation priorities.
 - [Testing](TESTING.md) for the emulator suite and Windows smoke checks.
 
 ## Current status
@@ -37,9 +40,30 @@ frames exactly. Its keypad, magnetic-card and coin tests passed. A later
 pin-level smart-card implementation passed the installed firmware's Craft
 contact test twice, following the original failed INSTALL chip-card check.
 A separate MTR 2.12 NLA1X05 cold INSTALL and restart also passed with
-the new reader model. Funded card transactions, a fresh NLA1X08 INSTALL
-with the new reader model, graphical menus and ADSI application operation
+the new reader model. A subsequent magnetic-card trial obtained a simulated
+host authorization and connected a local test call. A CDR and payment
+settlement were not observed. The synchronous contact fixture is nonfunded;
+a funded chip application and a fresh NLA1X08 INSTALL with the new reader
 remain separate gates.
+
+The graphical board now uses its 24.576 MHz oscillator and the local ADSI
+route carries real PCMU audio over SIP/RTP. Live firmware trials produced
+the capability A tone, decoded authentic CONNECT frames and emitted D1
+responses, independently confirmed by a wire capture. The first D response
+still misses the service's strict one-second deadline. Welcome display,
+menu navigation and paid service calls are not yet qualified.
+
+A deterministic single CONNECT test produced native D onset in 791.587 ms.
+The live receiver now shares that dedicated emulated 8 kHz sampling clock;
+actual live retries still missed the service window, so the timing gate
+remains open. The ordinary terminal execution and service deadline are intact.
+
+The enclosure warning source and gate now follow the later hardware latch,
+with a separate legacy Desk oscillator profile. Native GPIO and recorded
+audio measurements verified the later waveform and silent muted phases.
+The optional later-board data-jack monitor and raw relay combinations also
+passed a native bus probe; external modem audio and data-session acceptance
+are still pending. See [peripheral qualification](docs/status/peripheral-handoff-implementation-2026-11-25.md).
 All three tested Coin Basic images completed detached-display Craft access,
 INSTALL with the temporary display attached, and a locally answered call
 after removing the display and restarting. The Inmate firmware is still

@@ -15,6 +15,7 @@
 //   V0 / V1   line-reversal phase 0 / phase 1
 //   V         both reversal phases released
 //   T1 / T0   following audio is CO dial tone / normal line audio
+//   B1 / B0   enable / disable bounded real-time media playout buffering
 //   W<hex>    8 kHz signed 16-bit little-endian samples toward the handset
 // To the central office:
 //   H1 / H0   handset off-hook / on-hook
@@ -57,4 +58,6 @@ private:
 	std::mutex m_pcm_mu;
 	std::deque<std::int16_t> m_pcm_to_co;
 	std::deque<std::int16_t> m_pcm_from_co;
+	bool m_pcm_realtime = false;
+	bool m_pcm_primed = false;
 };

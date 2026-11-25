@@ -30,12 +30,16 @@ uses the verified firmware registry and otherwise selects `2line`.
 Use a compatible later-board program image and its matching hardware preset.
 The launcher selects the graphical artwork and isolates its persistent terminal
 state. The registered NLA1X08 image automatically selects its graphical profile.
+The graphical board profile and Multi-pay V1.3 control-board preset use a
+24.576 MHz oscillator, corresponding to a 12.288 MHz Z180 processor clock.
+The conventional earlier-board profile retains its 12.288 MHz oscillator.
 This MTR 2.12-based graphical/ADSI terminal (type 40, DLA 1.3) completed
 cold INSTALL, a separate in-service restart, and rendered downloaded
 bitmap advertisements. Its original INSTALL chip-card check failed, but a
 later native pin-level reader passed Craft item 728 twice and the standard
-NLA1X05 complete INSTALL. Funded-card transactions, graphical menus and
-ADSI service interoperability remain separate acceptance gates.
+NLA1X05 complete INSTALL. A magnetic swipe obtained an approved simulated
+authorization and connected a local call; no CDR or debit was observed.
+Funded chip applications and graphical menu navigation remain separate gates.
 
 For a local card bench, choose synthetic card fixtures with `--mag-card`
 and `--smart-card` or set `mag_fixture` and `smart_fixture` under
@@ -59,10 +63,21 @@ INSTALL and restart cases. All four staged later V1.3 images (`NLA1X05`,
 `NQA1X01`, `NOK1X03`, and `NOA1X04`) also completed INSTALL and returned to
 service after restart. Both V1.1 images (`NKA1X02` and `NKA1X05`) also
 passed. Their dedicated NCC set includes the two mandatory expanded
-visual-prompt records, MT85 and MT86. Chip-card acceptance and several
-other firmware families still have open gates.
+visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
+passed on the later Multi-pay board; funded chip-card applications and
+several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
 and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
+
+An optional graphical voice-service route is available with `--adsi`. Set
+the exact local aliases, target and UDP port under `[adsi]` in `coinline.ini`.
+The corresponding terminal tables must permit the aliases. This route is
+loopback only and has no external SIP fallback. See the
+[CO bridge instructions](tools/line-jack/README.md#local-adsi-service).
+Live firmware sent real A and D1 tones and decoded the service's real FSK
+CONNECT frame. The initial D1 remains too late for the service's strict
+response window, so the graphical menu is not yet qualified. See
+[ADSI qualification](docs/status/adsi-interop-2026-11-25.md).
 
 Coin Basic uses the earlier I/O map with display and Voiceware ports exchanged.
 Use `--portable-display attached` during Craft setup, then exit and start the
@@ -131,6 +146,6 @@ The launcher stores `cfg`, `nvram`, and `logs` under `data/oem`. Close the emula
 "Start OEM.cmd" --record
 ```
 
-The launcher defaults to a compact GDI window with automatic frameskip and keeps the debugger and trace sidecars off. Use `--video d3d` or `--video opengl` to test those renderers on suitable displays. The latest log directory contains `display.txt`, `emulator.log`, and `central-office.log`. Error 41 points to CO line detection. For error 24, verify the running NCC listener, matching wire ID, and published table assignment.
+The Windows launcher defaults to a compact OpenGL window with automatic frameskip and keeps the debugger and trace sidecars off. Use `--video gdi` if OpenGL is unavailable; the software renderer can skip additional display frames to preserve terminal timing. Direct3D is also selectable with `--video d3d` where supported. Mouse-driven title-bar moves and border resizes no longer pause the terminal; artwork redraws are briefly deferred until the drag ends. The standard Windows system menu retains its original modal behavior. The latest log directory contains `display.txt` or `graphic-vfd.json`, `emulator.log`, and `central-office.log`. Error 41 points to CO line detection. For error 24, verify the running NCC listener, matching wire ID, and published table assignment.
 
 The [verification handoff](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) records the full MAME and CoinLine acceptance runs.

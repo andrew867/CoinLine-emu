@@ -7,6 +7,7 @@ local security = assert(ports[":SECMASK"])
 local softkeys = assert(ports[":TERMINAL21_SOFTKEYS"])
 local card = assert(ports[":CARDUI"])
 local coins = assert(ports[":COINUI"])
+local offline_line = os.getenv("COINLINE_GRAPHIC_OFFLINE_LINE") == "1" and assert(ports[":LINECTRL"]) or nil
 local screen = assert(machine.screens[":screen"])
 local keys = {}
 for index, key in ipairs({"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#", "N"}) do
@@ -22,7 +23,48 @@ end
 local commands = assert(os.getenv("COINLINE_GRAPHIC_COMMANDS"))
 local history = assert(io.open(assert(os.getenv("COINLINE_GRAPHIC_EVENTS")), "w"))
 local frame, next_frame, processed = 0, 0, 0
+local snapshot_interval = tonumber(os.getenv("COINLINE_GRAPHIC_SNAPSHOT_INTERVAL")) or 180
 local pending = {}
+local watch_path = os.getenv("COINLINE_GRAPHIC_READ_WATCH")
+if watch_path then
+    local cpu = assert(machine.devices[":maincpu"])
+    local space = assert(cpu.spaces["program"])
+    local input = assert(io.open(watch_path, "r"))
+    local output = assert(io.open(assert(os.getenv("COINLINE_GRAPHIC_READ_WATCH_OUT")), "w"))
+    local taps, samples, reading = {}, 0, false
+    output:write("frame\tlabel\tphysical\tpc\tsnapshot\n")
+    for line in input:lines() do
+        local label, address, fields = line:match("^(%S+)%s+([0-9a-fA-F]+)%s*(.*)$")
+        assert(label and address, "invalid read watch entry")
+        local location, snapshot = tonumber(address, 16), {}
+        assert(location < 0x100000, "physical watch address outside bus")
+        for field in fields:gmatch("%S+") do
+            local value = assert(tonumber(field, 16), "invalid physical snapshot address")
+            assert(value >= 0 and value < 0x100000, "physical snapshot address outside bus")
+            snapshot[#snapshot + 1] = value
+        end
+        assert(#taps < 32 and #snapshot <= 32, "read watch exceeds diagnostic bound")
+        taps[#taps + 1] = space:install_read_tap(location, location, label, function(offset)
+            if reading or samples >= 2000 or keypad:read() & 0x80000 == 0 then return end
+            reading, samples = true, samples + 1
+            local values = {}
+            for _, addr in ipairs(snapshot) do
+                values[#values + 1] = string.format("%05X:%02X", addr, space:read_u8(addr))
+            end
+            local pc = cpu.state["PC"]
+            output:write(frame, "\t", label, "\t", string.format("%05X\t%04X\t", offset, pc and pc.value or 0),
+                table.concat(values, " "), "\n")
+            output:flush()
+            reading = false
+            -- No return value: do not modify the hardware read.
+        end)
+    end
+    input:close()
+    coinline_graphic_watch_stop = emu.add_machine_stop_notifier(function()
+        for _, tap in ipairs(taps) do tap:remove() end
+        output:close()
+    end)
+end
 local function log(action, detail)
     history:write(frame, "\t", action, "\t", detail or "", "\n")
     history:flush()
@@ -111,6 +153,7 @@ local function execute(line)
 end
 
 log("start")
+if offline_line then offline_line:field(1):set_value(1) end
 if os.getenv("COINLINE_GRAPHIC_OPEN") == "1" then cabinet(true) end
 emu.register_frame_done(function()
     frame = frame + 1
@@ -120,7 +163,7 @@ emu.register_frame_done(function()
         end
         pending[frame] = nil
     end
-    if frame % 180 == 0 then
+    if snapshot_interval > 0 and frame % snapshot_interval == 0 then
         screen:snapshot("live.png")
     end
     if frame < next_frame or frame % 6 ~= 0 then return end

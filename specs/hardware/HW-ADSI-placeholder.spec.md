@@ -1,11 +1,11 @@
-# Placeholder: ADSI / CLASS (HW-ADSI-001)
+# ADSI / CLASS (HW-ADSI-001)
 
-**Status:** **unknown** — no firmware or product requirement evidence located in this audit.
+**Status:** Native physical-layer and initial dialogue evidence established; first-response timing and complete menu interaction remain unqualified.
 
 | Field | Detail |
 | ----- | ------ |
-| **Purpose** | Reserved if ADSI modem-class features are proven in scope. |
-| **Implementation acceptance** | **Blocked** until a documented requirement and observable device behavior exist. |
-| **Tests** | None. |
-| **Next step** | Mark compat-validation if product team confirms ADSI never shipped on this SKU; otherwise archive requirement doc and reopen ID. |
+| **Purpose** | Receive analogue CAS and Bell 202 data, expose carrier and real serial input, and convey native DTMF output to a compatible display-service endpoint. |
+| **Implementation acceptance** | Timely first acknowledgement, actual menu reception and rendering, physical softkey response, voice/data transitions and disconnect. |
+| **Tests** | Detector, serial framing and local transport components pass; native first-response timing remains open. |
+| **Next step** | Follow the [source-independent timing handoff](adsi-physical-timing-handoff.md) for the next qualification. |
 

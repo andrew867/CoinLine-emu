@@ -71,8 +71,6 @@ void millennium_audio_model::configure(millennium_alerter_board_config const &cf
 	m_cfg = cfg;
 	if (m_cfg.sample_rate_hz == 0)
 		m_cfg.sample_rate_hz = 8000;
-	if (m_cfg.cpu_clock_hz > 0.0)
-		m_cpu_hz = m_cfg.cpu_clock_hz;
 }
 
 void millennium_audio_model::prepare_high_fast_ringer(std::uint32_t sample_rate)
@@ -140,62 +138,62 @@ void millennium_audio_model::reset()
 	m_dtmf_start_t = 0.0;
 	m_dtmf_digit = '5';
 	m_port_f_last_data = 0;
-	m_port_f_last_edge_cycle = 0;
-	m_port_f_half_period_cycles = 0;
-	m_port_f_phase_origin_cycle = 0;
-	m_port_f_have_half_period = false;
+	m_port_f_last_edge_time = -1.0;
+	m_port_f_half_period = 0.0;
+	m_legacy_warning = false;
 	reset_high_fast_ringer();
 }
 
-void millennium_audio_model::notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, std::uint64_t cpu_cycle,
-	double cpu_hz)
+void millennium_audio_model::notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, double event_time)
 {
-	if (cpu_hz > 0.0)
-		m_cpu_hz = cpu_hz;
-
 	std::uint8_t const prev_low = static_cast<std::uint8_t>(prev_data & 0xffU);
 	std::uint8_t const next_low = static_cast<std::uint8_t>(next_data & 0xffU);
+	bool const selected = (next_low & millennium_mach_port_f::k_warning_source_select_bit) != 0;
+	bool const was_selected = (prev_low & millennium_mach_port_f::k_warning_source_select_bit) != 0;
+	// Edges used for the card supply latch must not seed an alarm oscillator.
+	if (m_cfg.enclosure != millennium_enclosure_profile::timer_warning || !selected || !was_selected) {
+		m_port_f_last_edge_time = -1.0;
+		m_port_f_half_period = 0.0;
+	}
 
 	bool const prev_tone = (prev_low & millennium_mach_port_f::k_warning_tone_toggle_bit) != 0;
 	bool const next_tone = (next_low & millennium_mach_port_f::k_warning_tone_toggle_bit) != 0;
 
-	if (prev_tone != next_tone)
+	if (selected && m_cfg.enclosure == millennium_enclosure_profile::timer_warning && prev_tone != next_tone)
 	{
-		if (m_port_f_last_edge_cycle != 0)
-		{
-			std::uint64_t const delta = cpu_cycle - m_port_f_last_edge_cycle;
-			if (delta > 0)
-			{
-				m_port_f_half_period_cycles = delta;
-				m_port_f_have_half_period = true;
-				m_port_f_phase_origin_cycle = m_port_f_last_edge_cycle;
-			}
+		if (m_port_f_last_edge_time >= 0.0 && event_time > m_port_f_last_edge_time) {
+			double const interval = event_time - m_port_f_last_edge_time;
+			m_port_f_half_period = interval <= 0.02 ? interval : 0.0;
 		}
-		m_port_f_last_edge_cycle = cpu_cycle;
+		m_port_f_last_edge_time = event_time;
 	}
 
 	m_port_f_last_data = next_low;
 }
 
+bool millennium_audio_model::warning_selected() const noexcept
+{
+	if (m_cfg.enclosure == millennium_enclosure_profile::desk_oscillator)
+		return m_legacy_warning;
+	return m_cfg.enclosure == millennium_enclosure_profile::timer_warning &&
+		(m_port_f_last_data & millennium_mach_port_f::k_warning_source_select_bit) != 0;
+}
+
 float millennium_audio_model::mach_port_f_square_sample(double t_sec) const
 {
+	if (!warning_selected()) return 0.f;
+	float constexpr amp = 0.22f;
+	if (m_cfg.enclosure == millennium_enclosure_profile::desk_oscillator)
+		return sin_hz(t_sec, 3000.0) >= 0.f ? amp : -amp;
 	if ((m_port_f_last_data & millennium_mach_port_f::k_alarm_cadence_gate_bit) != 0)
 		return 0.f;
-
-	float constexpr amp = 0.22f;
-
-	if (m_port_f_have_half_period && m_port_f_half_period_cycles > 0 && m_cpu_hz > 0.0)
-	{
-		double const cycle_d = t_sec * m_cpu_hz;
-		std::uint64_t const cycle_t = static_cast<std::uint64_t>(cycle_d >= 0.0 ? cycle_d + 0.5 : cycle_d - 0.5);
-		std::uint64_t const half = m_port_f_half_period_cycles;
-		std::uint64_t const rel = cycle_t - m_port_f_phase_origin_cycle;
-		bool const high = ((rel / half) & 1U) == 0U;
-		return high ? amp : -amp;
+	if (m_port_f_half_period > 0.0) {
+		double const age = t_sec - m_port_f_last_edge_time;
+		// Do not free-run an oscillator after the physical timer stops toggling.
+		if (age >= 0.0 && age <= 2.0 * m_port_f_half_period)
+			return (m_port_f_last_data & millennium_mach_port_f::k_warning_tone_toggle_bit) ? amp : -amp;
 	}
-
-	bool const bit_on = (m_port_f_last_data & millennium_mach_port_f::k_warning_tone_toggle_bit) != 0;
-	return bit_on ? amp : -amp;
+	return 0.f;
 }
 
 void millennium_audio_model::write_tone_select(std::uint8_t value)
@@ -339,8 +337,7 @@ float millennium_audio_model::progress_tone_sample(double t_sec) const
 
 float millennium_audio_model::alerter_speaker_sample(double t_sec) const
 {
-	float const g = float(m_volume) / 255.f;
-	return clampf(mach_port_f_square_sample(t_sec) * g, -1.f, 1.f);
+	return mach_port_f_square_sample(t_sec);
 }
 
 float millennium_audio_model::handset_speaker_sample(double t_sec) const

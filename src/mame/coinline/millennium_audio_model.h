@@ -10,10 +10,13 @@ enum class millennium_alerter_cadence_kind : std::uint8_t {
 	user_prompt_tone,
 };
 
+enum class millennium_enclosure_profile : std::uint8_t { ring_only, timer_warning, desk_oscillator };
+
 struct millennium_alerter_board_config {
 	unsigned sample_rate_hz = 8000;
-	/// When zero, emulator uses \c maincpu \c unscaled_clock() (\c millennium_audio_device::device_start).
+	/// Optional clock metadata; audio timing uses actual emulated-time edges.
 	double cpu_clock_hz = 0.0;
+	millennium_enclosure_profile enclosure = millennium_enclosure_profile::timer_warning;
 	/// Lower nibble of tone-select port (`0x58`) that triggers table-driven cadence traces (placeholders).
 	std::uint8_t service_tone_nibble = 0x0EU;
 	std::uint8_t error_tone_nibble = 0x0FU;
@@ -32,10 +35,10 @@ public:
 	void write_dtmf_digit(std::uint8_t ascii_digit, unsigned duration_ms, double now_sec = 0.0);
 	void write_volume(std::uint8_t value);
 
-	void set_cpu_clock_hz(double hz) noexcept { if (hz > 0.0) m_cpu_hz = hz; }
-
-	/// Record port \c F write; measures half-period from successive toggles of the warning bit (\c 0x02).
-	void notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, std::uint64_t cpu_cycle, double cpu_hz);
+	/// Record port F writes on the same emulated timebase as the audio stream.
+	void notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, double event_time);
+	void set_legacy_warning(bool selected) noexcept { m_legacy_warning = selected; }
+	bool warning_selected() const noexcept;
 
 	void set_handset_loopback(bool enable) noexcept { m_handset_loopback = enable; }
 	void inject_handset_sample(float sample) noexcept { m_handset = sample; }
@@ -88,10 +91,8 @@ private:
 	double m_dtmf_end_t = -1.0;
 	double m_dtmf_start_t = 0.0;
 
-	double m_cpu_hz = 12288000.0;
 	std::uint8_t m_port_f_last_data = 0;
-	std::uint64_t m_port_f_last_edge_cycle = 0;
-	std::uint64_t m_port_f_half_period_cycles = 0;
-	std::uint64_t m_port_f_phase_origin_cycle = 0;
-	bool m_port_f_have_half_period = false;
+	double m_port_f_last_edge_time = -1.0;
+	double m_port_f_half_period = 0.0;
+	bool m_legacy_warning = false;
 };

@@ -4,6 +4,67 @@
 
 namespace coinline::terminal {
 
+void data_jack_hardware::configure(profile wiring, bool monitor_active_high) noexcept
+{
+	m_profile = wiring;
+	m_monitor_active_high = monitor_active_high;
+	reset();
+}
+
+void data_jack_hardware::reset() noexcept
+{
+	m_plugged = m_seized = false;
+	m_pio_c = m_hw_control = 0;
+}
+
+void data_jack_hardware::set_connector(bool plugged, bool seized) noexcept
+{
+	m_plugged = plugged;
+	m_seized = seized;
+}
+
+std::uint8_t data_jack_hardware::merge_monitor(std::uint8_t status) const noexcept
+{
+	if (!enabled()) return status;
+	bool const level = external_loop() == m_monitor_active_high;
+	return std::uint8_t((status & 0x7fU) | (level ? 0x80U : 0U));
+}
+
+data_jack_hardware::route data_jack_hardware::selected_route() const noexcept
+{
+	std::uint8_t const mask = raw_relay_mask();
+	switch (m_profile) {
+	case profile::downloaded:
+		if (mask == 0xc0U) return route::laptop_and_network;
+		if (mask == 0x40U) return route::laptop_only;
+		if (mask == 0x80U) return route::network_only;
+		break;
+	case profile::desktop:
+		if (mask == 0x40U) return route::laptop_and_network;
+		if (mask == 0xc0U) return route::laptop_only;
+		if (mask == 0x00U) return route::network_only;
+		break;
+	case profile::universal:
+		if (mask == 0x80U) return route::laptop_and_network;
+		if (mask == 0x00U) return route::laptop_only;
+		if (mask == 0xc0U) return route::network_only;
+		break;
+	case profile::disabled: break;
+	}
+	// The fourth output combination is not a verified physical path.
+	return route::unknown;
+}
+
+char const *data_jack_hardware::route_name(route selected) noexcept
+{
+	switch (selected) {
+	case route::laptop_and_network: return "laptop_and_network";
+	case route::laptop_only: return "laptop_only";
+	case route::network_only: return "network_only";
+	default: return "unknown";
+	}
+}
+
 void ring_alerter_model::disable(std::uint8_t reason) noexcept
 {
 	m_disable_mask |= reason;

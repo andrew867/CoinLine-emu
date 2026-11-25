@@ -18,11 +18,12 @@ public:
 	void device_stop() override;
 	void sound_stream_update(sound_stream &stream) override;
 
-	/// On-hook the alerter transducer goes to the PC speakers. Off-hook the handset path owns them.
-	void set_alerter_audible(bool on) noexcept { m_alerter_audible = on; }
+	/// On-hook the handset path is absent; enclosure warning/ring remains independent.
+	void set_alerter_audible(bool on) noexcept;
 
 	/// Firmware ringer-enable and the ring-detect input are both true, and the handset is on-hook.
 	void set_external_ringer(bool on) noexcept;
+	void set_legacy_warning(bool selected) noexcept;
 
 	/// Telephony-processor hybrid gates from the control processor's routing commands.
 	void set_hybrid_gates(bool tx_muted, bool rx_muted, bool sidetone_suppressed) noexcept;
@@ -36,7 +37,7 @@ public:
 	void write_volume(std::uint8_t data, std::uint64_t cpu_cycle, std::uint16_t pc);
 
 	/// MACH port \c F (\c 0xC3): square-wave bit toggles + cadence gate — forwarded into \c millennium_audio_model.
-	void notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, std::uint64_t cpu_cycle, double cpu_hz);
+	void notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, std::uint64_t cpu_cycle);
 
 	void set_handset_loopback(bool on) noexcept { m_model.set_handset_loopback(on); }
 	void inject_handset_sample(float s) noexcept { m_model.inject_handset_sample(s); }

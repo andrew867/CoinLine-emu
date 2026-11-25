@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Run a real later-board firmware image with a local, physical-input command file."""
 import argparse
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -32,10 +33,32 @@ def main():
     parser.add_argument("--open", action="store_true", help="start with the cabinet unlocked and open")
     parser.add_argument("--trace", action="store_true", help="capture the graphical I/O stream")
     parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
+    parser.add_argument("--keypad-trace", action="store_true", help="capture panel inputs and TP command/key transactions without per-edge CSIO logs")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
+    parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
+    parser.add_argument("--adsi-offline-pcm", type=Path, help="deterministic signed 8 kHz line stimulus, triggered by actual configured local outpulse")
+    parser.add_argument("--offline-co", action="store_true", help="retain local CO control signaling but use deterministic offline PCM")
+    parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
+    parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
+    parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
+    parser.add_argument("--video", choices=("gdi", "d3d", "opengl") if os.name == "nt" else ("auto", "soft", "opengl", "bgfx"),
+                        default="opengl" if os.name == "nt" else "auto", help="renderer when artwork is enabled")
+    parser.add_argument("--external-co-port", type=int, help="fixed local jack port; an independently managed CO connects to it")
+    parser.add_argument("--snapshot-interval", type=int, default=180, metavar="FRAMES",
+                        help="automatic native screenshot interval; zero disables it for timing tests")
     args = parser.parse_args()
+    if args.external_co_port is not None and not 1 <= args.external_co_port <= 65535:
+        parser.error("--external-co-port must be a valid TCP port")
+    if args.external_co_port and args.adsi_offline_pcm:
+        parser.error("Use the dedicated offline CO controls for deterministic PCM tests")
+    if args.snapshot_interval < 0:
+        parser.error("--snapshot-interval cannot be negative")
+    if args.adsi_offline_pcm and (args.adsi or args.display != "11line" or not args.adsi_offline_pcm.is_file()):
+        parser.error("--adsi-offline-pcm requires an existing fixture, 11line display and no SIP route")
+    if args.offline_co and not args.adsi_offline_pcm:
+        parser.error("--offline-co requires --adsi-offline-pcm")
     image = args.firmware.read_bytes()
     if len(image) != 1048576:
         raise ValueError("Graphical session requires a mapped 1 MiB flash image")
@@ -46,6 +69,8 @@ def main():
         raise ValueError("Select a compatible later motherboard using --hardware")
     settings = json.loads(args.settings.read_text()) if args.settings else {}
     settings = {**settings, **settings.get("firmware_overrides", {}).get(firmware_id, {})}
+    if args.adsi_offline_pcm and not str(settings.get("free_call", "")).isdigit():
+        parser.error("--adsi-offline-pcm requires a numeric local free_call in the lab settings")
     if "line" not in settings and "wireId" in settings:
         settings["line"] = settings["wireId"]
     if "ncc_port" not in settings and "nccPort" in settings:
@@ -81,10 +106,10 @@ def main():
                COINLINE_TP8048_ROM=str(args.controller.resolve()),
                COINLINE_MAG_CARD=str(args.mag_card.resolve()),
                COINLINE_SMART_CARD=str(args.smart_card.resolve()),
-               COINLINE_LINE_PORT=port(), COINLINE_CO_MODE="local", COINLINE_CO_TIMEOUT="0",
+               COINLINE_LINE_PORT=str(args.external_co_port) if args.external_co_port else port(), COINLINE_CO_MODE="local", COINLINE_CO_TIMEOUT="0",
                COINLINE_NCC_PORT=str(settings.get("ncc_port", 4000)), COINLINE_DIAGNOSTICS="0",
                COINLINE_GRAPHIC_COMMANDS=str(commands), COINLINE_GRAPHIC_EVENTS=str(out / "events.tsv"),
-               COINLINE_GRAPHIC_OPEN="1" if args.open else "0")
+               COINLINE_GRAPHIC_OPEN="1" if args.open else "0", COINLINE_GRAPHIC_SNAPSHOT_INTERVAL=str(args.snapshot_interval))
     if args.display == "11line":
         env["COINLINE_GRAPHIC_VFD_SNAPSHOT"] = str(out / "pages.json")
     else:
@@ -96,24 +121,54 @@ def main():
             env["COINLINE_ACCEPTANCE_" + key.upper()] = str(settings[key])
     if settings.get("free_call"):
         env["COINLINE_OUTBOUND"] = str(settings["free_call"])
+    if args.adsi:
+        env["COINLINE_LOCAL_VOICE_ROUTE"] = json.dumps(settings.get("adsi_route", {
+            "digits": ["2374", "7095550174", "17095550174"], "target": "2374", "port": 5069}))
+        env["COINLINE_ADSI_TRACE"] = "1"
+    if args.adsi_offline_pcm:
+        env.update(COINLINE_ADSI_PCM_FIXTURE=str(args.adsi_offline_pcm.resolve()), COINLINE_ADSI_TRACE="1")
+        if not args.offline_co:
+            env.update(COINLINE_LINE_PORT="0", COINLINE_GRAPHIC_OFFLINE_LINE="1")
+        report_path = out / "offline-pcm.json"
+        raw = args.adsi_offline_pcm.read_bytes()
+        report_path.write_text(json.dumps({"sha256": hashlib.sha256(raw).hexdigest(), "sample_rate": 8000,
+                                           "samples": len(raw) // 2}, indent=2))
     if args.trace and args.display == "11line":
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
         env["COINLINE_SMART_CARD_TRACE"] = "1"
+    if args.read_watch:
+        if not args.read_watch.is_file():
+            parser.error("--read-watch must be a local file")
+        env.update(COINLINE_GRAPHIC_READ_WATCH=str(args.read_watch.resolve()),
+                   COINLINE_GRAPHIC_READ_WATCH_OUT=str(out / "read-watch.tsv"))
     if args.telephony_trace:
         env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
+    if args.keypad_trace:
+        env.update(COINLINE_FRONT_PANEL_TRACE=str(out / "front-panel.jsonl"),
+                   COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
+                   COINLINE_TP_8048_KEYPAD_TRACE=str(out / "keypad.jsonl"),
+                   COINLINE_TP_8048_RUNTIME_TRACE=str(out / "telephony-clock.jsonl"),
+                   COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     view = "Graphical" if args.display == "11line" else "Standard"
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
-           "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "none",
+           "-nolog", "-video", args.video if args.artwork else "none", "-sound", "auto" if args.sound else "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),
            "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
            "-snapshot_directory", str(out), "-snapview", view if args.artwork else "native",
            "-view", view, "-window", "-nomaximize", "-seconds_to_run", str(args.seconds),
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
-    with (out / "mame.log").open("wb") as log, central_office(out, env, Path(sys.executable)):
+    if args.realtime_priority and os.name == "nt":
+        cmd.extend(["-priority", "1"])
+    if args.artwork:
+        cmd.extend(["-autoframeskip", "-frameskip", "11" if args.video == "gdi" else "4", "-audio_latency", "6"])
+        if os.name == "nt":
+            cmd.extend(["-resolution", "360x850"])
+    office = nullcontext() if args.external_co_port or (args.adsi_offline_pcm and not args.offline_co) else central_office(out, env, Path(sys.executable))
+    with (out / "mame.log").open("wb") as log, office:
         result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)
     print(f"Emulator exited with {result.returncode}", flush=True)
     return result.returncode

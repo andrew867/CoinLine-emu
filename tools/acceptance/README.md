@@ -20,11 +20,68 @@ Put the lab settings in `build/firmware-acceptance/settings.json`. Keep this fil
   "line": "<10-digit lab terminal number>",
   "serial": "<10-digit lab terminal serial>",
   "pin": "<5-digit craft PIN>",
+  "craft_access": "<7-digit synthetic Craft access code>",
   "ncc_port": 4000
 }
 ```
 
-From repository root, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
+For new synthetic table sets the provisioner defaults `craft_access` to the
+factory keypad mnemonic if omitted. The seven-digit MT31 access field is
+independent of the five-digit INSTALL PIN. Changing settings does not alter an
+existing terminal's battery; a normal selected download or fresh INSTALL is
+required to deliver new records.
+
+Interactive graphical sessions also accept `--read-watch <local-file>`
+for bounded, read-only program-bus timing diagnosis. Each line contains a
+label, a physical hexadecimal address, and optionally a whitespace-separated
+list of physical RAM byte addresses to snapshot. Watch output is restricted
+to off-hook activity and at most 2,000 samples. The option is disabled by
+default and never changes the observed data, CPU state, or installation.
+
+## Independent analogue hardware probes
+
+Generate a single deterministic CAS/CONNECT line stimulus and run the installed
+graphical terminal without a SIP or TCP audio sidecar:
+
+```sh
+python tools/acceptance/adsi_pcm_fixture.py build/firmware-acceptance/offline-adsi.pcm
+python tools/acceptance/graphic_session.py --mame build/bin/coinline-mame.exe \
+  --firmware <mapped-image> --battery <saved-battery-directory> --settings <lab-settings> \
+  --adsi-offline-pcm build/firmware-acceptance/offline-adsi.pcm --quiet --sound
+```
+
+Keep a matching isolated NCC listener available for ordinary maintenance.
+After the terminal returns to service, dial the configured local `free_call`.
+The offline office answers only the actual matching outpulse and supplies
+physical line polarity phases. A dedicated 8 kHz emulated timer then feeds
+the analogue detector. No network response, decoded byte, terminal flag,
+retry or fabricated ACK is injected. Compare the resulting native carrier,
+UART and DTMF events to the live wire measurements; this is not itself SIP
+menu qualification. Optional `--connect-pcm` to the fixture generator retains
+the exact supplied local CONNECT waveform, including its captured silence.
+For comparison, `--offline-co` retains the normal local CO control socket
+but still supplies the receiver with deterministic PCM instead of network
+audio. The service answer path and the sample-clock path can thereby be
+measured independently.
+
+The following synthetic CPU/bus probes require no installed payment or call
+state and save their local evidence below the ignored acceptance output:
+
+```sh
+python tools/acceptance/enclosure_alarm_probe.py --mame build/bin/coinline-mame.exe
+python tools/acceptance/data_jack_pin_probe.py --mame build/bin/coinline-mame.exe
+python tools/acceptance/line_jack_probe.py --mame build/bin/coinline-mame.exe
+```
+
+The enclosure probe records actual emitted audio and verifies the warning
+frequency against the GPIO edges. The data-jack probe checks only the later
+equipment monitor and documented relay output combinations, not analogue
+connection or a modem handshake. The line-jack probe checks initial native
+loopback control signaling independently of the CO service.
+
+## Batch execution
+
+From `coinline-emu`, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
 
 ```sh
 python tools/acceptance/run.py --inventory-only
@@ -79,6 +136,22 @@ This full sequence passed on the three available Coin Basic program images,
 a usable program image.
 
 Add `desk_key_card` to the settings with a path to a synthetic Desk craft card fixture if the lab profile uses a craft card. The runner inserts it when requested after Craft PIN entry. It uses the standard synthetic test card for the separate INSTALL reader check. Add `free_call` with the digits served by the local office and pass `--test-call` to check a locally answered call and hangup after restart.
+
+For an isolated synthetic magnetic-card authorization bench, pass
+`--test-mag-call` instead of `--test-call`. Provision the target's screening,
+rate and test-card validation records first. The test presents the card at
+the firmware prompt, dials the locally served destination, requires CO
+answer supervision and checks return to service. The host-side authorization,
+uploaded call record and synthetic settlement must be recorded independently;
+the emulator result alone does not prove a debit. The synchronous contact
+fixture is not a funded payment card.
+
+For an interactive graphical voice-service bench, `graphic_session.py`
+accepts `--adsi --sound`, the local route and normal terminal settings,
+and a previous firmware-written `--battery` directory. Its command file
+drives real panel inputs. `--keypad-trace` enables focused input and TP
+transaction diagnostics without tracing every serial-clock edge. Neither
+trace option is enabled in normal portable launches.
 
 When firmware types need different NCC table sets, provision separate lab terminals and add a `firmware_overrides` object keyed by firmware ID. Each value can override the default terminal `line`, `serial`, `pin`, or other lab settings. This keeps the batch on the firmware-specific lab profiles without changing their assignments during a run.
 
@@ -170,3 +243,26 @@ See [remote firmware downloads](../../docs/firmware-download-storage.md) for
 the end-to-end upgrade gates.
 
 Run outputs can include lab identifiers, state files, and firmware images. The default output path is ignored by Git.
+
+## Windows window and clock qualification
+
+`window_drag_probe.py` exercises native Win32 frame capture, geometry, release
+and cancellation while observing the emulated machine clock. It posts only
+messages to its own test window and does not move the global mouse cursor.
+The default synthetic CPU loop isolates the OSD path. An optional later-board
+firmware image and `--sound` exercise the real machine with audio enabled.
+
+```sh
+python tools/acceptance/window_drag_probe.py --mame <path-to-mamecoinline.exe> --video opengl
+python tools/acceptance/window_drag_probe.py --mame <path-to-mamecoinline.exe> --video opengl --free-aspect
+python tools/acceptance/window_drag_probe.py --mame <path-to-mamecoinline.exe> --firmware <mapped-flash.bin> --sound
+```
+
+The free-aspect test checks actual resize geometry independently of the
+monitor's fixed-aspect minimum/maximum dimensions. Results and machine-clock
+samples remain in the ignored `build/firmware-acceptance/window-drag-probe/`
+directory. The graphical acceptance session uses the same Windows renderer
+defaults as the launcher. Set `--snapshot-interval 0` to avoid periodic PNG
+encoding during wall-clock timing tests. `--external-co-port` binds the
+emulator to a fixed local line jack and leaves the independently managed CO
+and its lifecycle to the caller.

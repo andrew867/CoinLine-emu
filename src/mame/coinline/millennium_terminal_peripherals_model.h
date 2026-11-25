@@ -92,6 +92,35 @@ private:
 	bool m_disconnect_supervision_pending = false;
 };
 
+/// Raw external equipment monitor and documented relay output combinations.
+/// This does not decide whether a call is allowed or create a data session.
+class data_jack_hardware {
+public:
+	enum class profile : std::uint8_t { disabled, downloaded, desktop, universal };
+	enum class route : std::uint8_t { unknown, laptop_and_network, laptop_only, network_only };
+	void configure(profile wiring, bool monitor_active_high) noexcept;
+	void reset() noexcept;
+	void set_connector(bool plugged, bool seized) noexcept;
+	void write_pio_c(std::uint8_t value) noexcept { m_pio_c = value; }
+	void write_hw_control(std::uint8_t value) noexcept { m_hw_control = value; }
+	bool enabled() const noexcept { return m_profile != profile::disabled; }
+	bool plugged() const noexcept { return m_plugged; }
+	bool external_loop() const noexcept { return m_plugged && m_seized; }
+	std::uint8_t merge_monitor(std::uint8_t status) const noexcept;
+	route selected_route() const noexcept;
+	std::uint8_t raw_relay_mask() const noexcept { return m_pio_c & 0xc0U; }
+	std::uint8_t raw_internal_relays() const noexcept { return m_hw_control & 7U; }
+	bool dtmf_attenuated() const noexcept { return (m_pio_c & 0x10U) != 0U; }
+	static char const *route_name(route selected) noexcept;
+private:
+	profile m_profile = profile::disabled;
+	bool m_monitor_active_high = true;
+	bool m_plugged = false;
+	bool m_seized = false;
+	std::uint8_t m_pio_c = 0;
+	std::uint8_t m_hw_control = 0;
+};
+
 class eeprom_model {
 public:
 	explicit eeprom_model(std::size_t size) : m_bytes(size, 0U) {}

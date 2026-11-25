@@ -75,6 +75,16 @@ int main()
 		unsigned value = 0;
 		for (unsigned i = 0; i < 16; ++i) {
 			if (m.sync_bit_address() != i) return 23;
+			// The warning waveform and the supply-latch clock share port F.
+			// With stable D/E signals and an already powered contact, alarm
+			// toggles must not advance or reset the card's address.
+			if (i == 3U) {
+				bool const bit = m.sync_data_high();
+				for (unsigned edge = 0; edge < 12U; ++edge)
+					m.update_later_pins(0x07, 0x08, (edge & 1U) ? 0x04U : 0x06U);
+				m.update_later_pins(0x07, 0x08, 0x00);
+				if (!m.sync_powered() || m.sync_bit_address() != i || m.sync_data_high() != bit) return 37;
+			}
 			value = (value << 1) | unsigned(m.sync_data_high());
 			m.update_later_pins(0x0f, 0x08, 0x00);
 			m.update_later_pins(0x0f, 0x08, 0x00); // same level is not another edge

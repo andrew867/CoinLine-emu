@@ -52,7 +52,14 @@ public:
 	void note_modem_relay(bool r1_active, double now_sec);
 	/// Earlier-board PIO A modem bitbang (address/clock/RD/WR).
 	char ssi_pio_a_write(std::uint8_t pio_a, bool extended_address = false);
+	char ssi_dtmf_digit() const noexcept {
+		return (m_ssi_tr & 0x10U) && (m_ssi_cr0 & 0x02U) ? "D1234567890*#ABC"[m_ssi_tr & 0x0fU] : 0;
+	}
 	bool relay_active() const noexcept { return m_r1; }
+	bool adsi_receiver_mode() const noexcept {
+		return (m_ssi_cr0 & 0x30U) == 0x20U && (m_ssi_cr2 & 0x04U) != 0 && (m_ssi_tr & 0x10U) == 0;
+	}
+	void set_adsi_carrier(bool carrier) noexcept;
 	/// STATUS_PORT_2 bit 4 (MPD) level while an SSI read is in progress.
 	bool ssi_mpd_level() const noexcept { return m_ssi_mpd; }
 
@@ -119,6 +126,7 @@ private:
 	int m_ssi_bit = -1;
 	bool m_ssi_reading = false;
 	bool m_ssi_mpd = false;
+	bool m_adsi_carrier = false;
 	std::uint8_t m_ssi_write_shift = 0;
 	int m_ssi_write_bits = 0;
 
