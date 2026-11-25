@@ -19,6 +19,7 @@ from test_connected_dtmf_sip_loopback import LoopbackPeer
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--package", type=Path, required=True, help="extracted Windows OEM package with local ROM inputs")
+    parser.add_argument("--mame", type=Path, help="override packaged native executable")
     parser.add_argument("--mode", choices=("local", "sip"), default="sip")
     parser.add_argument("--office", type=Path, default=ROOT / "tools/line-jack/central_office.py")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/oem-answer")
@@ -51,7 +52,7 @@ def main():
         env.update(COINLINE_SIP_HOST="127.0.0.1", COINLINE_SIP_PORT=str(peer.port), COINLINE_SIP_USER="lab",
                    COINLINE_SIP_PASSWORD="loopback-fixture", COINLINE_SIP_MY_IP="127.0.0.1",
                    COINLINE_SIP_LOCAL_PORT=str(bind_port))
-    command = [str(package / "bin/coinline-mame.exe"), "cl_millennium", "-noreadconfig", "-skip_gameinfo",
+    command = [str(args.mame.resolve() if args.mame else package / "bin/coinline-mame.exe"), "cl_millennium", "-noreadconfig", "-skip_gameinfo",
                "-nodebug", "-nolog", "-rompath", str(package / "roms"), "-artpath", str(package / "artwork"),
                "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"), "-video", "none",
                "-sound", "none", "-seconds_to_run", "240", "-autoboot_delay", "0", "-autoboot_script",

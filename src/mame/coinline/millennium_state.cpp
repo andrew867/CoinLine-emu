@@ -524,6 +524,12 @@ void millennium_state::millennium(machine_config &config)
 	m_maincpu->txa0_wr_callback().set([this](int state) {
 		if (m_earlier_motherboard)
 			m_coin->rxd_w(state);
+		else if (m_smartcard->async_routed())
+			m_smartcard->rxd_w(state);
+	});
+	m_smartcard->txd_handler().set([this](int state) {
+		if (!m_earlier_motherboard)
+			m_maincpu->rxa0_w(state);
 	});
 	m_coin_uart->out_tx_callback().set([this](int state) {
 		if (!m_earlier_motherboard)
@@ -2729,7 +2735,7 @@ void millennium_state::tp_backend_queue_response_bytes(std::vector<std::uint8_t>
 				bool const modem_data = m_modem->model().ncc_link_up();
 				// The modem relay can remain engaged for answer supervision on a
 				// connected voice loop. It is not an exclusive data-path selector.
-				bool const voice_loop = m_loop_seized && (m_tp_loop_seized || !modem_relay ||
+				bool const voice_loop = m_loop_seized && (coinline::audio_route::handset_co_loop(m_tp_loop_seized, m_hw_cntl_port_image) || !modem_relay ||
 					coinline::audio_route::call_state_established(route.call));
 				bool const line_tone = coinline::audio_route::dialpad_line_tone_enabled(route,
 					!m_tel_hook_onhook, voice_loop, modem_data);
@@ -3582,8 +3588,8 @@ void millennium_state::trace_hw_cntl_telephony_relays(u8 prev, u8 data, u64 cy, 
 			       "inactive selects CO-line power / power-fail takeover (toll rules from config)";
 			break;
 		case 3:
-			role = "R3 modem sink relay: tone-detect / CO coupling when active; "
-			       "inactive allows modem loop-current sink for off-hook";
+			role = "R3 modem sink relay: enables loop-current sink when active; "
+			       "inactive selects high-impedance CO monitoring";
 			break;
 		default:
 			break;
@@ -3692,7 +3698,7 @@ void millennium_state::update_external_ringer()
 
 void millennium_state::update_line_seizure()
 {
-	bool const seized = m_tp_loop_seized || (m_hw_cntl_port_image & 1U) != 0U;
+	bool const seized = coinline::audio_route::co_loop_seized(m_tp_loop_seized, m_hw_cntl_port_image);
 	if (seized != m_loop_seized) {
 		m_loop_seized = seized;
 		m_line.send_line(seized ? "S\n" : "X\n");
@@ -3915,9 +3921,10 @@ void millennium_state::write_hw_cntl(u8 data)
 		bool const r1 = (data & 0x01U) != 0U;
 		m_modem->model().note_modem_relay(r1, machine().time().as_double());
 		m_line.send_line(r1 ? "Q1\n" : "Q0\n");
-		update_line_seizure();
 		if (!r1) adsi_fixture_maybe_answer();
 	}
+	if (((prev ^ data) & 0x07U) != 0U)
+		update_line_seizure();
 	if (((prev ^ data) & 0x10U) != 0U) {
 		bool const en = (data & 0x10U) != 0U;
 		m_line.send_line(en ? "E1\n" : "E0\n");
@@ -5962,6 +5969,8 @@ void millennium_state::mach_pio_w(offs_t offset, u8 data)
 	// Port \c F (\c 0xC3): card-reader control + forgotten-card warning / cadence bits (\c millennium_mach_port_f); handset alerter remains \c 0x58–\c 0x5b.
 	if (offset >= 1 && offset <= 3)
 		m_smartcard->later_pins(m_mach_pio_shadow[1], m_mach_pio_shadow[2], m_mach_pio_shadow[3], cy);
+	if (!m_earlier_motherboard && offset <= 3)
+		m_smartcard->later_async_pins(m_mach_pio_shadow[0], m_mach_pio_shadow[1], m_mach_pio_shadow[2]);
 }
 
 u8 millennium_state::card_reader_signals() const
@@ -7098,7 +7107,9 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			m_audio->write_dtmf_digit(static_cast<std::uint8_t>(digit), 90U, cy, pc);
 			break;
 		}
-		// ASCI1 connects to the NCC modem. ASCI0 belongs to the coin validator.
+		// ASCI1 connects to the NCC modem. The earlier board uses ASCI0
+		// for its coin validator; the later board selects external contacts
+		// on ASCI0 and keeps its coin UART independent.
 		m_modem->model().poll_ncc_link(now);
 
 		static int rx_bits_left = 0;

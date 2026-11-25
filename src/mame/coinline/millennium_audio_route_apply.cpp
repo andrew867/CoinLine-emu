@@ -55,6 +55,21 @@ bool dialpad_line_tone_enabled(composite_state const &s, bool hook_off, bool voi
 	return s.keypad_dtmf_enabled && hook_off && voice_loop && !modem_data_active;
 }
 
+bool handset_co_loop(bool handset_relay_seized, std::uint8_t relay_latch) noexcept
+{
+	return handset_relay_seized && !(relay_latch & 0x02U);
+}
+
+bool modem_co_loop(std::uint8_t relay_latch) noexcept
+{
+	return (relay_latch & 0x05U) == 0x05U;
+}
+
+bool co_loop_seized(bool handset_relay_seized, std::uint8_t relay_latch) noexcept
+{
+	return handset_co_loop(handset_relay_seized, relay_latch) || modem_co_loop(relay_latch);
+}
+
 bool lookup_command(std::uint8_t b, char const *&out_label, char const *&out_effect)
 {
 	for (cmd_entry const &e : k_commands) {

@@ -22,6 +22,7 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | [Outstanding hardware reference checklist](../specs/hardware/hardware-reference-request-checklist.md) | Prioritized hardware documentation requests, unanswered questions and native acceptance goals. |
 | [status/ncc-install-firmware-stx-handoff-2026-11-23.md](status/ncc-install-firmware-stx-handoff-2026-11-23.md) | Current end-to-end INSTALL, battery persistence, outbound SIP, and OEM voice-rate evidence. |
 | [Smart-card and payment qualification](status/smartcard-contact-2026-11-25.md) | Native contact checks, approved simulated magnetic-card call, and outstanding settlement gates. |
+| [Native smart-card transport](status/smartcard-native-transport-2026-11-25.md) | Real ASCI0 T=0/T=1, card-memory persistence, window scaling, and historical application gates. |
 | [ADSI interoperation](status/adsi-interop-2026-11-25.md) | Actual SIP/RTP, CAS, CONNECT and D1 evidence, with the first-response timing gate. |
 | [Graphical render performance](status/graphical-render-performance-2026-11-25.md) | Release tracing, display caching, board clock and measured live emulation speed. |
 | [Peripheral handoff implementation](status/peripheral-handoff-implementation-2026-11-25.md) | Native enclosure waveform, data-jack monitor and deterministic ADSI qualifier progress. |

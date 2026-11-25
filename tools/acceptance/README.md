@@ -267,6 +267,30 @@ encoding during wall-clock timing tests. `--external-co-port` binds the
 emulator to a fixed local line jack and leaves the independently managed CO
 and its lifecycle to the caller.
 
+`window_scale_probe.py` checks the default, explicit 2x and unrestricted
+maximized native window client geometry without changing any existing window.
+
+```sh
+python tools/acceptance/window_scale_probe.py --mame <path-to-mamecoinline.exe>
+```
+
+## Smart-card transport
+
+The synthetic native program in `smartcard_async_probe.py` selects the real
+later-board customer card socket, activates clock and reset, configures the
+Z180 ASCI0 UART and checks the received ATR and the read-only lab application.
+The T=0, inverse convention, T=1 block chaining and optional rate-selection
+variants use actual pin-level serial traffic. `smartcard_pin_probe.py` also
+checks synchronous contact programming, removal and a separate warm restart.
+
+```sh
+python tools/acceptance/smartcard_async_probe.py --mame <path-to-mamecoinline>
+python tools/acceptance/smartcard_pin_probe.py --mame <path-to-mamecoinline>
+```
+
+Neither probe recognizes an issued purse, provides a payment authorization,
+or modifies OEM firmware or terminal installation state.
+
 ## Connected keypad and SIP transport
 
 For a focused cold OEM electrical check, `oem_answer_probe.py` runs the actual
@@ -277,6 +301,9 @@ without a public route, or accepts `--mode local` for the local office.
 ```sh
 python tools/acceptance/oem_answer_probe.py --package <extracted-package-folder>
 ```
+
+Use `--mame <path-to-mamecoinline>` to exercise a newly built binary using the
+same package's ROM inputs.
 
 `dual_profile_probe.py --package <extracted-package-folder>` copies the
 package into an ignored test run, launches both terminal profiles and
@@ -298,3 +325,9 @@ The script uses the CO's Python/PyVoIP dependencies, a working lab NCC for
 any firmware maintenance calls and a graphical window. `--startup-frames`
 and `--answer-frames` set the warm startup and answer allowances. Results are recorded under the
 ignored `build/firmware-acceptance/connected-dtmf-sip-native/` tree.
+
+`new_call_native_probe.py` takes the same four input paths and tests the
+physical New Call key with an isolated loopback peer. It requires a first
+answered dialog, a BYE after New Call, and a second answered dialog without
+moving the hook switch. NCC is isolated; the original battery is not edited.
+The run includes keypad and relay traces and before/after display snapshots.

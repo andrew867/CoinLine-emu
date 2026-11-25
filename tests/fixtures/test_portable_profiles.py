@@ -29,6 +29,21 @@ def test_independent_profile_config_and_sip_ports(tmp_path, monkeypatch):
     assert int(oem["COINLINE_SIP_RTP_PORT_HIGH"]) < int(graphical["COINLINE_SIP_RTP_PORT_LOW"])
 
 
+def test_windows_scale_and_maximize_options(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    (tmp_path / "coinline-graphical.ini").write_text("[display]\nwindow_scale=2\nwindow_maximized=false\n", encoding="utf-8")
+    args = SimpleNamespace(scale=None, maximize=None)
+    assert launcher.window_settings(args, launcher.config_for_run("oem")) == ("360x850", False)
+    assert launcher.window_settings(args, launcher.config_for_run("graphical")) == ("720x1700", True)
+    args.scale = 1.5
+    assert launcher.window_settings(args, launcher.config_for_run("graphical")) == ("540x1275", True)
+    args.maximize = True
+    assert launcher.window_settings(args, launcher.config_for_run("graphical")) == (None, True)
+    args.scale = 0
+    with pytest.raises(ValueError, match="window_scale"):
+        launcher.window_settings(args, launcher.config_for_run("oem"))
+
+
 def test_profile_default_programs_display_and_state(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     monkeypatch.setattr(launcher, "check_files", lambda *_: None)
