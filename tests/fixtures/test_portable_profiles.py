@@ -77,3 +77,30 @@ def test_profile_default_programs_display_and_state(tmp_path, monkeypatch):
     assert graphic_env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
     with pytest.raises(ValueError, match="registered 11-line"):
         launcher.prepare_hardware(args("graphical", Path("firmware/oem/flash.bin")), launcher.config_for_run("graphical"))
+
+
+def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    monkeypatch.setattr(launcher, "check_files", lambda *_: None)
+    registry = tmp_path / "fixtures/firmware/firmware-hashes.json"
+    registry.parent.mkdir(parents=True)
+    entries = []
+    states = []
+    for firmware_id in ("NLA1X08", "NLA1X09"):
+        image = f"<{firmware_id}V1.3>".encode().ljust(0x100000, b"\xff")
+        path = tmp_path / "firmware" / f"{firmware_id}.bin"
+        path.parent.mkdir(exist_ok=True)
+        path.write_bytes(image)
+        entries.append({"version_id": firmware_id, "firmware_id": firmware_id,
+                        "motherboard": "later", "display": "11line",
+                        "sha256_hex": hashlib.sha256(image).hexdigest()})
+        registry.write_text(json.dumps({"entries": entries}), encoding="utf-8")
+        args = SimpleNamespace(profile="graphical", firmware=path, flash1=None,
+                               rompath=None, display=None, hardware=None, portable_display=None)
+        state, _, env, _ = launcher.prepare_hardware(args, launcher.config_for_run("graphical"))
+        assert env["COINLINE_HARDWARE_PRESET"] == "multipay-v1.3"
+        assert env["COINLINE_CARD_DMA_CHANNEL"] == "1"
+        assert env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
+        assert launcher.select_hardware("auto", image) == ("multipay-v1.3", "program tag")
+        states.append(state)
+    assert states[0] != states[1]

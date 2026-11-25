@@ -34,7 +34,7 @@ FIRMWARE_PRESETS = {
     "NKA1X02": "multipay-v1.1", "NKA1X05": "multipay-v1.1", "NLA1X05": "multipay-v1.3",
     "NOA1X04": "multipay-v1.3", "NOK1X03": "multipay-v1.3", "NQA1X01": "multipay-v1.3",
     # Validated later wiring; its program tag's 1.3 identifies the DLA.
-    "NLA1X08": "multipay-v1.3",
+    "NLA1X08": "multipay-v1.3", "NLA1X09": "multipay-v1.3",
     "NBJ1S03": "desk-rel1", "NBJ1F03": "desk-rel1", "NAJ2S05": "desk-rel2",
     "M06CBBX1": "card-only", "NAD4K02": "coin-basic", "NAD4S02": "coin-basic",
     "NPE1S01": "coin-basic",
