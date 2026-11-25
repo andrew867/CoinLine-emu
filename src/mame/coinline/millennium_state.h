@@ -28,6 +28,7 @@
 #include "millennium_telephony.h"
 #include "millennium_vfd.h"
 #include "millennium_graphic_vfd.h"
+#include "millennium_adsi_rx.h"
 #include "millennium_rtos_startup_model.h"
 #include "millennium_terminal_peripherals_model.h"
 #include "millennium_z180_boot_init_model.h"
@@ -283,6 +284,11 @@ private:
 	millennium_z180_board_config m_z180_board{};
 	millennium_display_profile m_display_profile{};
 	millennium_graphic_vfd m_graphic_vfd;
+	millennium_adsi_rx m_adsi_rx;
+	bool m_adsi_trace = false;
+	unsigned m_adsi_status_reads = 0;
+	bool m_adsi_carrier_line = false;
+	double m_adsi_carrier_release_at = 0.0;
 	bool m_graphic_display = false;
 	std::filesystem::path m_graphic_vfd_trace;
 	std::filesystem::path m_graphic_vfd_snapshot;

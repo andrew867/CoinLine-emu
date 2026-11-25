@@ -76,7 +76,7 @@
     "dla_stage_size": 65536
   },
   "z180": {
-    "clock_hz": 12288000,
+    "clock_hz": 24576000,
     "wait_states": {
       "rom": 0,
       "ram": 0,

@@ -30,6 +30,7 @@ add_library(coinline_support STATIC
 	src/mame/coinline/millennium_coin_model.cpp
 	src/mame/coinline/millennium_card_model.cpp
 	src/mame/coinline/millennium_smartcard_model.cpp
+	src/mame/coinline/millennium_adsi_rx.cpp
 	src/mame/coinline/millennium_z180_boot_init_model.cpp
 	src/mame/coinline/millennium_rtos_startup_model.cpp
 	src/mame/coinline/millennium_voice_synthesis_model.cpp
@@ -108,6 +109,7 @@ coinline_add_test(test_voiceware_runtime_vectors telephony tests/devices/test_vo
 coinline_add_test(test_coin_validator_protocol_vectors telephony tests/devices/test_coin_validator_protocol_vectors.cpp)
 coinline_add_test(test_card_track2_decode_vectors telephony tests/devices/test_card_track2_decode_vectors.cpp)
 coinline_add_test(test_smartcard_protocol_negotiation telephony tests/devices/test_smartcard_protocol_negotiation.cpp)
+coinline_add_test(test_adsi_rx telephony tests/devices/test_adsi_rx.cpp)
 coinline_add_test(test_z180_boot_init_vectors telephony tests/devices/test_z180_boot_init_vectors.cpp)
 coinline_add_test(test_rtos_startup_scheduler_vectors telephony tests/devices/test_rtos_startup_scheduler_vectors.cpp)
 coinline_add_test(test_voice_synthesis_task_vectors telephony tests/devices/test_voice_synthesis_task_vectors.cpp)

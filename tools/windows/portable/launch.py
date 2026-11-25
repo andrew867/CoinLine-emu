@@ -24,7 +24,7 @@ SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "P
 def config_for_run():
     config = configparser.ConfigParser(interpolation=None)
     config.read(ROOT / "coinline.ini", encoding="utf-8-sig")
-    for section in ("line", "sip", "hardware", "cards"):
+    for section in ("line", "sip", "hardware", "cards", "adsi"):
         if section not in config:
             config.add_section(section)
     return config
@@ -169,6 +169,18 @@ def run(args, config, hardware):
     smart_card = ROOT / (args.smart_card or cards.get("smart_fixture", "").strip() or "fixtures/cards/smartcard-sync-test.json")
     if not mag_card.is_file() or not smart_card.is_file():
         raise ValueError("The selected local card fixture file is missing.")
+    adsi = config["adsi"]
+    local_voice = None
+    if args.adsi or adsi.getboolean("enabled", fallback=False):
+        aliases = [value.strip() for value in adsi.get("dial_digits", "2374,7095550174,17095550174").split(",")]
+        target = adsi.get("target", "2374").strip()
+        voice_port = adsi.getint("port", fallback=5069)
+        if (not aliases or any(not value or len(value) > 15 or not value.isascii() or not value.isdigit()
+                               or value == "2130706433" for value in aliases)
+                or len(set(aliases)) != len(aliases) or not target or len(target) > 15
+                or not target.isascii() or not target.isdigit() or not 1 <= voice_port <= 65535):
+            raise ValueError("Set valid exact dial_digits, target and local UDP port under [adsi].")
+        local_voice = {"digits": aliases, "target": target, "port": voice_port}
     if args.check:
         print(f"{args.profile.upper()} package inputs are ready. Hardware: {description}")
         return 0
@@ -205,6 +217,8 @@ def run(args, config, hardware):
         env["COINLINE_MIC_INPUT"] = input_device
     if code_number:
         env.update(COINLINE_CODE_SERVER_NUMBER=code_number, COINLINE_CODE_SERVER_PORT=str(code_port))
+    if local_voice:
+        env["COINLINE_LOCAL_VOICE_ROUTE"] = json.dumps(local_voice)
 
     cmd = [str(ROOT / EXECUTABLE), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
            "-rompath", str(rompath), "-artpath", str(ROOT / "artwork"),
@@ -259,6 +273,7 @@ def main():
     parser.add_argument("--rompath", type=Path, help="directory containing cl_millennium/ Voiceware images")
     parser.add_argument("--mag-card", type=Path, help="local synthetic magnetic-stripe fixture")
     parser.add_argument("--smart-card", type=Path, help="local synthetic contact-card fixture")
+    parser.add_argument("--adsi", action="store_true", help="enable the exact local InfoLine voice route")
     parser.add_argument("--portable-display", choices=("attached", "detached"),
                         help="Coin Basic temporary display connection at power-on")
     calling_mode = parser.add_mutually_exclusive_group()

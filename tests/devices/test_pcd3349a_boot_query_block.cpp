@@ -155,7 +155,8 @@ bool query_block(std::vector<std::uint8_t> const &rom)
 	return true;
 }
 
-bool config_frame_keeps_ff_payload(std::vector<std::uint8_t> const &rom)
+bool config_frame_keeps_payload(std::vector<std::uint8_t> const &rom, bool embedded_opcode, std::uint8_t checksum,
+	bool valid = true)
 {
 	millennium_am8048_core core;
 	coinline::tp8048::pcd3349a_contract tp(core);
@@ -167,15 +168,21 @@ bool config_frame_keeps_ff_payload(std::vector<std::uint8_t> const &rom)
 	tp.step_tp_cycles_raw(400000ULL);
 	tp.flush_boot_tx_queue();
 	(void)drain_tx(tp);
-	// 126-byte config: length 0x7E, one 0xFF payload octet, checksum over bytes [2..124].
+	// The configuration can contain any octet, including apparent opcodes and
+	// a checksum equal to its own header. None may restart the frame or alter relays.
 	std::vector<std::uint8_t> frame(126U, 0U);
 	frame[0] = 0xc0U;
 	frame[1] = 0x7eU;
 	frame[40] = 0xffU;
+	if (embedded_opcode) {
+		frame[41] = 0xc0U;
+		frame[42] = 0x3dU;
+	}
 	unsigned sum = 0U;
-	for (std::size_t i = 2; i < 125; ++i)
+	for (std::size_t i = 2; i < 124; ++i)
 		sum += frame[i];
-	frame[125] = static_cast<std::uint8_t>(sum & 0xffU);
+	frame[124] = static_cast<std::uint8_t>(checksum - sum);
+	frame[125] = valid ? checksum : std::uint8_t(checksum ^ 1U);
 	std::vector<std::uint8_t> got;
 	for (std::uint8_t b : frame) {
 		tp.receive_cp_byte(b);
@@ -187,9 +194,16 @@ bool config_frame_keeps_ff_payload(std::vector<std::uint8_t> const &rom)
 	bool const ack = has_byte(got, 0x74U);
 	bool const c4 = framed(got, 0xc4U, 0x04U);
 	bool const c0 = framed(got, 0xc0U, 0x08U);
-	if (!ack || !c4 || !c0) {
+	if (!valid) {
+		if (ack || c0) {
+			std::cerr << "Corrupt configuration received an acknowledgement\n";
+			return false;
+		}
+		return true;
+	}
+	if (!ack || !c4 || !c0 || tp.relay_cp_seized()) {
 		std::vector<std::uint8_t> const head(got.begin(), got.begin() + std::min<std::size_t>(got.size(), 64U));
-		std::cerr << "config ff frame incomplete ack=" << ack << " c4=" << c4 << " c0=" << c0
+		std::cerr << "config frame incomplete ack=" << ack << " c4=" << c4 << " c0=" << c0
 				  << " n=" << got.size() << " head=" << hex_dump(head) << "\n";
 		return false;
 	}
@@ -270,7 +284,10 @@ int main()
 		return 3;
 	if (!query_block(rom))
 		return 4;
-	if (!config_frame_keeps_ff_payload(rom))
+	if (!config_frame_keeps_payload(rom, false, 0xffU) ||
+		!config_frame_keeps_payload(rom, false, 0xc0U) ||
+		!config_frame_keeps_payload(rom, true, 0xc0U) ||
+		!config_frame_keeps_payload(rom, false, 0xc0U, false))
 		return 5;
 	if (!handset_and_keypad(rom))
 		return 6;

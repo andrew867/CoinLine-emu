@@ -27,3 +27,24 @@
   firmware pacing or display refresh rate. Whole-terminal frame rate and
   audio performance require a separate measurement with a representative
   installed program and a stable host workload.
+
+## Subsequent hardware-clock qualification
+
+The live graphical voice-service trace identified another, separate problem:
+the terminal sampled its analogue detector every 2.5 ms with the generic
+12.288 MHz oscillator. The graphical profile and V1.3 control-board preset
+now select 24.576 MHz. A second actual firmware call measured the intended
+1.25 ms sample interval and successfully produced its own A response to the
+unaltered CAS waveform. This establishes the emulated timing correction,
+not a benchmark of Windows host frame rate. See the
+[ADSI qualification](adsi-interop-2026-11-25.md).
+
+Subsequent whole-terminal runs reported average emulation speeds of 87.43%
+with diagnostic tracing, 92.58% with quiet diagnostics, 94.87% with quiet
+diagnostics and a reduced idle serial polling rate, and 96.19% in the final
+carrier-ordering trial. These are observations of separate live runs with
+different host workloads and timing options, not a controlled performance
+comparison. The reduced idle poll rate avoids inspecting UART registers
+when neither modem nor ADSI reception is active; it does not reduce the
+serial timing resolution while a transfer is active. Real-time headroom
+remains important for an externally timed voice service.

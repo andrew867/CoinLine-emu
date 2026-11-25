@@ -80,5 +80,16 @@ int main()
 		std::cerr << "A released modem should have an idle detect register\n";
 		return 1;
 	}
+	write_register(modem, 0, 0x20U, true);
+	write_register(modem, 3, 0x00U, true);
+	write_register(modem, 4, 0x04U, true);
+	if (!modem.adsi_receiver_mode() || (read_detect_register(modem) & 8U)) return 1;
+	modem.set_adsi_carrier(true);
+	if ((read_detect_register(modem) & 8U) == 0) return 1;
+	modem.set_adsi_carrier(false);
+	if ((read_detect_register(modem) & 8U) != 0) return 1;
+	write_register(modem, 0, 0x02U, true);
+	modem.set_adsi_carrier(true);
+	if (modem.adsi_receiver_mode() || (read_detect_register(modem) & 8U)) return 1;
 	return 0;
 }

@@ -278,14 +278,16 @@ CP_RX_GOT_BYTE:
         EN I
         MOV R7,A
 
-        MOV A,R7
-        XRL A,#CMD_CONFIG
-        JNZ CPRX_CHECK_CFG_NEED
-        JMP CP_RX_CFG_HDR
-CPRX_CHECK_CFG_NEED:
+        ; A configuration octet is data until the fixed frame is complete.
+        ; Its payload or final checksum may be C0 without beginning a new frame.
         MOV R0,#CFG_NEED
         MOV A,@R0
-        JNZ CP_RX_CFG_DATA
+        JNZ CPRX_STORE
+        MOV A,R7
+        XRL A,#CMD_CONFIG
+        JNZ CPRX_CHECK_BOOT
+        JMP CP_RX_CFG_HDR
+CPRX_CHECK_BOOT:
         ; Power-on queries (30h/33h/38h/31h) arrive before any config frame.
         ; F_LINK_UP is set only after a command completes, so that gate dropped
         ; the whole query block. Accept commands once QUEUE_BOOT_ACK has run.
@@ -295,11 +297,7 @@ CPRX_CHECK_CFG_NEED:
         JZ CPRX_LEAVE
         JMP     0400H
 
-CP_RX_CFG_DATA:
-        MOV A,R7
-        XRL A,#CMD_CONFIG
-        JNZ CPRX_STORE
-        JMP     04E6H
+        ORG     014BH               ; Keep the fixed parser entry address.
 CPRX_STORE:
         MOV R0,#CFG_IDX
         MOV A,@R0
@@ -314,7 +312,7 @@ CPRX_STORE:
         DEC A
         MOV @R0,A
         JNZ CPRX_LEAVE
-        CALL    CFG_DO_ACCEPT_FINISH
+        CALL    CFG_VALIDATE_FINISH
 CPRX_LEAVE:
         RET
 

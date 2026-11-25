@@ -83,7 +83,13 @@ def read_archive(repo, commit, number):
     return raw
 
 
-def payloads(repo, commit, recipe, line, pin, desk_key):
+def encode_craft_access(digits):
+    if not isinstance(digits, str) or not re.fullmatch(r"[0-9]{7}", digits):
+        raise ValueError("The synthetic Craft access code must contain seven digits")
+    return bytes.fromhex(digits + "e")
+
+
+def payloads(repo, commit, recipe, line, craft_access, desk_key):
     layout, _, model = recipe.partition("-")
     expanded = layout in ("expanded", "expanded_spare", "expanded_v11")
     width = 10 if expanded else 6
@@ -91,7 +97,7 @@ def payloads(repo, commit, recipe, line, pin, desk_key):
     access = bytes([21]) + bytes.fromhex(line) + ncc + bytes(width + (22 if expanded else 0))
     install = bytearray(37)
     install[0] = 31
-    install[1:5] = bytes.fromhex((pin + "a").ljust(8, "0"))
+    install[1:5] = encode_craft_access(craft_access)
     install[5:10] = bytes.fromhex(desk_key)
     install[11:17] = bytes([10, 0, 40, 0, 150, 0])
     install[17] = install[21] = 10
@@ -118,6 +124,8 @@ def provision(args):
     pin = settings.get("pin")
     if not isinstance(pin, str) or not re.fullmatch(r"[0-9]{5}", pin):
         raise ValueError("The acceptance PIN must contain five digits")
+    craft_access = settings.get("craft_access", "2727378")
+    encode_craft_access(craft_access)
     desk_key = "0000000000"
     if "desk_key_card" in settings:
         track = json.loads(Path(settings["desk_key_card"]).read_text(encoding="utf-8"))["payload_body"]
@@ -133,7 +141,7 @@ def provision(args):
         if args.apply and recipe.endswith("-desk") and "desk_key_card" not in settings:
             raise ValueError("Set desk_key_card to a synthetic Desk key-card fixture before provisioning Desk targets")
         line = str(int(args.first_line) + index)
-        plans.append((label, family, line, codes, payloads(args.manager, commit, recipe, line, pin, desk_key)))
+        plans.append((label, family, line, codes, payloads(args.manager, commit, recipe, line, craft_access, desk_key)))
     if not plans:
         raise ValueError("No requested firmware has a lab recipe")
 

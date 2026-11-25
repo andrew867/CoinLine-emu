@@ -32,8 +32,13 @@ def main():
     parser.add_argument("--open", action="store_true", help="start with the cabinet unlocked and open")
     parser.add_argument("--trace", action="store_true", help="capture the graphical I/O stream")
     parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
+    parser.add_argument("--keypad-trace", action="store_true", help="capture panel inputs and TP command/key transactions without per-edge CSIO logs")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
+    parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
+    parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
+    parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
+    parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     args = parser.parse_args()
     image = args.firmware.read_bytes()
@@ -96,23 +101,40 @@ def main():
             env["COINLINE_ACCEPTANCE_" + key.upper()] = str(settings[key])
     if settings.get("free_call"):
         env["COINLINE_OUTBOUND"] = str(settings["free_call"])
+    if args.adsi:
+        env["COINLINE_LOCAL_VOICE_ROUTE"] = json.dumps(settings.get("adsi_route", {
+            "digits": ["2374", "7095550174", "17095550174"], "target": "2374", "port": 5069}))
+        env["COINLINE_ADSI_TRACE"] = "1"
     if args.trace and args.display == "11line":
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
         env["COINLINE_SMART_CARD_TRACE"] = "1"
+    if args.read_watch:
+        if not args.read_watch.is_file():
+            parser.error("--read-watch must be a local file")
+        env.update(COINLINE_GRAPHIC_READ_WATCH=str(args.read_watch.resolve()),
+                   COINLINE_GRAPHIC_READ_WATCH_OUT=str(out / "read-watch.tsv"))
     if args.telephony_trace:
         env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
+    if args.keypad_trace:
+        env.update(COINLINE_FRONT_PANEL_TRACE=str(out / "front-panel.jsonl"),
+                   COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
+                   COINLINE_TP_8048_KEYPAD_TRACE=str(out / "keypad.jsonl"),
+                   COINLINE_TP_8048_RUNTIME_TRACE=str(out / "telephony-clock.jsonl"),
+                   COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     view = "Graphical" if args.display == "11line" else "Standard"
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
-           "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "none",
+           "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "auto" if args.sound else "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),
            "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
            "-snapshot_directory", str(out), "-snapview", view if args.artwork else "native",
            "-view", view, "-window", "-nomaximize", "-seconds_to_run", str(args.seconds),
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
+    if args.realtime_priority and os.name == "nt":
+        cmd.extend(["-priority", "1"])
     with (out / "mame.log").open("wb") as log, central_office(out, env, Path(sys.executable)):
         result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)
     print(f"Emulator exited with {result.returncode}", flush=True)

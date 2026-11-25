@@ -707,8 +707,15 @@ void millennium_state::load_firmware_and_emit_m0()
 			throw emu_fatalerror("millennium: COINLINE_CARD_DMA_CHANNEL must be 0 or 1");
 		m_card_uses_dma1 = std::strcmp(channel, "1") == 0;
 	}
-	if (char const *preset = osd_getenv("COINLINE_HARDWARE_PRESET"))
+	if (char const *preset = osd_getenv("COINLINE_HARDWARE_PRESET")) {
 		m_coin_basic_layout = m_earlier_motherboard && std::strcmp(preset, "coin-basic") == 0;
+		// This later control-board revision doubles the oscillator, independently
+		// of whether the two-line or graphical display is attached. Retain
+		// explicitly calibrated non-default board-profile clocks.
+		if (!m_earlier_motherboard && std::strcmp(preset, "multipay-v1.3") == 0 &&
+			m_z180_board.clock_hz == 12288000U)
+			m_z180_board.clock_hz = 24576000U;
+	}
 	if (char const *display = osd_getenv("COINLINE_PORTABLE_VFD"))
 		m_portable_vfd_connected = !m_coin_basic_layout || std::strcmp(display, "0") != 0;
 	m_flash->seed(rom->base(), m_firmware_sha256_hex, !m_earlier_motherboard);
@@ -806,6 +813,8 @@ void millennium_state::driver_start()
 		throw emu_fatalerror("millennium: display profile: %s", derr.c_str());
 	m_graphic_display = m_display_profile.variant == "11line";
 	if (m_graphic_display) {
+		if (char const *trace = osd_getenv("COINLINE_ADSI_TRACE"); trace && *trace == '1')
+			m_adsi_trace = true;
 		m_graphic_vfd.configure(m_display_profile.graphic_write_cycles, m_display_profile.graphic_clear_cycles,
 			m_display_profile.graphic_lamp_active_high);
 		if (char const *path = osd_getenv("COINLINE_GRAPHIC_VFD_TRACE"); path && *path)
@@ -1209,6 +1218,9 @@ void millennium_state::machine_reset()
 	m_voicew_irq_timer->reset();
 	m_vfd_last_drawn_dots.clear();
 	m_graphic_vfd.reset();
+	m_adsi_rx.reset();
+	m_adsi_carrier_line = false;
+	m_adsi_carrier_release_at = 0.0;
 	m_voicew_int0_asserted = false;
 	m_maincpu->set_input_line(Z180_INPUT_LINE_IRQ0, CLEAR_LINE);
 	// External interrupt 2 is level-sensitive and held active. The 10 ms tick is
@@ -3636,6 +3648,33 @@ void millennium_state::exchange_line_pcm(std::int16_t mic, std::int16_t &line, b
 		m_line.push_outgoing_pcm(mic);
 	std::int16_t sample = 0;
 	(void)m_line.take_incoming_pcm(sample);
+	if (m_graphic_display && !m_tel_hook_onhook_stable && m_modem) {
+		auto &modem = m_modem->model();
+		bool const cas_before = m_adsi_rx.cas_detected();
+		bool const carrier_before = m_adsi_rx.fsk_carrier();
+		bool const receiver_enabled = modem.adsi_receiver_mode() && !modem.ncc_link_up();
+		m_adsi_rx.sample(sample, receiver_enabled);
+		if (receiver_enabled && m_adsi_rx.fsk_carrier()) {
+			m_adsi_carrier_line = true;
+			m_adsi_carrier_release_at = 0.0;
+			modem.set_adsi_carrier(true);
+		} else if (receiver_enabled && carrier_before) {
+			// The byte decoder regenerates a physical UART frame after the final
+			// received stop symbol. Delay carrier release by that same one-character
+			// pipeline latency so it cannot overtake the wire's last stop bit.
+			m_adsi_carrier_release_at = machine().time().as_double() + 10.0 / 1200.0;
+		} else if (!receiver_enabled) {
+			m_adsi_carrier_line = false;
+			m_adsi_carrier_release_at = 0.0;
+			modem.set_adsi_carrier(false);
+		}
+		if (m_adsi_trace && (cas_before != m_adsi_rx.cas_detected() || carrier_before != m_adsi_rx.fsk_carrier())) {
+			if (!cas_before && m_adsi_rx.cas_detected()) m_adsi_status_reads = 0;
+			std::fprintf(stderr, "ADSI audio %.6f CAS=%d carrier=%d framing_errors=%u status_reads=%u\n",
+				machine().time().as_double(), m_adsi_rx.cas_detected(), m_adsi_rx.fsk_carrier(),
+				m_adsi_rx.framing_errors(), m_adsi_status_reads);
+		}
+	}
 	line = m_line.co_dial_tone() && !m_handset_dial_tone ? 0 : sample;
 	have = true;
 }
@@ -3656,6 +3695,8 @@ void millennium_state::write_modem_pio(std::uint8_t data)
 		return;
 	auto &modem = m_modem->model();
 	if (char const digit = modem.ssi_pio_a_write(data, !m_earlier_motherboard)) {
+		if (m_adsi_trace && digit >= 'A' && digit <= 'D')
+			std::fprintf(stderr, "ADSI SSI tone start %.6f %c\n", machine().time().as_double(), digit);
 		char const note[] = {'D', digit, '\n', 0};
 		m_line.send_line(note);
 		modem.note_outpulse_digit(digit, machine().time().as_double());
@@ -3670,6 +3711,7 @@ void millennium_state::write_hw_cntl(u8 data)
 	if (((prev ^ data) & 0x01U) != 0U && m_modem) {
 		bool const r1 = (data & 0x01U) != 0U;
 		m_modem->model().note_modem_relay(r1, machine().time().as_double());
+		m_line.send_line(r1 ? "Q1\n" : "Q0\n");
 		update_line_seizure();
 	}
 	if (((prev ^ data) & 0x10U) != 0U) {
@@ -6851,6 +6893,10 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		static unsigned rx_frame = 0;
 		static double rx_bit_sec = 0.0;
 		static double rx_next = 0.0;
+		bool const ncc_serial_active = m_modem->model().ncc_link_up();
+		bool const adsi_rx_enabled = m_graphic_display && !m_tel_hook_onhook_stable
+			&& m_modem->model().adsi_receiver_mode() && !ncc_serial_active;
+		bool const serial_active = ncc_serial_active || adsi_rx_enabled || rx_bits_left != 0;
 		auto const bit_period = [&]() -> double {
 			std::uint8_t const cntlb = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_CNTLB1) & 0xff);
 			std::uint8_t const asext = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_ASEXT1) & 0xff);
@@ -6870,9 +6916,10 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			std::uint32_t const baud = m_maincpu->subdevice("asci_1")->clock() / brg / divisor;
 			return baud ? 1.0 / double(baud) : 0.0;
 		};
-		double const period = bit_period();
-		m_modem->configure_terminal_tx(period > 0.0 ? attotime::from_double(period) : attotime::never,
-			u8(m_maincpu->state_int(Z180_CNTLA1)), u8(m_maincpu->state_int(Z180_CNTLB1)));
+		double const period = serial_active ? bit_period() : 0.0;
+		if (ncc_serial_active)
+			m_modem->configure_terminal_tx(period > 0.0 ? attotime::from_double(period) : attotime::never,
+				u8(m_maincpu->state_int(Z180_CNTLA1)), u8(m_maincpu->state_int(Z180_CNTLB1)));
 		auto const arm_rx_byte = [&](std::uint8_t data) {
 			std::uint8_t const cntla = static_cast<std::uint8_t>(m_maincpu->state_int(Z180_CNTLA1) & 0xff);
 			int const data_bits = (cntla & 0x04U) ? 8 : 7;
@@ -6923,7 +6970,7 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			rx_bits_left--;
 			rx_next = now + rx_bit_sec;
 		};
-		if (!m_modem->dcd_line() && rx_bits_left != 0) {
+		if (!m_modem->dcd_line() && !adsi_rx_enabled && rx_bits_left != 0) {
 			rx_bits_left = 0;
 			rx_next = now;
 			m_maincpu->rxa1_w(1);
@@ -6938,8 +6985,22 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			std::uint8_t byte = 0;
 			if (m_modem->model().take_ncc_rx(byte))
 				arm_rx_byte(byte);
+			else if (adsi_rx_enabled && m_adsi_rx.take_byte(byte)) {
+				if (m_adsi_trace) std::fprintf(stderr, "ADSI serial RX %.6f %02X\n", now, unsigned(byte));
+				arm_rx_byte(byte);
+			}
 		}
-		attotime delay = attotime::from_usec(200);
+		if (adsi_rx_enabled && m_adsi_carrier_line && !m_adsi_rx.fsk_carrier()
+			&& m_adsi_carrier_release_at != 0.0 && now >= m_adsi_carrier_release_at
+			&& rx_bits_left == 0 && now >= rx_next && !m_adsi_rx.pending_bytes()) {
+			m_adsi_carrier_line = false;
+			m_adsi_carrier_release_at = 0.0;
+			m_modem->model().set_adsi_carrier(false);
+			if (m_adsi_trace) std::fprintf(stderr, "ADSI serial carrier release %.6f\n", now);
+		}
+		// Idle network/media polling needs no ASCI bit-rate state reads or
+		// 5 kHz socket polls. Retain the fine cadence for actual serial work.
+		attotime delay = attotime::from_usec(serial_active ? 200 : 1000);
 		if (rx_next > now) {
 			double remain = rx_next - machine().time().as_double();
 			if (remain < 0.00002)
@@ -6961,6 +7022,7 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		if (m_line.take_connected()) {
 			m_line.send_line(m_tel_hook_onhook_stable ? "H0\n" : "H1\n");
 			m_line.send_line((m_hw_cntl_port_image & 0x10U) != 0U ? "E1\n" : "E0\n");
+			m_line.send_line((m_hw_cntl_port_image & 0x01U) != 0U ? "Q1\n" : "Q0\n");
 			if (m_loop_seized)
 				m_line.send_line("S\n");
 		}
@@ -7083,6 +7145,12 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		if (m_tel_hook_onhook_stable != m_tel_hook_onhook && m_tel_hook_stabilize_until_cycle != 0ULL
 			&& cy >= m_tel_hook_stabilize_until_cycle) {
 			m_tel_hook_onhook_stable = m_tel_hook_onhook;
+			if (m_tel_hook_onhook_stable) {
+				m_adsi_rx.reset();
+				m_adsi_carrier_line = false;
+				m_adsi_carrier_release_at = 0.0;
+				if (m_modem) m_modem->model().set_adsi_carrier(false);
+			}
 			if (m_tel_hook_onhook_stable)
 				m_handset_dial_tone = false;
 			m_audio_route->notify_hook_off(!m_tel_hook_onhook_stable);

@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -458,6 +459,7 @@ void millennium_line_jack::close() noexcept
 	std::lock_guard<std::mutex> lock(m_pcm_mu);
 	m_pcm_to_co.clear();
 	m_pcm_from_co.clear();
+	m_pcm_realtime = m_pcm_primed = false;
 }
 
 void millennium_line_jack::drain_tx()
@@ -501,8 +503,16 @@ void millennium_line_jack::push_outgoing_pcm(std::int16_t sample)
 bool millennium_line_jack::take_incoming_pcm(std::int16_t &sample)
 {
 	std::lock_guard<std::mutex> lock(m_pcm_mu);
-	if (m_pcm_from_co.empty())
+	if (m_pcm_realtime && !m_pcm_primed) {
+		// Two 20 ms frames keep packet-arrival phase separate from the
+		// analogue sample clock without a large call-start delay.
+		if (m_pcm_from_co.size() < 320U) return false;
+		m_pcm_primed = true;
+	}
+	if (m_pcm_from_co.empty()) {
+		m_pcm_primed = false;
 		return false;
+	}
 	sample = m_pcm_from_co.front();
 	m_pcm_from_co.pop_front();
 	return true;
@@ -566,6 +576,8 @@ void millennium_line_jack::poll()
 		if (c != INVALID_SOCKET) {
 			u_long nb = 1;
 			(void)::ioctlsocket(c, FIONBIO, &nb);
+			int const no_delay = 1;
+			(void)::setsockopt(c, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char const *>(&no_delay), sizeof(no_delay));
 			m_client = static_cast<std::intptr_t>(c);
 			m_connected_edge = true;
 			// CO attached ⇒ tip/ring battery present for QUERY_CO_LINE_STATUS (craft Failed:41).
@@ -591,6 +603,7 @@ void millennium_line_jack::poll()
 		std::lock_guard<std::mutex> lock(m_pcm_mu);
 		m_pcm_to_co.clear();
 		m_pcm_from_co.clear();
+		m_pcm_realtime = m_pcm_primed = false;
 		return;
 	}
 	if (n < 0)
@@ -600,6 +613,8 @@ void millennium_line_jack::poll()
 		int c = ::accept(static_cast<int>(m_listen), nullptr, nullptr);
 		if (c >= 0) {
 			suppress_socket_sigpipe(c);
+			int const no_delay = 1;
+			(void)::setsockopt(c, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(no_delay));
 			int const flags = ::fcntl(c, F_GETFL, 0);
 			if (flags >= 0)
 				(void)::fcntl(c, F_SETFL, flags | O_NONBLOCK);
@@ -627,6 +642,7 @@ void millennium_line_jack::poll()
 		std::lock_guard<std::mutex> lock(m_pcm_mu);
 		m_pcm_to_co.clear();
 		m_pcm_from_co.clear();
+		m_pcm_realtime = m_pcm_primed = false;
 		return;
 	}
 	if (n < 0)
@@ -658,6 +674,13 @@ void millennium_line_jack::poll()
 		else if (line == "T1" || line == "T0") {
 			m_co_dial_tone = line[1] == '1';
 			std::lock_guard<std::mutex> lock(m_pcm_mu);
+			m_pcm_from_co.clear();
+			m_pcm_primed = false;
+		}
+		else if (line == "B1" || line == "B0") {
+			std::lock_guard<std::mutex> lock(m_pcm_mu);
+			m_pcm_realtime = line[1] == '1';
+			m_pcm_primed = false;
 			m_pcm_from_co.clear();
 		}
 		else if (line.size() > 1 && line[0] == 'W')
