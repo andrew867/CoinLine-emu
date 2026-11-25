@@ -38,6 +38,7 @@ def main():
     parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
     parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
     parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
+    parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     args = parser.parse_args()
     image = args.firmware.read_bytes()
@@ -108,6 +109,11 @@ def main():
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
         env["COINLINE_SMART_CARD_TRACE"] = "1"
+    if args.read_watch:
+        if not args.read_watch.is_file():
+            parser.error("--read-watch must be a local file")
+        env.update(COINLINE_GRAPHIC_READ_WATCH=str(args.read_watch.resolve()),
+                   COINLINE_GRAPHIC_READ_WATCH_OUT=str(out / "read-watch.tsv"))
     if args.telephony_trace:
         env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),

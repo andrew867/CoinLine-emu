@@ -4,7 +4,7 @@ The runner uses MAME's inputs to follow firmware prompts through INSTALL. Each a
 
 ## Run
 
-Use a built `cl_millennium` executable, the generated telephony controller model, a local Voiceware pair for exploratory runs, and a provisioned lab terminal on CoinLine. The default input and output paths are under `build/firmware-acceptance/`. Prepare the firmware archive and read the candidate order in the [firmware acceptance catalog](../../../docs/uat/firmware-acceptance-catalog.md).
+Use a built `cl_millennium` executable, the generated telephony controller model, a local Voiceware pair for exploratory runs, and a provisioned lab terminal on CoinLine. The default input and output paths are under `build/firmware-acceptance/`. Prepare the firmware archive and read the candidate order in the [firmware acceptance catalog](../../docs/uat/firmware-acceptance-catalog.md).
 
 The bundled [inventory](inventory.json) lists source links at pinned commits,
 file roles, sizes, SHA-256 hashes, and the relative path for each archived
@@ -20,9 +20,23 @@ Put the lab settings in `build/firmware-acceptance/settings.json`. Keep this fil
   "line": "<10-digit lab terminal number>",
   "serial": "<10-digit lab terminal serial>",
   "pin": "<5-digit craft PIN>",
+  "craft_access": "<7-digit synthetic Craft access code>",
   "ncc_port": 4000
 }
 ```
+
+For new synthetic table sets the provisioner defaults `craft_access` to the
+factory keypad mnemonic if omitted. The seven-digit MT31 access field is
+independent of the five-digit INSTALL PIN. Changing settings does not alter an
+existing terminal's battery; a normal selected download or fresh INSTALL is
+required to deliver new records.
+
+Interactive graphical sessions also accept `--read-watch <local-file>`
+for bounded, read-only program-bus timing diagnosis. Each line contains a
+label, a physical hexadecimal address, and optionally a whitespace-separated
+list of physical RAM byte addresses to snapshot. Watch output is restricted
+to off-hook activity and at most 2,000 samples. The option is disabled by
+default and never changes the observed data, CPU state, or installation.
 
 From `coinline-emu`, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
 

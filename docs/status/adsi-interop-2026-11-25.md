@@ -144,3 +144,37 @@ Runs: `build/firmware-acceptance/graphic-firmware/20261125T081858.656976Z/`,
 The final native CTest run passed 64 tests, with two ROM-dependent tests
 skipped and no failures. All 18 central-office Python tests passed. These
 component results do not supersede the live first-response gate.
+
+## First-response timing diagnosis
+
+An additional actual call (attempt 12) used bounded read-only program-bus
+taps, without changing any firmware, storage, hardware registers or clock.
+Both CONNECT frames were independently matched to the original waveform.
+The first terminal state snapshot contained both the data-mode transition
+and qualified carrier-drop signals. Its voice-state handler selected the
+50-tick silence timer. The retransmitted CONNECT presented the same signal
+combination to the data-state handler, which selected the 10-tick timer.
+The first qualified drop preceded the mode transition by 19 measured
+10 ms executive ticks. This establishes the first/retry latency difference,
+rather than attributing it to an unverified corrupt frame or missing DTMF.
+
+Native emulated carrier release to D onset was 846.391 ms on the first
+response and 456.303 ms on the retry. The independent wire measurement
+recorded first D onset at 925 ms and completion at 1006 ms after CONNECT,
+so the first digit missed the service's completed-digit deadline by 6 ms.
+The second response was timely, but the original D1 crossed the retry.
+The service consequently rejected the ambiguous sequence as designed.
+
+Run: `build/firmware-acceptance/graphic-firmware/20261125T085310.343809Z/`.
+The opt-in watch tool accepts an operator-supplied physical-address list;
+the firmware-specific diagnostic addresses and raw captures are not part
+of the published emulator or portable package.
+
+A final quiet repeat without program-bus watches (attempt 13) again
+independently matched both CONNECT waveforms and confirmed the initial D1,
+but first completed D arrived 1370 ms after the first CONNECT ended; the
+first FSK packet timestamp span also exceeded nominal spacing by 51 ms.
+The service correctly closed without sending a menu. The first-mode
+firmware timer path is now established, but reliable end-to-end response
+timing remains unqualified. No deadline or signal was altered to conceal it.
+Run: `build/firmware-acceptance/graphic-firmware/20261125T085559.692381Z/`.
