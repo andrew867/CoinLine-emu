@@ -28,18 +28,23 @@ def main():
     parser.add_argument("--seconds", type=int, default=1800)
     parser.add_argument("--open", action="store_true", help="start with the cabinet unlocked and open")
     parser.add_argument("--trace", action="store_true", help="capture the graphical I/O stream")
+    parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     args = parser.parse_args()
     image = args.firmware.read_bytes()
     if len(image) != 1048576:
         raise ValueError("Graphical session requires a mapped 1 MiB flash image")
     digest = hashlib.sha256(image).hexdigest()
-    firmware_id, revision = program_tag(image)
+    firmware_id, tag_version = program_tag(image)
     preset, _ = select_hardware(args.hardware, image, firmware_id)
     if not preset or PRESETS[preset].motherboard != "later":
         raise ValueError("Select a compatible later motherboard using --hardware")
     settings = json.loads(args.settings.read_text()) if args.settings else {}
     settings = {**settings, **settings.get("firmware_overrides", {}).get(firmware_id, {})}
+    if "line" not in settings and "wireId" in settings:
+        settings["line"] = settings["wireId"]
+    if "ncc_port" not in settings and "nccPort" in settings:
+        settings["ncc_port"] = settings["nccPort"]
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
     print(out, flush=True)
@@ -51,7 +56,7 @@ def main():
              "size_bytes": len(image), "motherboard": "later"}
     (out / "fixtures/firmware/firmware-hashes.json").write_text(json.dumps({"entries": [entry]}))
     (out / "input.json").write_text(json.dumps({"sha256": digest, "size": len(image),
-                                                "firmware_id": firmware_id, "revision": revision}, indent=2))
+                                                "firmware_id": firmware_id, "program_tag_version": tag_version}, indent=2))
     if args.battery:
         shutil.copytree(args.battery, out / "nvram")
     art = out / "artwork/cl_millennium"
@@ -81,6 +86,11 @@ def main():
         env["COINLINE_OUTBOUND"] = str(settings["free_call"])
     if args.trace:
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
+    if args.telephony_trace:
+        env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
+                   COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),
+                   COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
+                   COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
            "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),

@@ -130,8 +130,10 @@ exit-time JSON snapshot containing the four complete pages and control state.
 - All declared commands are decoded.
 - The character buffer matches its reference fixtures deterministically.
 - The graphical probe validates native CPU writes, page snapshots, raw scan
-  input and the generated raster. Actual graphical firmware boot and ADSI
-  application operation remain separate acceptance gates.
+  input and the generated raster. NLA1X08 completed a cold INSTALL and warm
+  restart, with all 16 downloaded bitmap-advertisement frames matched against
+  native snapshots. Graphical menu and ADSI application operation remain
+  separate acceptance gates.
 - Status port returns `ready` after `busy_cycles` for every command.
 
 ## Cross-references

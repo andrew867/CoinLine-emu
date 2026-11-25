@@ -52,6 +52,21 @@ Use `--battery <prior-run/nvram>` for an independent restart with a copy
 of the firmware-written state. The session does not alter terminal RAM
 or configuration flags.
 
+To verify downloaded bitmap advertising, capture named native snapshots
+while the installed terminal is on-hook. With Pillow installed in the Python
+environment, compare those captures to the local MT131, MT132 and MT133
+record files:
+
+```sh
+python tools/acceptance/verify_graphical_snapshots.py --tables <local-table-directory> \
+  --output <run>/graphic-match.json <run>/ad-*.png
+```
+
+The report identifies exact 112 by 72 pixel matches within the native 126
+by 88 display grid, including the record, slot, payload digest and placement.
+An acknowledgement is not a display match, and a bitmap match is not
+evidence of menu navigation or ADSI service operation.
+
 | Tier | Scope | Speed | Run on every push? |
 | ---- | ----- | ----- | ------------------ |
 | Unit | Single device, in isolation, no firmware | Sub-second | Yes |

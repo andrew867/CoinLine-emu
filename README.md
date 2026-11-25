@@ -29,10 +29,13 @@ individual peripheral checks. Coin Basic uses a different display and
 Voiceware port mapping, with a temporary VFD connection selectable at launch.
 The optional 11-line graphical display has a separate four-page pixel
 controller and physical softkey scanner. Its synthetic native hardware
-probe and artwork presentation pass. The locally supplied NLA1X08 V1.3
-graphical image now boots and renders its own Craft prompts, and passes
-both CO and answer-detection checks. NCC installation, graphical
-advertising and ADSI application acceptance are tracked separately.
+probe and artwork presentation pass. The locally supplied NLA1X08
+MTR 2.12-based graphical/ADSI image (terminal type 40, DLA 1.3)
+completed cold INSTALL and a separate in-service restart, acknowledged
+all 18 NCC records, and displayed all 16 downloaded bitmap-advertisement
+frames exactly. Its keypad,
+magnetic-card and coin tests passed; the chip-card self-test failed.
+Graphical menu and ADSI application operation remain separate gates.
 All three tested Coin Basic images completed detached-display Craft access,
 INSTALL with the temporary display attached, and a locally answered call
 after removing the display and restarting. The Inmate firmware is still

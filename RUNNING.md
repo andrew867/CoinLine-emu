@@ -30,8 +30,11 @@ uses the verified firmware registry and otherwise selects `2line`.
 Use a compatible later-board program image and its matching hardware preset.
 The launcher selects the graphical artwork and isolates its persistent terminal
 state. The registered NLA1X08 image automatically selects its graphical profile.
-Its initial graphical Craft and line checks pass; NCC INSTALL and ADSI
-service interoperability remain separate acceptance gates.
+This MTR 2.12-based graphical/ADSI terminal (type 40, DLA 1.3) completed
+cold INSTALL, a separate in-service restart, and rendered downloaded
+bitmap advertisements. Its chip-card
+self-test failed; graphical menus and ADSI service interoperability remain
+separate acceptance gates.
 
 | Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
 | --- | --- | --- | --- |
