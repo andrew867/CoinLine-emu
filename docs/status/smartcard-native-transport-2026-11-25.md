@@ -53,6 +53,17 @@ The synchronous contact programming/restart probe also passed again, and a
 fresh component build ran 65 passing tests with two optional ROM-dependent
 skips. The Python fixture suite passed all 22 tests.
 
+## Memory address order follow-up
+
+The native earlier and later motherboard mappings each passed the independent
+read-only four-byte pattern `96 3C A7 00`. The probe verified exact MSB-first
+readout, byte-boundary addressing, reset/reposition to zero, high idle reads
+after the fixture boundary, physical removal and unchanged reinsertion. Run:
+`build/firmware-acceptance/smartcard-memory-order/20261125T223038.058500Z/`.
+The pattern is an arbitrary four-byte contact test, not a payment-card
+layout or capacity. Family-specific write/carry/erase sequences and protected
+application interoperability remain unqualified without a suitable reference.
+
 ## Native synthetic CPU verification
 
 | Probe | Observed |

@@ -33,6 +33,18 @@ edge, then advances one bit on each rising clock with reset inactive. The
 data is read MSB first. Removal clears its power and reset state. No card
 data is returned through a fabricated byte FIFO on the native bus.
 
+The address within the physical contact stream is `8 * byte_offset + bit`,
+where physical bit zero has byte weight `0x80`. The separate read-only
+four-byte laboratory fixture `smartcard-sync-address-test.json` contains
+`96 3C A7 00`. It detects reversed bits, shifted addresses and byte-boundary
+errors. Each native board mapping is tested by resetting to zero, reading
+the complete pattern, advancing to the second byte, resetting again, reading
+past the declared end and removing/reinserting the card. Out-of-range contact
+reads on this fixture release the data line rather than wrapping. Its
+capacity and contents are synthetic, not a claimed GPM103 or GPM416 device
+geometry. No family-specific carry, erase or protected-area programming is
+inferred from the generic contact test.
+
 For the earlier board, the firmware drives a low/high/low supply-enable
 pulse and subsequently clocks the contact while that pin remains low. The
 model retains supply across the falling edge; a card removal or device reset
@@ -117,6 +129,8 @@ Per board profile. Default behavior is polled.
 - `fixtures/cards/smartcard-sync-test.json` is the default synthetic contact
   test fixture. Its nonuniform first byte exercises every contact data bit;
   it is not a funded payment card or a valid issuer credential.
+- `fixtures/cards/smartcard-sync-address-test.json` is a four-byte read-only
+  address and bit-order fixture, used on both native motherboard maps.
 - `fixtures/cards/smartcard-valid.json` is the earlier byte-model test fixture.
 - `fixtures/cards/smartcard-async-t0-lab.json` and
   `fixtures/cards/smartcard-async-t1-lab.json` are native asynchronous
