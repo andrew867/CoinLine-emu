@@ -39,8 +39,9 @@ Both MTR 2.11 V1.1 candidates and the MTR 2.12 V1.3 reference completed
 normal INSTALL and restart through the restored bootstrap, with their
 battery and initial flash restored.
 The emulator flash device and the resident bootstrap have independent tests.
-A synthetic Z180 program executes from SRAM, programs both flash chips through
-the memory bus, and verifies the saved bytes after a separate launch. The
+A synthetic Z180 program executes from SRAM, erases and programs a sector
+on each flash chip through the memory bus, checks neighboring sectors,
+and verifies the saved bytes after a separate launch. The
 original firmware inputs remain unchanged. Actual remote upgrades and recovery
 after interrupted delivery still need a compatible code-server exchange. The
 modem offers a configurable, independent loopback route for the firmware's

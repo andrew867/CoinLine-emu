@@ -163,8 +163,9 @@ flash-bus test is independent of an NCC install:
 python tools/acceptance/flash_probe.py --mame <path-to-mamecoinline>
 ```
 
-It programs both chips through CPU memory accesses, checks persistence after
-a separate launch, and verifies that the original input bytes stay unchanged.
+It erases and programs a sector on each chip through CPU memory accesses,
+checks that neighboring sectors retain their contents, verifies persistence
+after a separate launch, and confirms the original input bytes stay unchanged.
 See [remote firmware downloads](../../docs/firmware-download-storage.md) for
 the end-to-end upgrade gates.
 

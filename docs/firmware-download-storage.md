@@ -92,11 +92,13 @@ the later-board low-window address remap.
 `test_modem_code_server` checks the independent loopback data-call route,
 carrier establishment, unchanged binary data in both directions, relay
 release and ordinary NCC route selection.
-The native synthetic flash-bus probe writes one byte to each chip with
-normal Z180 instructions executing from SRAM. On the second launch, the
-program reads both saved values without issuing program commands again.
-The probe additionally checks the persistent image header and bytes and
-the unchanged seed image.
+The native synthetic flash-bus probe starts with non-erased bytes in one
+sector of each chip, erases those sectors, polls the device ready state and
+programs the target bytes with normal Z180 instructions executing from SRAM.
+It checks that other bytes in the erased sectors became `0xff` and adjacent
+sectors retained their data. On the second launch, the program reads both
+saved values without issuing erase or program commands again. The probe
+additionally checks the persistent image header and the unchanged seed image.
 
 ```sh
 python tools/acceptance/flash_probe.py --mame <path-to-mamecoinline>
@@ -106,6 +108,8 @@ Both phases passed in
 `build/firmware-acceptance/flash-bus-probe/20261125T004352.488404Z/`.
 The final build with the independent code-server route also passed both phases
 in `build/firmware-acceptance/flash-bus-probe/20261125T010329.378553Z/`.
-This establishes native CPU-bus programming and restart persistence for
+The expanded native erase-and-program probe passed both phases in
+`build/firmware-acceptance/flash-bus-probe/20261125T010939.750945Z/`.
+This establishes native CPU-bus erase, programming and restart persistence for
 the synthetic image. Actual code-server delivery and OEM application
 upgrade validation remain separate acceptance gates.
