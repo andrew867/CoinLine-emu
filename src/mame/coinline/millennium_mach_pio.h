@@ -11,15 +11,19 @@
 /// \p smartcard_lines_low2 uses only bits 0–1.
 std::uint8_t millennium_mach_pio_combine_port_h_read(std::uint8_t shadow, std::uint8_t smartcard_lines_low2);
 
+/// Low 64 KiB flash window on later control boards. The remap latch selects
+/// the bootstrap, either download bank, the upper ROM data bank, or the main application.
+std::uint32_t millennium_mach_flash_address(std::uint8_t mach_port_h_shadow, std::uint32_t phys_addr_20);
+
 /// Physical memory routing modeled after CPLD/PAL glue driven by MACH port \c H (\c 0xC0) latch:
 /// bits **4–5** select which **128 KiB** slice of the **512 KiB** SRAM appears at **0xC0000–0xDFFFF**;
-/// when bits **0–2** are all set, **0xE0000–0xFFFFF** maps the **next** 128 KiB of that slice (otherwise
+/// when bits **0–2** are all set, **0xE0000–0xFFFFF** maps the **next** 128 KiB slice, wrapping at 512 KiB (otherwise
 /// that window tracks linear flash). Firmware \c PAGERAM logical **pages** (e.g. visual-prompt tables)
 /// are software partitioning inside that SRAM — the same I/O latch selects physical silicon.
 enum class millennium_mach_phys_ram_route : std::uint8_t {
 	below_sram_windows, ///< below **0xC0000** — not SRAM decode (CPU map uses overlay/flash elsewhere)
 	sram_chip,          ///< **chip_byte_index** is valid into the backing SRAM vector
-	upper_flash,        ///< **0xE0000–0xFFFFF** sees flash (glue did not select SRAM or window overflow)
+	upper_flash,        ///< **0xE0000–0xFFFFF** sees flash when the glue did not select SRAM
 	unmapped_ff,        ///< decode fault / out-of-range lower window (should not occur at nominal capacity)
 };
 

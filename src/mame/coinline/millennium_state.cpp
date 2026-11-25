@@ -352,6 +352,8 @@ u16 read_reset_jump_target(u8 const *rom)
 {
 	if (rom[2] == 0xc3)
 		return u16(rom[3] | (u16(rom[4]) << 8));
+	if (rom[3] == 0xc3)
+		return u16(rom[4] | (u16(rom[5]) << 8));
 	return 0x0001;
 }
 
@@ -468,6 +470,7 @@ millennium_state::millennium_state(machine_config const &mconfig, device_type ty
 	, m_modem(*this, "modem")
 	, m_hostbridge(*this, "hostbridge")
 	, m_nvram(*this, "nvram")
+	, m_flash(*this, "program_flash")
 	, m_card(*this, "card")
 	, m_smartcard(*this, "smartcard")
 	, m_sam(*this, "sam")
@@ -512,6 +515,7 @@ void millennium_state::millennium(machine_config &config)
 	m_maincpu->txa1_wr_callback().set(m_modem, FUNC(millennium_modem_device::rxd_w));
 	MILLENNIUM_HOSTBRIDGE(config, m_hostbridge, 0);
 	MILLENNIUM_NVRAM(config, m_nvram, 0);
+	MILLENNIUM_FLASH(config, m_flash, 0);
 	MILLENNIUM_CARD(config, m_card, 0);
 	MILLENNIUM_SMARTCARD(config, m_smartcard, 0);
 	MILLENNIUM_SAM(config, m_sam, 0);
@@ -703,6 +707,11 @@ void millennium_state::load_firmware_and_emit_m0()
 			throw emu_fatalerror("millennium: COINLINE_CARD_DMA_CHANNEL must be 0 or 1");
 		m_card_uses_dma1 = std::strcmp(channel, "1") == 0;
 	}
+	if (char const *preset = osd_getenv("COINLINE_HARDWARE_PRESET"))
+		m_coin_basic_layout = m_earlier_motherboard && std::strcmp(preset, "coin-basic") == 0;
+	if (char const *display = osd_getenv("COINLINE_PORTABLE_VFD"))
+		m_portable_vfd_connected = !m_coin_basic_layout || std::strcmp(display, "0") != 0;
+	m_flash->seed(rom->base(), m_firmware_sha256_hex, !m_earlier_motherboard);
 
 	std::string const ts = millennium_boot_trace_timestamp_utc();
 	std::string const line = millennium_boot_trace_m0(ts, m_firmware_sha256_hex, std::uint64_t(fw_bytes.size()));
@@ -1117,7 +1126,9 @@ void millennium_state::machine_start()
 
 void millennium_state::emit_trace_m1_m2()
 {
-	u8 const *const rom = memregion("flash")->base();
+	u8 const rom[] = {read_physical_debug_byte(0), read_physical_debug_byte(1),
+		read_physical_debug_byte(2), read_physical_debug_byte(3),
+		read_physical_debug_byte(4), read_physical_debug_byte(5)};
 	std::string const ts = millennium_boot_trace_timestamp_utc();
 
 	u16 const reset_pc = 0x0000;
@@ -1205,7 +1216,6 @@ void millennium_state::machine_reset()
 	m_craft_code_detected_traced = false;
 	m_craft_screen_vfd_trace_logged = false;
 	m_asci_baseline_ready = false;
-	emit_trace_m1_m2();
 	m_mach_pio_shadow.fill(0xff);
 	m_pio_8255_shadow.fill(0xff);
 	m_pio_port_g = 0xff;
@@ -1215,6 +1225,11 @@ void millennium_state::machine_reset()
 			new_hw_rev = false;
 		millennium_hwinit_apply_pio_port_initialize(new_hw_rev, m_pio_8255_shadow, m_pio_port_g, m_mach_pio_shadow);
 	}
+	// Reset selects the resident bootstrap in the low flash window while the
+	// remaining MACH outputs retain their inactive high reset levels.
+	if (!m_earlier_motherboard)
+		m_mach_pio_shadow[0] = 0xf8U;
+	emit_trace_m1_m2();
 	// Bit 7: CSIO clock (SCLK); bit 5: PWR_FAIL_LINE — start released (high) so first firmware pulse is assert-low.
 	m_hw_cntl_port_image = 0xa0U;
 	m_loop_seized = false;
@@ -4840,7 +4855,7 @@ u8 millennium_state::phys_ram_r(offs_t offset)
 	case millennium_mach_phys_ram_route::sram_chip:
 		return m_phys_ram[dec.chip_byte_index];
 	case millennium_mach_phys_ram_route::upper_flash:
-		return flash_phys_byte(*this, phys);
+		return m_earlier_motherboard ? flash_phys_byte(*this, phys) : m_flash->read(phys);
 	case millennium_mach_phys_ram_route::below_sram_windows:
 	case millennium_mach_phys_ram_route::unmapped_ff:
 	default:
@@ -5252,6 +5267,8 @@ std::uint8_t millennium_state::read_physical_debug_byte(std::uint32_t phys_addr)
 	if (phys_addr < 0xc0000U) {
 		if (phys_addr < m_phys_low_valid.size() && m_phys_low_valid[phys_addr])
 			return m_phys_low_overlay[phys_addr];
+		if (!m_earlier_motherboard)
+			return m_flash->raw(millennium_mach_flash_address(m_mach_pio_shadow[0], phys_addr));
 		memory_region *const rom = memregion("flash");
 		if (rom && phys_addr < rom->bytes())
 			return rom->base()[phys_addr];
@@ -5263,6 +5280,8 @@ std::uint8_t millennium_state::read_physical_debug_byte(std::uint32_t phys_addr)
 		if (dec.route == millennium_mach_phys_ram_route::sram_chip)
 			return m_phys_ram[dec.chip_byte_index];
 		if (phys_addr >= 0xe0000U && dec.route == millennium_mach_phys_ram_route::upper_flash) {
+			if (!m_earlier_motherboard)
+				return m_flash->raw(phys_addr);
 			memory_region *const rom = memregion("flash");
 			if (rom && phys_addr < rom->bytes())
 				return rom->base()[phys_addr];
@@ -5419,6 +5438,8 @@ u8 millennium_state::phys_low_r(offs_t offset)
 		return 0xff;
 	if (m_phys_low_valid[offset])
 		return m_phys_low_overlay[offset];
+	if (!m_earlier_motherboard)
+		return m_flash->read(millennium_mach_flash_address(m_mach_pio_shadow[0], offset));
 	memory_region *const rom = memregion("flash");
 	if (rom && offset < rom->bytes())
 		return rom->base()[offset];
@@ -5427,8 +5448,12 @@ u8 millennium_state::phys_low_r(offs_t offset)
 
 void millennium_state::phys_low_w(offs_t offset, u8 data)
 {
-	if (!m_earlier_motherboard || offset >= m_phys_low_valid.size())
+	if (offset >= m_phys_low_valid.size())
 		return;
+	if (!m_earlier_motherboard) {
+		m_flash->write(millennium_mach_flash_address(m_mach_pio_shadow[0], offset), data);
+		return;
+	}
 	m_phys_low_valid[offset] = 1U;
 	m_phys_low_overlay[offset] = data;
 	m_battery_dirty = true;
@@ -5445,6 +5470,10 @@ void millennium_state::phys_ram_w(offs_t offset, u8 data)
 	std::uint32_t const phys = static_cast<std::uint32_t>(offset) & 0xfffffU;
 	millennium_mach_phys_ram_decode const dec =
 		millennium_mach_decode_phys_ram(m_mach_pio_shadow[0], phys, m_phys_ram.size());
+	if (!m_earlier_motherboard && dec.route == millennium_mach_phys_ram_route::upper_flash) {
+		m_flash->write(phys, data);
+		return;
+	}
 	if (dec.route != millennium_mach_phys_ram_route::sram_chip)
 		return;
 	m_phys_ram[dec.chip_byte_index] = data;
@@ -5595,6 +5624,12 @@ void millennium_state::audio_vol_w(u8 data)
 
 u8 millennium_state::mach_pio_r(offs_t offset)
 {
+	if (m_coin_basic_layout && offset == 0) {
+		u8 const data = (!m_portable_vfd_connected || (m_pio_8255_shadow[1] & 0x40U))
+			? 0xffU : m_vfd->read_status(m_maincpu->total_cycles());
+		emit_io_trace_line("vfd_status", 0xc0, 'r', data);
+		return data;
+	}
 	if (m_earlier_motherboard && offset == 0)
 		return voiceware_phrase_r();
 	u64 const cy = m_maincpu->total_cycles();
@@ -5618,6 +5653,13 @@ u8 millennium_state::mach_pio_r(offs_t offset)
 
 void millennium_state::mach_pio_w(offs_t offset, u8 data)
 {
+	if (m_coin_basic_layout && offset == 0) {
+		if (m_portable_vfd_connected)
+			write_display_port(data, 0xc0);
+		else
+			emit_io_trace_line("vfd_disconnected", 0xc0, 'w', data);
+		return;
+	}
 	// Earlier motherboard: 0xC0 is the voice phrase port, not the later remap block.
 	if (m_earlier_motherboard && offset == 0) {
 		voiceware_phrase_w(data);
@@ -5880,6 +5922,8 @@ u8 millennium_state::catch_all_io_r(offs_t offset)
 			return r;
 		}
 		if (lo == 0xA0U) {
+			if (m_coin_basic_layout)
+				return voiceware_phrase_r();
 			if ((m_pio_8255_shadow[1] & 0x40U) != 0U) {
 				emit_io_trace_line("vfd_status", 0xA0, 'r', 0xffU);
 				return 0xffU;
@@ -5918,7 +5962,10 @@ void millennium_state::catch_all_io_w(offs_t offset, u8 data)
 	u16 const port = u16(offset & 0xffffU);
 	if (m_earlier_motherboard && !millennium_z180_port_is_internal_window(*m_maincpu, port)
 		&& (port & 0xffU) == 0xA0U) {
-		write_display_port(data, 0xA0);
+		if (m_coin_basic_layout)
+			voiceware_phrase_w(data);
+		else
+			write_display_port(data, 0xA0);
 		return;
 	}
 	bool const internal = millennium_z180_port_is_internal_window(*m_maincpu, port);
@@ -5948,7 +5995,7 @@ u8 millennium_state::voiceware_phrase_r()
 		}
 	}
 	m_voicew_chip_was_active = !chip_idle;
-	emit_io_trace_line("voice_phrase", m_earlier_motherboard ? u16(0xC0) : u16(0x61), 'r', r);
+	emit_io_trace_line("voice_phrase", m_coin_basic_layout ? u16(0xA0) : m_earlier_motherboard ? u16(0xC0) : u16(0x61), 'r', r);
 	if (!m_voiceware_trace_path.empty()) {
 		std::string const line = millennium_format_voiceware_trace_line(m_maincpu->total_cycles(), 'r', r,
 			u16(m_maincpu->pc() & 0xffffU), u16(m_maincpu->state_int(Z180_SP) & 0xffffU), m_hw_cntl_port_image,
@@ -5962,7 +6009,7 @@ void millennium_state::voiceware_phrase_w(u8 data)
 {
 	u64 const cy = m_maincpu->total_cycles();
 	u16 const pc = u16(m_maincpu->pc() & 0xffffU);
-	emit_io_trace_line("voice_phrase", m_earlier_motherboard ? u16(0xC0) : u16(0x61), 'w', data);
+	emit_io_trace_line("voice_phrase", m_coin_basic_layout ? u16(0xA0) : m_earlier_motherboard ? u16(0xC0) : u16(0x61), 'w', data);
 	clear_voice_segment_int0("voice_phrase_write");
 	bool const started = m_voiceware->write_phrase(data, pc, cy);
 	// Voiceware bank zero has a dial-tone request at sample 0x12.

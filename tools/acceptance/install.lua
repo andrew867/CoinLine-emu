@@ -22,7 +22,9 @@ end
 local display = assert(os.getenv("COINLINE_VFD_LIVE"))
 local history = assert(io.open(display .. ".events", "w"))
 local phase = os.getenv("COINLINE_ACCEPTANCE_PROBE") == "1" and "boot probe" or
-    os.getenv("COINLINE_ACCEPTANCE_WARM") == "1" and "warm boot" or "boot"
+    os.getenv("COINLINE_ACCEPTANCE_HEADLESS") == "1" and "detached boot" or
+    os.getenv("COINLINE_ACCEPTANCE_WARM") == "1" and "warm boot" or
+    os.getenv("COINLINE_ACCEPTANCE_PORTABLE_STAGE") == "attached" and "portable display reconnect" or "boot"
 local desk_card = os.getenv("COINLINE_ACCEPTANCE_DESK_CARD")
 local test_card = os.getenv("COINLINE_ACCEPTANCE_TEST_CARD")
 local phone = assert(os.getenv("COINLINE_ACCEPTANCE_LINE"))
@@ -46,6 +48,7 @@ local download_number_confirmed = false
 local keypad_exercised = false
 local smartcard_inserted = false
 local coin_retried = false
+local portable_open_retried = false
 
 local watch_path = os.getenv("COINLINE_ACCEPTANCE_READ_WATCH")
 if watch_path then
@@ -132,6 +135,15 @@ local function co_log_contains(text)
     return data:find(text, 1, true) ~= nil
 end
 
+local function co_hook_state()
+    local file = io.open(co_log, "r")
+    if not file then return nil end
+    local state
+    for hook_state in (file:read("*a") or ""):gmatch("jack H([01])") do state = hook_state end
+    file:close()
+    return state
+end
+
 local function keypad_advanced()
     if keypad_exercised then
         log("observed", "keypad check advanced")
@@ -150,7 +162,7 @@ local function select_card(fixture)
 end
 
 log("phase", phase)
-if later_board and phase == "boot" then
+if (later_board and phase == "boot") or phase == "portable display reconnect" then
     set_cabinet(true)
 end
 emu.register_frame_done(function()
@@ -176,6 +188,7 @@ emu.register_frame_done(function()
     end
     local download_limit = later_board and 36000 or 10800
     local limit = phase == "downloading" and download_limit or phase == "warm settle" and 3600
+        or phase == "warm boot" and later_board and 7200
         or phase == "peripherals" and coin_index > 1 and 4800 or 2400
     if frame - entered > limit then return finish("timeout", "waiting for next terminal prompt") end
     if frame < delay or frame - since < 12 then return end
@@ -206,7 +219,21 @@ emu.register_frame_done(function()
         return
     end
     if failed then return finish("failed", "firmware status " .. failed) end
-    if phase == "boot probe" and frame >= 480 and prompt:find("[%w\128-\255]") then
+    if phase == "detached boot" and frame >= 1200 and co_hook_state() == "0" then
+        set_hook(true)
+        delay = frame + 180
+        change("detached dial")
+    elseif phase == "detached dial" and co_hook_state() == "1" then
+        press(dial, "dial local destination with portable display removed")
+        change("detached answer")
+    elseif phase == "detached answer" and co_log_contains("answered outbound") then
+        log("observed", "local CO answered")
+        set_hook(false)
+        delay = frame + 120
+        change("detached hangup")
+    elseif phase == "detached hangup" and co_hook_state() == "0" then
+        return finish("passed", "local call completed with portable display removed")
+    elseif phase == "boot probe" and frame >= 480 and prompt:find("[%w\128-\255]") then
         if has("not responding") then return finish("failed", "startup reported an unresponsive device") end
         return finish("passed", "stable startup display")
     elseif phase == "warm boot" and idle then
@@ -265,6 +292,40 @@ emu.register_frame_done(function()
         press("2727378" .. pin .. "*", "portable display Craft access and PIN")
         change("portable display unlock")
     elseif phase == "portable display unlock" then
+        set_cabinet(true)
+        delay = frame + 120
+        change("portable display power cycle")
+    elseif phase == "portable display power cycle" then
+        -- End the powered session so the next process starts only with the
+        -- battery-backed state written by the terminal.
+        return finish("power-cycle", "attach portable display while powered off")
+    elseif phase == "portable display reconnect" and frame >= cold_ready_frame
+            and co_log_contains("jack H0") then
+        -- The internal display permits the housing to close with the lock open.
+        if prompt:find("[%w\128-\255]") then log("observed", "cold boot display") end
+        if (security:read() & 2) ~= 0 then pulse(assert(security:field(2))) end
+        log("input", "close housing, leave lock open")
+        delay = frame + 120
+        change("install")
+    elseif phase == "install" and coin_basic and not access_retry and frame - entered >= 480
+            and (unavailable or not prompt:find("[%w\128-\255]")) then
+        access_retry = true
+        set_cabinet(false)
+        delay = frame + 120
+        change("portable display reentry")
+    elseif phase == "portable display reentry" then
+        press("2727378" .. pin .. "*", "re-enter Craft after reconnecting portable display")
+        change("portable display reunlock")
+    elseif phase == "portable display reunlock" then
+        if has("use key") or has("open the terminal") then
+            log("observed", "Craft accepted access input")
+        end
+        if (security:read() & 1) == 0 then pulse(assert(security:field(1))) end
+        log("input", "unlock with internal display attached")
+        change("install")
+    elseif phase == "install" and coin_basic and access_retry and not portable_open_retried
+            and has("open the terminal") and frame - entered >= 120 then
+        portable_open_retried = true
         set_cabinet(true)
         change("install")
     elseif phase == "lifted" then

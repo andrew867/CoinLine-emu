@@ -8,7 +8,7 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | -------- | ------- |
 | [architecture.md](architecture.md) | System decomposition, process boundary, device tree. |
 | [engine-selection.md](engine-selection.md) | MAME-based vs clean-room comparison; recommendation. |
-| [license-isolation.md](license-isolation.md) | How GPL/MIT isolation is enforced in practice. |
+| [License strategy](../LICENSE-STRATEGY.md) | Emulator and host licensing boundaries. |
 | [project-structure.md](project-structure.md) | Source-tree, fixtures, artwork, tools, tests layout. |
 
 ## Status (measured / rollup)
@@ -16,6 +16,9 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | Document | Purpose |
 | -------- | ------- |
 | [Windows operator guide](../tools/windows/portable/quick-start.txt) | Contents of the Quick Start included in each portable ZIP. |
+| [Firmware acceptance catalog](uat/firmware-acceptance-catalog.md) | Per-firmware cold INSTALL, restart and outstanding gates. |
+| [Batch acceptance runner](../tools/acceptance/README.md) | Verified input library, hardware selection and scripted terminal inputs. |
+| [Remote firmware downloads](firmware-download-storage.md) | Programmable NOR, bootstrap, CPU-bus test and outstanding code-server gates. |
 | [status/ncc-install-firmware-stx-handoff-2026-11-23.md](status/ncc-install-firmware-stx-handoff-2026-11-23.md) | Current end-to-end INSTALL, battery persistence, outbound SIP, and OEM voice-rate evidence. |
 | [status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md](status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md) | Chip-oriented TP backend: behavioral ROM, hook sequencing, timer note, build paths. |
 | [status/implementation-status-audit.md](status/implementation-status-audit.md) | Historical bring-up audit and trace references. |
@@ -69,7 +72,7 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | [lock-door-vault-service.md](lock-door-vault-service.md) | Lock, door, vault, service-mode inputs. |
 | [modem-uart-host-bridge.md](modem-uart-host-bridge.md) | ASCI/UART, modem signals, host bridge. |
 | [nvram-and-table-storage.md](nvram-and-table-storage.md) | NVRAM image format, factory/corrupt images, table storage. |
-| [firmware-download-storage.md](firmware-download-storage.md) | DLA staging area and verification. |
+| [firmware-download-storage.md](firmware-download-storage.md) | Later-board flash, bootstrap mapping and remote upgrade acceptance. |
 | [table-download-behavior.md](table-download-behavior.md) | Table download flows and persistence. |
 
 ## Frontend
@@ -78,12 +81,3 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | -------- | ------- |
 | [artwork-and-layout.md](artwork-and-layout.md) | MAME `.lay` plan + clickable regions. |
 | [frontend-control-panel.md](frontend-control-panel.md) | Optional control-panel UI overlay. |
-
-## Internal-only (integration traceability)
-
-| Document | Purpose |
-| -------- | ------- |
-| [internal/README.md](internal/README.md) | INTERNAL-ONLY banner and index. |
-| [internal/firmware-evidence-inventory.md](internal/firmware-evidence-inventory.md) | Inventory of evidence sources. |
-
-The full internal index is at [`internal/README.md`](internal/README.md). Internal documents are not part of any public site navigation.

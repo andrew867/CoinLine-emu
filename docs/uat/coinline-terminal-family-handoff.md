@@ -17,7 +17,7 @@ and individual published table sets.
 | --- | --- | --- |
 | `mtr113-multipay` | MTR 1.13 Multi-Pay or TTY | Public manager classification 10. The live MT60 report identifies `NNK1F05`, V1.0, operating mode 2. |
 | `mtr120-multipay` | MTR 1.20 Multi-Pay | Public manager classifications 20 and 58. Live MT60 reports identify `NPA1S01` and `NPA1F01`, V1.0, operating mode 2. |
-| `mtr120-coin-basic` | MTR 1.20 Coin Basic | Public manager classification 18. Terminal report remains unverified. |
+| `mtr120-coin-basic` | MTR 1.20 Coin Basic | Public manager classification 18. CRC-verified MT60 identifies `NPE1S01`, V1.0, operating mode 3 after configuration. Its first report used mode 2. |
 | `mtr211-multipay` | MTR 2.11 Multi-Pay | Public inventory classification 51. Live MT60 reports identify `NKA1X02` and `NKA1X05`, V1.1, operating mode 2. |
 | `mtr2x-multipay` | Later MTR 2.x Multi-Pay | Live MT60 reports identify `NLA1X05`, `NQA1X01`, `NOK1X03`, and `NOA1X04`, V1.3, operating mode 2. |
 
@@ -30,6 +30,9 @@ registered firmware profile. The public manager uses a universal layout for the 
 type 36 and an expanded layout for MTR 2.11 Multi-Pay. Assign only the matching
 acceptance lab rows when adding family entries and retain their tested table
 sets. Read the family and assignment back through the API after updating them.
+Both MTR 1.7 Coin Basic images, `NAD4K02` and `NAD4S02`, also reported
+their exact ROM identifiers, V1.0, and operating mode 3 in CRC-verified MT60
+records during the complete portable-display INSTALL tests.
 
 [Public manager compatibility](https://github.com/hharte/mm_manager#compatibility) ·
 [Public manager wire type mapping](https://github.com/hharte/mm_manager/blob/main/src/mm_util.c)
@@ -41,6 +44,8 @@ sets. Read the family and assignment back through the API after updating them.
 | MSR 1.7 legacy | MT21 18, MT24 721, MT74 819 | Full Multi-Pay, Card-only, and Desk REL 2 INSTALL and restart. |
 | MTR 1.9 universal | MT21 18, MT22 661, MT23 678, MT92 3401, MT101 403 | Full Multi-Pay INSTALL and restart. Both Desk REL 1 images, `NBJ1S03` and `NBJ1F03`, acknowledged ten records and returned to service after restart. |
 | MTR 1.20 expanded | MT21 48, MT92 3061, MT134 1153, MT135 1109, MT136 203 | Both a Spanish and a French Multi-Pay image accepted all 11 records and returned to service after restart. |
+| Coin Basic MTR 1.7 | MT21, MT23, MT24, MT26, MT31, MT50, MT62, MT73, MT74 | Both `NAD4K02` and `NAD4S02` accepted all nine records. Portable-display INSTALL, restart and local call with the display removed passed. |
+| Coin Basic MTR 1.20 | MT21, MT26, MT31, MT50, MT62, MT73, MT92, MT93, MT135, MT136 | `NPE1S01` accepted all ten records and passed the same complete sequence. |
 | MTR 2.11 V1.1 expanded | Expanded layout above plus MT72 1001, MT85 8001, MT86 8001 | Both V1.1 program images mark MT85 and MT86 mandatory. Their provisional 12-record sets ended at status 34. Both accepted all 14 records in the revised published set and completed INSTALL and warm restart after the Z180 interrupt sampling correction. Their chip-card checks failed. |
 | Later V1.3 expanded | Expanded layout above plus MT72 1001 | All four V1.3 images completed the 12-record download, INSTALL and in-service restart after correcting the native EEPROM decoder. They use their default visual prompts. Their optional chip-card tests failed. |
 | MTR 2.0 universal | MT21 18, MT22 661, MT23 678, MT92 3401, MT101 403 | `NCA1X03` ACKed all eleven records in two complete consecutive NCC calls and still reported status 34. A read-only physical bus watch captured all ten mandatory table flags as `0x80` immediately before the failure display. A separate 24-record trial included the public compatible defaults, received every MT14 and the host's MT13, then reported status 23. The original universal set remains assigned to the primary target. |
@@ -88,3 +93,23 @@ INSTALL and reached the later board's CO line check. The later board's modem
 serial readback and DTMF routing corrections also enabled the first expanded
 firmware download. Retain the additional MT72 record for the affected later
 profiles. Its default payload comes from the public manager's table 0x48.
+
+## Remote program download coordination
+
+The later-board emulator has writable persistent flash and executes the
+resident bootstrap on reset. The code-server call uses a separate configured
+loopback TCP port, selected by the number outpulsed by the terminal modem.
+The ordinary NCC connection remains unchanged. The V1.1 references
+`NKA1X02` and `NKA1X05` and the V1.3 reference `NLA1X05` all completed
+INSTALL and returned to service on the corrected bootstrap build with both
+battery and flash restored.
+
+For the first upgrade trial, prepare a compatible, authorized MTR 2.x
+download image and its block/checksum metadata. Publish a terminal-specific
+MT94 with the agreed code-server alias, target version, schedule and block
+selection. Keep code delivery separate from ordinary NCC table transfers.
+Record the actual initial dialogue and data-transfer format with the
+firmware, and check version change, persistent flash and recovery as
+described in the emulator's remote firmware download acceptance plan.
+The host code-server implementation and complete OEM download have yet
+to be exercised together.

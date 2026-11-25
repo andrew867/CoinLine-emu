@@ -113,7 +113,14 @@ def prepare_hardware(args, config):
         state /= f"{preset or mapping}-{digest}"
     env = {"COINLINE_MOTHERBOARD": mapping}
     if preset:
+        env["COINLINE_HARDWARE_PRESET"] = preset
         env["COINLINE_CARD_DMA_CHANNEL"] = str(PRESETS[preset].card_dma_channel)
+    display = args.portable_display or settings.get("portable_display", "attached").strip()
+    if display not in ("attached", "detached"):
+        raise ValueError("Set portable_display to attached or detached.")
+    if display == "detached" and preset != "coin-basic":
+        raise ValueError("Portable display removal is supported for Coin Basic.")
+    env["COINLINE_PORTABLE_VFD"] = "1" if display == "attached" else "0"
     if second:
         env.update(COINLINE_FIRMWARE_FLASH0=str(program[0]), COINLINE_FIRMWARE_FLASH1=str(program[1]))
     else:
@@ -134,6 +141,12 @@ def run(args, config, hardware):
     mode = "sip" if use_sip else "local"
     if not 1 <= port <= 65535:
         raise ValueError("Set a valid ncc_port under [line] in coinline.ini.")
+    code_number = config["line"].get("code_server_number", "").strip()
+    code_port = config["line"].getint("code_server_port", 0)
+    if code_number or code_port:
+        if (len(code_number) != 10 or any(digit not in "0123456789" for digit in code_number)
+                or code_number == "2130706433" or not 1 <= code_port <= 65535):
+            raise ValueError("Set a distinct 10-digit code_server_number and a valid code_server_port under [line].")
     if not use_sip and (not digits or any(digit not in "0123456789*#" for digit in digits)):
         raise ValueError("Set valid outbound_digits for the local CO under [line] in coinline.ini.")
     if args.check:
@@ -166,6 +179,8 @@ def run(args, config, hardware):
         env["COINLINE_OUTBOUND"] = digits
     if input_device := config.get("audio", "input_device", fallback="").strip():
         env["COINLINE_MIC_INPUT"] = input_device
+    if code_number:
+        env.update(COINLINE_CODE_SERVER_NUMBER=code_number, COINLINE_CODE_SERVER_PORT=str(code_port))
 
     cmd = [str(ROOT / EXECUTABLE), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
            "-rompath", str(rompath), "-artpath", str(ROOT / "artwork"),
@@ -215,6 +230,8 @@ def main():
     parser.add_argument("--firmware", type=Path, help="single program image or first half of split flash")
     parser.add_argument("--flash1", type=Path, help="second half of split flash")
     parser.add_argument("--rompath", type=Path, help="directory containing cl_millennium/ Voiceware images")
+    parser.add_argument("--portable-display", choices=("attached", "detached"),
+                        help="Coin Basic temporary display connection at power-on")
     calling_mode = parser.add_mutually_exclusive_group()
     calling_mode.add_argument("--sip", dest="sip", action="store_true", help="require the configured SIP endpoint")
     calling_mode.add_argument("--local", dest="sip", action="store_false", help="use the simulated local office")

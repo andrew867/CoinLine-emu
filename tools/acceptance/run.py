@@ -39,6 +39,19 @@ def sha256(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
+def flash_evidence(path, expected_seed):
+    if not path.is_file():
+        return None
+    raw = path.read_bytes()
+    if len(raw) != 64 + 1048576 or raw[:64] != expected_seed.encode("ascii"):
+        raise ValueError("Persistent flash has the wrong size or initial image digest")
+    data = raw[64:]
+    return {"seed_sha256": expected_seed,
+            "active_sha256": hashlib.sha256(data).hexdigest(),
+            "chip_sha256": [hashlib.sha256(data[index:index + 524288]).hexdigest()
+                            for index in (0, 524288)]}
+
+
 def json_file(path, value):
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
@@ -167,12 +180,12 @@ def central_office(run, env, python):
                     process.wait()
 
 
-def wait_for_mame(process, display, startup_timeout, timeout):
+def wait_for_mame(process, display, startup_timeout, timeout, require_display=True):
     start = time.monotonic()
     try:
         return process.wait(timeout=min(startup_timeout, timeout)), None
     except subprocess.TimeoutExpired:
-        if not re.search(r"[^\s*|]", read(display)):
+        if require_display and not re.search(r"[^\s*|]", read(display)):
             return None, "no startup display before the wall-clock deadline"
     try:
         return process.wait(timeout=max(0, timeout - (time.monotonic() - start))), None
@@ -189,9 +202,16 @@ def run_phase(args, settings, attempt, name, base_env):
     env = dict(base_env, COINLINE_LINE_PORT=port(), COINLINE_VFD_LIVE=str(display),
                COINLINE_ACCEPTANCE_CO_LOG=str(run / "co.log"),
                COINLINE_ACCEPTANCE_WARM="1" if name == "warm" else "0",
+               COINLINE_ACCEPTANCE_PORTABLE_STAGE="prepare" if name == "portable-preflight" else
+               "attached" if name == "cold" and base_env.get("COINLINE_ACCEPTANCE_COIN_BASIC") == "1" else "",
                COINLINE_ACCEPTANCE_PROBE="1" if args.boot_only else "0",
                COINLINE_BOOT_TRACE=str(run / "boot.jsonl"),
                COINLINE_TRACE_ONLY="acceptance-trace")
+    detached = name in ("portable-preflight", "detached")
+    env["COINLINE_PORTABLE_VFD"] = "0" if detached else "1"
+    env["COINLINE_ACCEPTANCE_HEADLESS"] = "1" if name == "detached" else "0"
+    if base_env.get("COINLINE_ACCEPTANCE_COIN_BASIC") == "1" and name != "detached":
+        env["COINLINE_ACCEPTANCE_DIAL"] = ""
     if "desk_key_card" in settings and name == "cold":
         card = run / "card.json"
         shutil.copyfile(base_env["COINLINE_MAG_CARD"], card)
@@ -228,12 +248,12 @@ def run_phase(args, settings, attempt, name, base_env):
     with (run / "mame.log").open("wb") as log, central_office(run, env, args.python):
         with subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, cwd=run, env=env) as process:
             try:
-                exit_code, timeout_reason = wait_for_mame(process, display, args.startup_timeout, args.timeout)
+                exit_code, timeout_reason = wait_for_mame(process, display, args.startup_timeout, args.timeout, not detached)
             finally:
                 if process.poll() is None:
                     process.kill()
     entries = list(events(run / "display.txt.events"))
-    final = next((item for item in reversed(entries) if item["event"] in ("passed", "failed", "timeout", "blocked")), None)
+    final = next((item for item in reversed(entries) if item["event"] in ("passed", "failed", "timeout", "blocked", "power-cycle")), None)
     signals = {item["detail"] for item in entries if item["event"] == "observed"}
     log = read(run / "mame.log")
     packets = list(ncc_frames(log))
@@ -256,6 +276,8 @@ def run_phase(args, settings, attempt, name, base_env):
         status = "timeout"
     elif exit_code == 0 and final and final["event"] == "passed":
         status = "pass" if prerequisites or args.boot_only else "blocked"
+    elif exit_code == 0 and final and final["event"] == "power-cycle":
+        status = "power-cycle" if prerequisites else "blocked"
     elif final and final["event"] == "blocked":
         status = "blocked"
     elif exit_code == 0 and not prerequisites and not args.boot_only:
@@ -279,6 +301,7 @@ def run_phase(args, settings, attempt, name, base_env):
         "rate_request_observed": any(packet["direction"] == "tx" and packet.get("leading_type") == 63 for packet in packets),
         "voiceware_trace": (run / "acceptance-trace-voiceware.jsonl").is_file(),
         "battery_restored": "battery load" in log,
+        "flash_restored": "program flash load" in log,
     }
 
 
@@ -324,6 +347,7 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("COINLINE_")}
     card_dma = PRESETS[hardware].card_dma_channel if hardware and board == "later" else 0
     env.update(COINLINE_EMU_ROOT=str(attempt), COINLINE_MOTHERBOARD=board, COINLINE_DIAGNOSTICS="0",
+               COINLINE_HARDWARE_PRESET=hardware or "",
                COINLINE_CARD_DMA_CHANNEL=str(card_dma),
                COINLINE_ACCEPTANCE_COIN_BASIC="1" if hardware == "coin-basic" else "0",
                COINLINE_BOARD=str(args.profile),
@@ -336,6 +360,9 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
                COINLINE_ACCEPTANCE_PIN=settings["pin"],
                COINLINE_ACCEPTANCE_KEYS="+-LN1234567890*#" + "abcdefghij"[:len(profile["keypad"]["quick_access_keys"])],
                COINLINE_ACCEPTANCE_DIAL=settings["free_call"] if args.test_call else "")
+    if settings.get("code_server_number"):
+        env.update(COINLINE_CODE_SERVER_NUMBER=settings["code_server_number"],
+                   COINLINE_CODE_SERVER_PORT=str(settings["code_server_port"]))
     if len(program) == 1:
         env["COINLINE_FIRMWARE"] = str(cpu / "flash0.bin")
     else:
@@ -347,17 +374,45 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
               "effective_program_sha256": effective_hash,
               "program": [{"path": f["path"], "sha256": f["sha256"]} for f in program],
               "voiceware_source": voice_source, "voiceware": voice_records, "desk_key_card_supplied": "desk_key_card" in settings}
-    result["cold"] = run_phase(args, settings, attempt, "cold", env)
     battery = attempt / "nvram/cl_millennium/battery"
+    persisted_flash = attempt / "nvram/cl_millennium/program_flash"
+    if hardware == "coin-basic" and not args.boot_only:
+        preflight = run_phase(args, settings, attempt, "portable-preflight", env)
+        result["portable_preflight"] = preflight
+        if preflight["status"] not in ("pass", "power-cycle") or not battery.is_file():
+            result["cold"] = preflight
+            if preflight["status"] in ("pass", "power-cycle"):
+                result["cold"] = dict(preflight, status="fail", reason="no battery image after portable-display preparation")
+            result["status"] = result["cold"]["status"]
+            json_file(attempt / "result.json", result)
+            return result
+        result["portable_preflight_battery_sha256"] = sha256(battery)
+    result["cold"] = (preflight if hardware == "coin-basic" and not args.boot_only and preflight["status"] == "pass"
+                      else run_phase(args, settings, attempt, "cold", env))
     if battery.is_file():
         result["cold_battery_sha256"] = sha256(battery)
+    if (flash := flash_evidence(persisted_flash, effective_hash)) is not None:
+        result["cold_flash"] = flash
+    if (board == "later" and not args.boot_only and result["cold"]["status"] == "pass"
+            and "cold_flash" not in result):
+        result["cold"].update(status="fail", reason="no persistent program flash after cold INSTALL")
     if not args.boot_only and result["cold"]["status"] == "pass" and battery.is_file():
         result["warm"] = run_phase(args, settings, attempt, "warm", env)
         result["warm_battery_sha256"] = sha256(battery)
+        if (flash := flash_evidence(persisted_flash, effective_hash)) is not None:
+            result["warm_flash"] = flash
         if result["warm"]["status"] == "pass" and not result["warm"]["battery_restored"]:
             result["warm"].update(status="fail", reason="emulator did not report loading the cold battery image")
+        if "cold_flash" in result and result["warm"]["status"] == "pass" and not result["warm"]["flash_restored"]:
+            result["warm"].update(status="fail", reason="emulator did not report loading the persistent program flash")
+        if hardware == "coin-basic" and args.test_call and result["warm"]["status"] == "pass":
+            result["detached"] = run_phase(args, settings, attempt, "detached", env)
+            if result["detached"]["status"] == "pass" and not result["detached"]["battery_restored"]:
+                result["detached"].update(status="fail", reason="emulator did not load the installed battery image")
     result["status"] = (result.get("warm", {}).get("status", "fail") if not args.boot_only and result["cold"]["status"] == "pass"
                         else result["cold"]["status"])
+    if "detached" in result and result["status"] == "pass":
+        result["status"] = result["detached"]["status"]
     json_file(attempt / "result.json", result)
     return result
 
@@ -374,6 +429,12 @@ def validate_terminal(settings, test_call):
     settings.setdefault("ncc_port", 4000)
     if type(settings["ncc_port"]) is not int or not 1 <= settings["ncc_port"] <= 65535:
         raise ValueError("ncc_port must be an integer port on loopback")
+    code_number = settings.get("code_server_number", "")
+    code_port = settings.get("code_server_port", 0)
+    if code_number or code_port:
+        if (not isinstance(code_number, str) or not re.fullmatch(r"[0-9]{10}", code_number)
+                or code_number == "2130706433" or type(code_port) is not int or not 1 <= code_port <= 65535):
+            raise ValueError("Set a distinct 10-digit code_server_number and a valid code_server_port")
     if "desk_key_card" in settings and not Path(settings["desk_key_card"]).is_file():
         raise ValueError("desk_key_card must point to a local synthetic magstripe fixture")
     return settings
@@ -416,20 +477,22 @@ def retryable_attempt(args, settings, library, row, verified, program, board, ha
 def write_summary(out, batch):
     json_file(out / "batch.json", batch)
     report = ["# Firmware acceptance results", "", f"Run mode: {batch['mode']}", "",
-              "| Firmware | ROM board tag | Hardware preset / I/O | Card DMA | Cold | Warm | Result | Last cold phase | ACKs |",
-              "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
+              "| Firmware | ROM board tag | Hardware preset / I/O | Card DMA | Portable prep | Cold | Warm | Detached call | Result | Last cold phase | ACKs |",
+              "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     registers = []
     for row in batch["results"]:
         if "attempts" not in row:
-            report.append(f"| {row['id']} | - | - | - | - | - | {row['status']} | {row['reason']} | - |")
+            report.append(f"| {row['id']} | - | - | - | - | - | - | - | {row['status']} | {row['reason']} | - |")
         for result in row.get("attempts", []):
             cold = result["cold"]
             acks = ", ".join(map(str, cold["table_acks"])) or "-"
             warm = result.get("warm", {}).get("status", "-")
+            preflight = result.get("portable_preflight", {}).get("status", "-")
+            detached = result.get("detached", {}).get("status", "-")
             case = f"{row['id']}/{result['attempt']}"
             hardware = f"{result.get('hardware_preset') or 'unidentified'} / {result['board_mapping']}"
             report.append(f"| [{case}]({case}/result.json) | {result.get('firmware_hardware_tag') or '-'} | {hardware} | "
-                          f"{result.get('card_dma_channel', '-')} | {cold['status']} | {warm} | {result['status']} | "
+                          f"{result.get('card_dma_channel', '-')} | {preflight} | {cold['status']} | {warm} | {detached} | {result['status']} | "
                           f"{cold['last_phase'] or 'setup'} | {acks} |")
             if initial := cold.get("initial_registers"):
                 registers.append(f"| {case} | {initial.get('mmu', '-')} | {initial.get('asci', '-')} | "
@@ -459,7 +522,7 @@ def main():
     parser.add_argument("--skip", action="append", default=[], help="skip an ID covered by a separate batch")
     parser.add_argument("--board", choices=("earlier", "later", "both"), help="override the exploratory motherboard mapping")
     parser.add_argument("--hardware", choices=("auto", *PRESETS), default="auto", help="select or override the hardware preset")
-    parser.add_argument("--timeout", type=int, default=600, help="wall seconds allowed per cold or warm launch")
+    parser.add_argument("--timeout", type=int, default=1200, help="wall seconds allowed per cold or warm launch")
     parser.add_argument("--startup-timeout", type=int, default=90, help="wall seconds to wait for the first display")
     parser.add_argument("--hardware-trace", action="store_true", help="capture extra IRQ and MMU diagnostics")
     parser.add_argument("--io-trace", action="store_true", help="capture external I/O for board diagnosis")
