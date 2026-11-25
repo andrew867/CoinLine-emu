@@ -1,6 +1,16 @@
 # Run the emulator
 
-Extract the entire Windows x64 ZIP to a writable folder and open **Start OEM.cmd**. Click the terminal window to focus the keys. The launcher starts its bundled central office. It can launch on Windows without a separate MAME, Python, or MSYS2 installation.
+Extract the entire Windows x64 ZIP to a writable folder and open **Start OEM.cmd** for the two-line terminal or **Start Graphical.cmd** for the 11-line terminal. Click the terminal window to focus the keys. Each launcher starts its own bundled central office. It can launch on Windows without a separate MAME, Python, or MSYS2 installation.
+
+The two profiles may run concurrently. OEM uses `coinline.ini` and `data/oem/`;
+graphical uses `coinline-graphical.ini` (copy the corresponding example) and
+`data/graphical/`. Use separate terminal wire IDs, NCC table sets and SIP
+accounts. The default SIP UDP ports are 5087 and 5088, and dynamic RTP ranges
+are 10000-14999 and 15000-19999 respectively. If configuring fixed ports,
+choose distinct values for the two profiles. An existing OEM installation
+retains its original `data/oem/` path. A prior graphical installation launched
+through OEM can be moved by the operator to the matching subdirectory under
+`data/graphical/` with both instances closed; nothing is migrated automatically.
 
 On Linux x64 or macOS on Apple Silicon, extract the archive, install the dependencies listed in **Quick Start.txt**, and run `./start-oem.sh`. These builds use the local central office and play terminal audio. SIP audio and capture are Windows features.
 

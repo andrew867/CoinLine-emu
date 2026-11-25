@@ -17,13 +17,16 @@ from hardware import PRESETS, select_hardware
 ROOT = Path(__file__).resolve().parent.parent
 WINDOWS = os.name == "nt"
 EXECUTABLE = "bin/coinline-mame.exe" if WINDOWS else "bin/coinline-mame"
-FIRMWARE = "firmware/oem/flash.bin"
+PROFILES = {
+    "oem": ("coinline.ini", "firmware/oem/flash.bin", "auto", 5087, 10000, 14999),
+    "graphical": ("coinline-graphical.ini", "firmware/graphical/flash.bin", "11line", 5088, 15000, 19999),
+}
 SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "PASSWORD"}
 
 
-def config_for_run():
+def config_for_run(profile):
     config = configparser.ConfigParser(interpolation=None)
-    config.read(ROOT / "coinline.ini", encoding="utf-8-sig")
+    config.read(ROOT / PROFILES[profile][0], encoding="utf-8-sig")
     for section in ("line", "sip", "hardware", "cards", "adsi"):
         if section not in config:
             config.add_section(section)
@@ -48,11 +51,12 @@ def get_line_port():
         return str(probe.getsockname()[1])
 
 
-def configure_sip(env, settings):
+def configure_sip(env, settings, profile):
+    config_name, _, _, default_port, media_low, media_high = PROFILES[profile]
     for key, suffix in SIP_CREDENTIAL_FIELDS.items():
         value = settings.get(key, "").strip()
         if not value:
-            raise ValueError(f"Set {key} under [sip] in coinline.ini, or use --local for a simulated call.")
+            raise ValueError(f"Set {key} under [sip] in {config_name}, or use --local for a simulated call.")
         env[f"COINLINE_SIP_{suffix}"] = value
     user = env["COINLINE_SIP_USER"].removeprefix("sip:")
     if "@" in user:
@@ -66,7 +70,12 @@ def configure_sip(env, settings):
     env["COINLINE_SIP_DTMF_MODE"] = dtmf_mode
     port = settings.getint("registrar_port", 5060)
     env["COINLINE_SIP_PORT"] = str(port)
-    env["COINLINE_SIP_LOCAL_PORT"] = str(settings.getint("local_port", 5087))
+    local_port = settings.getint("local_port", default_port)
+    if not 1 <= local_port <= 65535:
+        raise ValueError("Set a valid SIP local_port.")
+    env["COINLINE_SIP_LOCAL_PORT"] = str(local_port)
+    env["COINLINE_SIP_RTP_PORT_LOW"] = str(media_low)
+    env["COINLINE_SIP_RTP_PORT_HIGH"] = str(media_high)
     address = settings.get("local_address", "").strip()
     if not address:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
@@ -93,11 +102,12 @@ def stop_office(office):
 
 def prepare_hardware(args, config):
     settings = config["hardware"]
-    flash = ROOT / (args.firmware or settings.get("flash", "").strip() or FIRMWARE)
+    _, default_flash, default_display, *_ = PROFILES[args.profile]
+    flash = ROOT / (args.firmware or settings.get("flash", "").strip() or default_flash)
     second = args.flash1 or (settings.get("flash1", "").strip() if args.firmware is None else "")
     program = (flash, ROOT / second) if second else (flash,)
     rompath = ROOT / (args.rompath or settings.get("rompath", "").strip() or "roms")
-    display_profile = getattr(args, "display", None) or settings.get("display", "auto").strip()
+    display_profile = getattr(args, "display", None) or settings.get("display", default_display).strip()
     if display_profile not in ("auto", "2line", "11line"):
         raise ValueError("Set display to auto, 2line or 11line under [hardware].")
     check_files(program, rompath, "2line" if display_profile == "auto" else display_profile)
@@ -119,6 +129,8 @@ def prepare_hardware(args, config):
             raise ValueError("Invalid display profile in firmware hash registry.")
         if display_profile == "11line":
             check_files(program, rompath, display_profile)
+    if args.profile == "graphical" and (display_profile != "11line" or entry.get("display") != "11line"):
+        raise ValueError("The graphical launcher requires a registered 11-line firmware image.")
     preset, reason = select_hardware(args.hardware or settings.get("profile", "auto").strip(),
                                     image, entry.get("firmware_id"))
     mapping = PRESETS[preset].motherboard if preset else entry.get("motherboard", "later")
@@ -214,7 +226,7 @@ def run(args, config, hardware):
     else:
         env["COINLINE_VFD_LIVE"] = str(run_dir / "display.txt")
     if use_sip:
-        configure_sip(env, sip)
+        configure_sip(env, sip, args.profile)
     else:
         env["COINLINE_OUTBOUND"] = digits
     if input_device := config.get("audio", "input_device", fallback="").strip():
@@ -271,7 +283,7 @@ def lock_session(file):
 
 def main():
     parser = argparse.ArgumentParser(description="Start the CoinLine Terminal Emulator")
-    parser.add_argument("profile", choices=("oem",))
+    parser.add_argument("profile", choices=tuple(PROFILES))
     parser.add_argument("--hardware", choices=("auto", *PRESETS), help="select hardware by program tag or override it")
     parser.add_argument("--display", choices=("auto", "2line", "11line"), help="select the display board or use the verified registry")
     parser.add_argument("--firmware", type=Path, help="single program image or first half of split flash")
@@ -298,7 +310,7 @@ def main():
     if (args.seconds is not None and args.seconds <= 0) or (args.headless and not args.seconds):
         parser.error("--seconds must be positive and is required with --headless")
     try:
-        config = config_for_run()
+        config = config_for_run(args.profile)
         hardware = prepare_hardware(args, config)
         if args.check:
             return run(args, config, hardware)

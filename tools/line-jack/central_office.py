@@ -976,6 +976,7 @@ class SipSide:
 		if self.direct is not None:
 			host, user, password = HOST, self.direct.from_user, ""
 			port, local_port, my_ip, media_ip, rtp_port = self.direct.port, 0, HOST, "", 0
+			media_low, media_high = 10000, 20000
 		else:
 			host = os.environ["COINLINE_SIP_HOST"]
 			user = os.environ["COINLINE_SIP_USER"]
@@ -985,6 +986,10 @@ class SipSide:
 			my_ip = os.environ.get("COINLINE_SIP_MY_IP") or "0.0.0.0"
 			media_ip = os.environ.get("COINLINE_SIP_PUBLIC_IP", "")
 			rtp_port = int(os.environ.get("COINLINE_SIP_RTP_PORT") or 0)
+			media_low = int(os.environ.get("COINLINE_SIP_RTP_PORT_LOW") or "10000")
+			media_high = int(os.environ.get("COINLINE_SIP_RTP_PORT_HIGH") or "20000")
+			if not 1 <= media_low <= media_high <= 65535:
+				raise ValueError("Invalid SIP RTP port range")
 			print(f"sip registering local={local_port}", flush=True)
 		self.phone = VoIPPhone(
 			host,
@@ -994,8 +999,8 @@ class SipSide:
 			myIP=my_ip,
 			callCallback=self._on_call,
 			sipPort=local_port,
-			rtpPortLow=rtp_port or 10000,
-			rtpPortHigh=rtp_port or 20000,
+			rtpPortLow=rtp_port or media_low,
+			rtpPortHigh=rtp_port or media_high,
 		)
 		# The outbound identity is the registered SIP address. Via and Contact
 		# keep the local transport address used by the SIP socket.
@@ -1634,6 +1639,7 @@ def run_local_or_sip() -> None:
 	remote_released = False
 	last_digit_at = None
 	modem_relay = False
+	manager_released = False
 	mic_frames = 0
 	received_audio_frames = 0
 	phase = 0.0
@@ -1669,15 +1675,20 @@ def run_local_or_sip() -> None:
 			elif text == "Q1":
 				modem_relay = True
 			elif text == "Q0":
-				# The manager modem can release while the handset keeps the
-				# same physical loop seized. Restore the CO before voice dialing.
+				# The INSTALL answer-detection check releases the modem relay
+				# after outpulsing, before it samples answer polarity. Keep the
+				# pending analog answer unless the handset or loop releases, or a
+				# new dialing sequence supersedes it.
 				if modem_relay and digits == NCC_LOOPBACK:
-					answered = voice_bridged = sip_bridged = False
-					digits = ""
-					last_digit_at = None
-					outbound_attempted = False
-					sock.sendall(b"V\n")
-					print("manager modem released; voice dialing ready", flush=True)
+					manager_released = True
+					if answered:
+						answered = voice_bridged = sip_bridged = False
+						digits = ""
+						last_digit_at = None
+						outbound_attempted = False
+						manager_released = False
+						sock.sendall(b"V\n")
+						print("manager modem released; voice dialing ready", flush=True)
 				modem_relay = False
 			elif text == "X":
 				seized = False
@@ -1686,11 +1697,22 @@ def run_local_or_sip() -> None:
 				sip_bridged = False
 				digits = ""
 				last_digit_at = None
+				manager_released = False
 				outbound_attempted = False
 				release_voice()
 				print("released", flush=True)
 				sock.sendall(b"V\n")
 			elif text.startswith("D") and len(text) == 2 and offhook:
+				if manager_released and digits == NCC_LOOPBACK:
+					# A new outpulse after the released manager relay belongs to
+					# a separate call, even if the physical handset loop stayed up.
+					answered = voice_bridged = sip_bridged = False
+					digits = ""
+					last_digit_at = None
+					outbound_attempted = False
+					manager_released = False
+					sock.sendall(b"V\n")
+					print("new dialing after manager modem release", flush=True)
 				if answered and sip_bridged and active_sip is not None:
 					transport = active_sip.send_dtmf(text[1])
 					if transport is not None:
@@ -1729,6 +1751,7 @@ def run_local_or_sip() -> None:
 				remote_released = False
 				digits = ""
 				last_digit_at = None
+				manager_released = False
 				print("onhook", flush=True)
 				if outbound_attempted or answered:
 					outbound_attempted = False
