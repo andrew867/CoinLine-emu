@@ -1,5 +1,8 @@
 # Graphical render diagnostics
 
+For the subsequent Windows nonmodal window patch, OpenGL default and
+remote CO timing comparisons, see [Windows window timing](windows-window-timing-2026-11-25.md).
+
 - The portable launcher explicitly disables the diagnostic defaults and
   does not set CPU, modem or graphical bus trace flags. A package process
   inspection confirmed those settings. One Craft trace helper could still

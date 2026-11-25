@@ -178,3 +178,10 @@ The service correctly closed without sending a menu. The first-mode
 firmware timer path is now established, but reliable end-to-end response
 timing remains unqualified. No deadline or signal was altered to conceal it.
 Run: `build/firmware-acceptance/graphic-firmware/20261125T085559.692381Z/`.
+
+## Latest host timing follow-up
+
+The remote CO and renderer timing comparisons are documented separately in
+[Windows window timing](windows-window-timing-2026-11-25.md). They reproduce
+the initial live acknowledgement timing limitation without changing the
+service deadlines.

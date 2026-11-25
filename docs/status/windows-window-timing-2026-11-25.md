@@ -63,4 +63,36 @@ Evidence remains in `build/firmware-acceptance/window-drag-probe/`:
 The last run used the rebuilt native executable with SHA-256
 `7061e4bcd23ed083dac15123f9b00a6c2d195caf0099435e30cb518510315726`.
 
+## Remote CO timing crosscheck
+
+After the dedicated voice service and CO were moved to a separate host,
+the same final executable ran an installed graphical firmware image with
+audio enabled and OpenGL artwork. Automatic PNG captures were disabled;
+two explicit captures were taken outside the active call. The remote CO
+observed the actual handset and outpulse, answered the exact local route,
+and carried the terminal's genuine A and D1. The native receiver decoded
+all eight CONNECT bytes without framing errors. Exposed carrier release to
+commanded D onset was 858.586 ms. The independent remote wire capture
+classified completed first D about 1,160 ms after the first CONNECT burst
+ended, at 20 ms packet resolution. A retry overlapped D1, and the service
+closed without sending the welcome menu. A PCM underrun was traced during
+the retry, not the first CONNECT. The whole-run MAME average was 75.25%.
+
+A headless control with the same starting battery and audio enabled used
+no artwork or screenshots. Its initial jack connection closed after line
+presence; a second connection recovered genuine handset and relay events.
+The actual call received CAS, but the firmware did not poll the detector
+during that interval and sent no A. The independent wire capture likewise
+found no uplink A or other detected tones and showed server voice fallback.
+The terminal subsequently hung up and the CO closed the SIP dialog normally.
+The whole-run average was 38.36%.
+The differing startup connection and host pace prevent a controlled
+renderer-only speed comparison. Removing the GUI alone was not sufficient
+to qualify the live call. No service deadlines or firmware state were
+changed.
+
+Runs: `build/firmware-acceptance/remote-adsi-gui/20261125T151145.846360Z/`
+and `build/firmware-acceptance/remote-adsi-headless/20261125T151635.304862Z/`.
+The remote wire captures are retained outside the public source tree.
+
 Long-running real-time audio and the live ADSI menu remain separate gates.
