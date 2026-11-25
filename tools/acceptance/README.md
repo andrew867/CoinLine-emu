@@ -266,3 +266,21 @@ defaults as the launcher. Set `--snapshot-interval 0` to avoid periodic PNG
 encoding during wall-clock timing tests. `--external-co-port` binds the
 emulator to a fixed local line jack and leaves the independently managed CO
 and its lifecycle to the caller.
+
+## Connected keypad and SIP transport
+
+`connected_dtmf_native_probe.py` starts a real graphical terminal from a
+copy of completed installation state and an isolated loopback SIP registrar
+and RTP peer. It requires a permitted free-call destination in the lab
+settings and waits for the SIP answer plus an emulated supervision interval
+before pressing `25*#`. It checks the firmware-enabled native line events and
+negotiated RFC 4733 packet timing. No public SIP account is used.
+
+```sh
+python tools/acceptance/connected_dtmf_native_probe.py --mame <path-to-mamecoinline> --firmware <mapped-flash.bin> --battery <installed-nvram-dir> --settings <lab-settings.json>
+```
+
+The script uses the CO's Python/PyVoIP dependencies, a working lab NCC for
+any firmware maintenance calls and a graphical window. `--startup-frames`
+and `--answer-frames` set the warm startup and answer allowances. Results are recorded under the
+ignored `build/firmware-acceptance/connected-dtmf-sip-native/` tree.
