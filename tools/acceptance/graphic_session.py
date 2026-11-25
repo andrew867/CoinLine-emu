@@ -43,7 +43,18 @@ def main():
     parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
     parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
+    parser.add_argument("--video", choices=("gdi", "d3d", "opengl") if os.name == "nt" else ("auto", "soft", "opengl", "bgfx"),
+                        default="opengl" if os.name == "nt" else "auto", help="renderer when artwork is enabled")
+    parser.add_argument("--external-co-port", type=int, help="fixed local jack port; an independently managed CO connects to it")
+    parser.add_argument("--snapshot-interval", type=int, default=180, metavar="FRAMES",
+                        help="automatic native screenshot interval; zero disables it for timing tests")
     args = parser.parse_args()
+    if args.external_co_port is not None and not 1 <= args.external_co_port <= 65535:
+        parser.error("--external-co-port must be a valid TCP port")
+    if args.external_co_port and args.adsi_offline_pcm:
+        parser.error("Use the dedicated offline CO controls for deterministic PCM tests")
+    if args.snapshot_interval < 0:
+        parser.error("--snapshot-interval cannot be negative")
     if args.adsi_offline_pcm and (args.adsi or args.display != "11line" or not args.adsi_offline_pcm.is_file()):
         parser.error("--adsi-offline-pcm requires an existing fixture, 11line display and no SIP route")
     if args.offline_co and not args.adsi_offline_pcm:
@@ -95,10 +106,10 @@ def main():
                COINLINE_TP8048_ROM=str(args.controller.resolve()),
                COINLINE_MAG_CARD=str(args.mag_card.resolve()),
                COINLINE_SMART_CARD=str(args.smart_card.resolve()),
-               COINLINE_LINE_PORT=port(), COINLINE_CO_MODE="local", COINLINE_CO_TIMEOUT="0",
+               COINLINE_LINE_PORT=str(args.external_co_port) if args.external_co_port else port(), COINLINE_CO_MODE="local", COINLINE_CO_TIMEOUT="0",
                COINLINE_NCC_PORT=str(settings.get("ncc_port", 4000)), COINLINE_DIAGNOSTICS="0",
                COINLINE_GRAPHIC_COMMANDS=str(commands), COINLINE_GRAPHIC_EVENTS=str(out / "events.tsv"),
-               COINLINE_GRAPHIC_OPEN="1" if args.open else "0")
+               COINLINE_GRAPHIC_OPEN="1" if args.open else "0", COINLINE_GRAPHIC_SNAPSHOT_INTERVAL=str(args.snapshot_interval))
     if args.display == "11line":
         env["COINLINE_GRAPHIC_VFD_SNAPSHOT"] = str(out / "pages.json")
     else:
@@ -144,7 +155,7 @@ def main():
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     view = "Graphical" if args.display == "11line" else "Standard"
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
-           "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "auto" if args.sound else "none",
+           "-nolog", "-video", args.video if args.artwork else "none", "-sound", "auto" if args.sound else "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),
            "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
            "-snapshot_directory", str(out), "-snapview", view if args.artwork else "native",
@@ -152,7 +163,11 @@ def main():
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
     if args.realtime_priority and os.name == "nt":
         cmd.extend(["-priority", "1"])
-    office = nullcontext() if args.adsi_offline_pcm and not args.offline_co else central_office(out, env, Path(sys.executable))
+    if args.artwork:
+        cmd.extend(["-autoframeskip", "-frameskip", "11" if args.video == "gdi" else "4", "-audio_latency", "6"])
+        if os.name == "nt":
+            cmd.extend(["-resolution", "360x850"])
+    office = nullcontext() if args.external_co_port or (args.adsi_offline_pcm and not args.offline_co) else central_office(out, env, Path(sys.executable))
     with (out / "mame.log").open("wb") as log, office:
         result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)
     print(f"Emulator exited with {result.returncode}", flush=True)

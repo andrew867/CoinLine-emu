@@ -229,8 +229,10 @@ def run(args, config, hardware):
     else:
         if graphical:
             cmd += ["-view", "Graphical"]
-        cmd += ["-window", "-nomaximize", "-autoframeskip", "-frameskip", "4", "-audio_latency", "6"]
-        if args.video == "gdi":
+        # Software artwork rendering must be allowed to shed display work
+        # rather than slow the physical terminal or audio clock.
+        cmd += ["-window", "-nomaximize", "-autoframeskip", "-frameskip", "11" if args.video == "gdi" else "4", "-audio_latency", "6"]
+        if WINDOWS:
             cmd += ["-resolution", "360x850"]
     if args.seconds:
         cmd += ["-seconds_to_run", str(args.seconds)]
@@ -284,7 +286,7 @@ def main():
     parser.add_argument("--headless", action="store_true", help="run a bounded test without a window")
     parser.add_argument("--seconds", type=int, metavar="N", help="exit after N emulated seconds")
     if WINDOWS:
-        parser.add_argument("--video", choices=("gdi", "d3d", "opengl"), default="gdi")
+        parser.add_argument("--video", choices=("gdi", "d3d", "opengl"), default="opengl", help="OpenGL by default; use gdi for software rendering")
     else:
         parser.add_argument("--video", choices=("auto", "soft", "opengl", "bgfx"), default="auto")
     parser.add_argument("--record", action="store_true", help="save handset audio to the run log directory")

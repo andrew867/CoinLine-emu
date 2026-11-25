@@ -146,6 +146,6 @@ The launcher stores `cfg`, `nvram`, and `logs` under `data/oem`. Close the emula
 "Start OEM.cmd" --record
 ```
 
-The launcher defaults to a compact GDI window with automatic frameskip and keeps the debugger and trace sidecars off. Use `--video d3d` or `--video opengl` to test those renderers on suitable displays. The latest log directory contains `display.txt`, `emulator.log`, and `central-office.log`. Error 41 points to CO line detection. For error 24, verify the running NCC listener, matching wire ID, and published table assignment.
+The Windows launcher defaults to a compact OpenGL window with automatic frameskip and keeps the debugger and trace sidecars off. Use `--video gdi` if OpenGL is unavailable; the software renderer can skip additional display frames to preserve terminal timing. Direct3D is also selectable with `--video d3d` where supported. Mouse-driven title-bar moves and border resizes no longer pause the terminal; artwork redraws are briefly deferred until the drag ends. The standard Windows system menu retains its original modal behavior. The latest log directory contains `display.txt` or `graphic-vfd.json`, `emulator.log`, and `central-office.log`. Error 41 points to CO line detection. For error 24, verify the running NCC listener, matching wire ID, and published table assignment.
 
 The [verification handoff](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) records the full MAME and CoinLine acceptance runs.

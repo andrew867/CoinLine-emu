@@ -1,0 +1,252 @@
+diff --git a/src/osd/windows/window.cpp b/src/osd/windows/window.cpp
+index 3b32e59f102..396d6ce0c64 100644
+--- a/src/osd/windows/window.cpp
++++ b/src/osd/windows/window.cpp
+@@ -127,6 +127,11 @@ static bool s_aggressive_focus;
+ 
+ static void create_window_class();
+ 
++// Hit-test values for the window frame are consecutive, as are the sizing
++// codes expected by the existing aspect-ratio handling.
++static_assert(HTLEFT == 10 && HTBOTTOMRIGHT == 17);
++static_assert(WMSZ_LEFT == 1 && WMSZ_BOTTOMRIGHT == 8);
++
+ //============================================================
+ //  window_init
+ //  (main thread)
+@@ -327,13 +332,21 @@ static LRESULT CALLBACK winwindow_video_window_proc_ui(HWND wnd, UINT message, W
+ //  is_mame_window
+ //============================================================
+ 
+-inline bool is_mame_window(HWND hwnd)
++inline win_window_info *find_mame_window(HWND hwnd)
+ {
+ 	for (const auto &window : osd_common_t::window_list())
+-		if (dynamic_cast<win_window_info &>(*window).platform_window() == hwnd)
+-			return true;
++	{
++		auto &win = dynamic_cast<win_window_info &>(*window);
++		if (win.platform_window() == hwnd)
++			return &win;
++	}
+ 
+-	return false;
++	return nullptr;
++}
++
++inline bool is_mame_window(HWND hwnd)
++{
++	return find_mame_window(hwnd) != nullptr;
+ }
+ 
+ inline BOOL handle_mouse_button(windows_osd_interface &osd, int button, int down, LPARAM lparam)
+@@ -407,9 +420,16 @@ void windows_osd_interface::process_events(bool ingame, bool nodispatch)
+ 			// prevent debugger windows from getting messages during reset
+ 			bool dispatch = !nodispatch;
+ 
+-			if (!message.hwnd || is_mame_window(message.hwnd))
++			auto const *window = message.hwnd ? find_mame_window(message.hwnd) : nullptr;
++			if (!message.hwnd || window)
+ 			{
+ 				dispatch = true;
++				// Captured window-frame clicks must not become emulated keypad clicks.
++				if (window && window->tracking_window_drag())
++				{
++					winwindow_dispatch_message(machine(), message);
++					continue;
++				}
+ 				switch (message.message)
+ 				{
+ 					// ignore keyboard messages
+@@ -655,6 +675,8 @@ void winwindow_update_cursor_state(running_machine &machine)
+ 		return;
+ 
+ 	auto &window = static_cast<win_window_info &>(*osd_common_t::window_list().front());
++	if (window.tracking_window_drag())
++		return;
+ 
+ 	// if we should hide the mouse cursor, then do it
+ 	// rules are:
+@@ -769,6 +791,10 @@ void win_window_info::complete_destroy()
+ void win_window_info::update()
+ {
+ 	assert(GetCurrentThreadId() == main_threadid);
++	// Keep the machine scheduler running and defer expensive renderer updates
++	// until the frame has reached its final dimensions.
++	if (tracking_window_drag())
++		return;
+ 
+ 	// see if the target has changed significantly in window mode
+ 	unsigned const targetview = target()->view();
+@@ -1071,7 +1097,61 @@ LRESULT CALLBACK win_window_info::video_window_proc(HWND wnd, UINT message, WPAR
+ 	if (window)
+ 	{
+ 		assert(GetCurrentThreadId() == window_threadid);
+-		window->update_minmax_state();
++		if (!window->tracking_window_drag())
++			window->update_minmax_state();
++
++		// DefWindowProc runs a blocking modal message loop for mouse-driven
++		// moves/resizes. On this OSD the machine runs on that same thread.
++		// The terminal uses a captured, non-modal drag instead, so the normal
++		// emulation loop continues to service its clocks, audio and line I/O.
++		if (message == WM_NCLBUTTONDOWN && (window->tracking_window_drag() ||
++				window->begin_window_drag(int(wparam), POINT{ GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam) })))
++			return 0;
++		if (window->tracking_window_drag())
++		{
++			switch (message)
++			{
++			case WM_MOUSEMOVE:
++			case WM_LBUTTONUP:
++				{
++					POINT where;
++					if (GetCursorPos(&where))
++						window->update_window_drag(where);
++					if (message == WM_LBUTTONUP)
++						window->end_window_drag(false);
++				}
++				return 0;
++			case WM_NCMOUSEMOVE:
++			case WM_NCLBUTTONUP:
++				window->update_window_drag(POINT{ GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam) });
++				if (message == WM_NCLBUTTONUP)
++					window->end_window_drag(false);
++				return 0;
++			case WM_KEYDOWN:
++				if (wparam == VK_ESCAPE)
++				{
++					window->end_window_drag(true);
++					return 0;
++				}
++				break;
++			case WM_CAPTURECHANGED:
++			case WM_CANCELMODE:
++			case WM_USER_SET_FULLSCREEN:
++			case WM_CLOSE:
++			case WM_DESTROY:
++				window->end_window_drag(false);
++				break;
++			case WM_RBUTTONDOWN:
++			case WM_RBUTTONUP:
++			case WM_MBUTTONDOWN:
++			case WM_MBUTTONUP:
++			case WM_XBUTTONDOWN:
++			case WM_XBUTTONUP:
++			case WM_MOUSEWHEEL:
++			case WM_MOUSEHWHEEL:
++				return 0;
++			}
++		}
+ 	}
+ 
+ 	// handle a few messages
+@@ -1082,7 +1162,8 @@ LRESULT CALLBACK win_window_info::video_window_proc(HWND wnd, UINT message, WPAR
+ 		{
+ 			PAINTSTRUCT pstruct;
+ 			HDC hdc = BeginPaint(wnd, &pstruct);
+-			window->draw_video_contents(hdc, true);
++			if (!window->tracking_window_drag())
++				window->draw_video_contents(hdc, true);
+ 			if (GetMenu(window->platform_window()))
+ 				DrawMenuBar(window->platform_window());
+ 			EndPaint(wnd, &pstruct);
+@@ -1374,6 +1455,71 @@ LRESULT CALLBACK win_window_info::video_window_proc(HWND wnd, UINT message, WPAR
+ 	return 0;
+ }
+ 
++bool win_window_info::begin_window_drag(int hit, POINT const &where)
++{
++	// Keep the upstream modal behavior for other machines and debugger,
++	// exclusive fullscreen, attached or native system menu operations.
++	if (fullscreen() || attached_mode() || (machine().debug_flags & DEBUG_FLAG_OSD_ENABLED) ||
++			std::strcmp(machine().system().name, "cl_millennium") ||
++			(hit != HTCAPTION && (hit < HTLEFT || hit > HTBOTTOMRIGHT)) ||
++			tracking_window_drag() || GetCapture() || !GetWindowRect(platform_window(), &m_drag_bounds))
++		return false;
++
++	m_drag_origin = where;
++	m_drag_hit = hit;
++	m_resize_state = RESIZE_STATE_RESIZING;
++	release_pointer();
++	show_pointer();
++	SetCapture(platform_window());
++	if (GetCapture() != platform_window())
++	{
++		end_window_drag(false);
++		return false;
++	}
++	return true;
++}
++
++void win_window_info::update_window_drag(POINT const &where)
++{
++	RECT bounds = m_drag_bounds;
++	LONG const dx = where.x - m_drag_origin.x;
++	LONG const dy = where.y - m_drag_origin.y;
++	if (m_drag_hit == HTCAPTION)
++		OffsetRect(&bounds, dx, dy);
++	else
++	{
++		if (m_drag_hit == HTLEFT || m_drag_hit == HTTOPLEFT || m_drag_hit == HTBOTTOMLEFT)
++			bounds.left = std::min(bounds.left + dx, bounds.right - MIN_WINDOW_DIMX);
++		if (m_drag_hit == HTRIGHT || m_drag_hit == HTTOPRIGHT || m_drag_hit == HTBOTTOMRIGHT)
++			bounds.right = std::max(bounds.right + dx, bounds.left + MIN_WINDOW_DIMX);
++		if (m_drag_hit == HTTOP || m_drag_hit == HTTOPLEFT || m_drag_hit == HTTOPRIGHT)
++			bounds.top = std::min(bounds.top + dy, bounds.bottom - MIN_WINDOW_DIMY);
++		if (m_drag_hit == HTBOTTOM || m_drag_hit == HTBOTTOMLEFT || m_drag_hit == HTBOTTOMRIGHT)
++			bounds.bottom = std::max(bounds.bottom + dy, bounds.top + MIN_WINDOW_DIMY);
++		if (keepaspect() && target()->scale_mode() == SCALE_FRACTIONAL && !(GetAsyncKeyState(VK_CONTROL) & 0x8000))
++		{
++			auto const r = constrain_to_aspect_ratio(RECT_to_osd_rect(bounds), m_drag_hit - HTLEFT + WMSZ_LEFT);
++			bounds = RECT{ r.left(), r.top(), r.right(), r.bottom() };
++		}
++	}
++	RECT current;
++	if (GetWindowRect(platform_window(), &current) && !EqualRect(&current, &bounds))
++		SetWindowPos(platform_window(), nullptr, bounds.left, bounds.top, rect_width(&bounds), rect_height(&bounds), SWP_NOZORDER | SWP_NOACTIVATE);
++}
++
++void win_window_info::end_window_drag(bool cancel)
++{
++	m_drag_hit = HTNOWHERE;
++	m_resize_state = RESIZE_STATE_PENDING;
++	if (GetCapture() == platform_window())
++		ReleaseCapture();
++	if (cancel)
++		SetWindowPos(platform_window(), nullptr, m_drag_bounds.left, m_drag_bounds.top,
++				rect_width(&m_drag_bounds), rect_height(&m_drag_bounds), SWP_NOZORDER | SWP_NOACTIVATE);
++	update_minmax_state();
++	InvalidateRect(platform_window(), nullptr, FALSE);
++}
++
+ 
+ 
+ //============================================================
+diff --git a/src/osd/windows/window.h b/src/osd/windows/window.h
+index c94f0a38e4d..f3e377d6d14 100644
+--- a/src/osd/windows/window.h
++++ b/src/osd/windows/window.h
+@@ -61,6 +61,7 @@ public:
+ 	win_window_info(running_machine &machine, render_module &renderprovider, int index, const std::shared_ptr<osd_monitor_info> &monitor, const osd_window_config *config);
+ 
+ 	bool attached_mode() const { return m_attached_mode; }
++	bool tracking_window_drag() const { return m_drag_hit != HTNOWHERE; }
+ 	win_window_focus focus() const;
+ 
+ 	void update() override;
+@@ -155,6 +156,14 @@ private:
+ 	void maximize_window();
+ 	void adjust_window_position_after_major_change();
+ 	void set_fullscreen(int fullscreen);
++	bool begin_window_drag(int hit, POINT const &where);
++	void update_window_drag(POINT const &where);
++	void end_window_drag(bool cancel);
++
++	// Non-modal mouse tracking for continuously running terminal hardware.
++	int m_drag_hit = HTNOWHERE;
++	RECT m_drag_bounds = {};
++	POINT m_drag_origin = {};
+ 
+ 	// pointer handling helpers
+ 	void pointer_entered(WPARAM wparam, LPARAM lparam);

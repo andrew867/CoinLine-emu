@@ -25,6 +25,7 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | [ADSI interoperation](status/adsi-interop-2026-11-25.md) | Actual SIP/RTP, CAS, CONNECT and D1 evidence, with the first-response timing gate. |
 | [Graphical render performance](status/graphical-render-performance-2026-11-25.md) | Release tracing, display caching, board clock and measured live emulation speed. |
 | [Peripheral handoff implementation](status/peripheral-handoff-implementation-2026-11-25.md) | Native enclosure waveform, data-jack monitor and deterministic ADSI qualifier progress. |
+| [Windows window timing](status/windows-window-timing-2026-11-25.md) | Nonmodal native window dragging and host renderer clock-progress measurements. |
 | [status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md](status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md) | Chip-oriented TP backend: behavioral ROM, hook sequencing, timer note, build paths. |
 | [status/implementation-status-audit.md](status/implementation-status-audit.md) | Historical bring-up audit and trace references. |
 

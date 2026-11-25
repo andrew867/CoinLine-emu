@@ -23,6 +23,7 @@ end
 local commands = assert(os.getenv("COINLINE_GRAPHIC_COMMANDS"))
 local history = assert(io.open(assert(os.getenv("COINLINE_GRAPHIC_EVENTS")), "w"))
 local frame, next_frame, processed = 0, 0, 0
+local snapshot_interval = tonumber(os.getenv("COINLINE_GRAPHIC_SNAPSHOT_INTERVAL")) or 180
 local pending = {}
 local watch_path = os.getenv("COINLINE_GRAPHIC_READ_WATCH")
 if watch_path then
@@ -162,7 +163,7 @@ emu.register_frame_done(function()
         end
         pending[frame] = nil
     end
-    if frame % 180 == 0 then
+    if snapshot_interval > 0 and frame % snapshot_interval == 0 then
         screen:snapshot("live.png")
     end
     if frame < next_frame or frame % 6 ~= 0 then return end

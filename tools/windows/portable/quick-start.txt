@@ -134,8 +134,11 @@ lab card policy. The OEM firmware can display cents individually and speaks
 cents in five-cent increments.
 
 Use --check to check package inputs, --record to save handset WAV audio, or
---headless --seconds 18 for a bounded boot check. The default GDI window starts
-compact and adjusts how often it draws to reduce interrupted playback.
+--headless --seconds 18 for a bounded boot check. The default OpenGL window
+adjusts how often it draws to reduce interrupted playback. If the display
+driver cannot initialise OpenGL, start with --video gdi for software rendering.
+Dragging the title bar or sizing border defers the artwork redraw but keeps
+the emulated terminal running. The display catches up when the drag ends.
 Each run keeps its emulator log, CO log, and current display under data/<profile>/logs.
 The portable launchers keep the debugger and trace sidecars off.
 

@@ -243,3 +243,26 @@ See [remote firmware downloads](../../docs/firmware-download-storage.md) for
 the end-to-end upgrade gates.
 
 Run outputs can include lab identifiers, state files, and firmware images. The default output path is ignored by Git.
+
+## Windows window and clock qualification
+
+`window_drag_probe.py` exercises native Win32 frame capture, geometry, release
+and cancellation while observing the emulated machine clock. It posts only
+messages to its own test window and does not move the global mouse cursor.
+The default synthetic CPU loop isolates the OSD path. An optional later-board
+firmware image and `--sound` exercise the real machine with audio enabled.
+
+```sh
+python tools/acceptance/window_drag_probe.py --mame <path-to-mamecoinline.exe> --video opengl
+python tools/acceptance/window_drag_probe.py --mame <path-to-mamecoinline.exe> --video opengl --free-aspect
+python tools/acceptance/window_drag_probe.py --mame <path-to-mamecoinline.exe> --firmware <mapped-flash.bin> --sound
+```
+
+The free-aspect test checks actual resize geometry independently of the
+monitor's fixed-aspect minimum/maximum dimensions. Results and machine-clock
+samples remain in the ignored `build/firmware-acceptance/window-drag-probe/`
+directory. The graphical acceptance session uses the same Windows renderer
+defaults as the launcher. Set `--snapshot-interval 0` to avoid periodic PNG
+encoding during wall-clock timing tests. `--external-co-port` binds the
+emulator to a fixed local line jack and leaves the independently managed CO
+and its lifecycle to the caller.
