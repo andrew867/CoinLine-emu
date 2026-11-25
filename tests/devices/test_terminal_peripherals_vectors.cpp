@@ -121,6 +121,10 @@ int main()
 		if (!m.plugged() || m.external_loop() || m.merge_monitor(0x25U) != 0x25U) return 41;
 		m.set_connector(true, true);
 		if (!m.external_loop() || m.merge_monitor(0x25U) != 0xa5U) return 42;
+		m.set_office_line(true);
+		if (!m.office_line_available() || !m.external_loop()) return 68;
+		m.set_office_line(false);
+		if (m.office_line_available() || !m.external_loop() || !m.plugged()) return 69;
 		m.set_connector(false, true);
 		if (m.external_loop() || m.merge_monitor(0xa5U) != 0x25U) return 43;
 		m.write_hw_control(0xf5U);
@@ -142,6 +146,21 @@ int main()
 			m.write_pio_c(p.unknown);
 			if (m.selected_route() != hardware::route::unknown) return 50;
 		}
+	}
+	{
+		watchdog_monitor m;
+		m.reset(true);
+		if (m.observe(false, 50)) return 60; // initial high is not a service pulse
+		if (m.observe(true, 100) || m.observe(true, 150)) return 61;
+		auto first = m.observe(false, 200);
+		if (!first || first->width != 100 || first->has_gap || first->at != 200) return 62;
+		if (m.observe(true, 500000100)) return 63;
+		auto second = m.observe(false, 500000200);
+		if (!second || !second->has_gap || second->gap != 500000000 || second->width != 100) return 64;
+		if (watchdog_monitor::deadline_ns != 1000000000ULL) return 65;
+		m.reset(false);
+		if (m.observe(true, 1000000000) || m.observe(true, 1000000050)) return 66;
+		if (auto pulse = m.observe(false, 1000000100); !pulse || pulse->has_gap) return 67;
 	}
 
 	{

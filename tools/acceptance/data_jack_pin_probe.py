@@ -19,13 +19,15 @@ local machine = manager.machine
 local io = machine.devices[":maincpu"].spaces["io"]
 local jack = assert(machine.ioport.ports[":DATAJACKUI"])
 local hook = assert(machine.ioport.ports[":KEYMATRIX"])
+local office = assert(machine.ioport.ports[":LINECTRL"]:field(1))
+local positive = os.getenv("COINLINE_DATA_JACK_PROFILE") == "downloaded"
 local plug, loop = assert(jack:field(1)), assert(jack:field(2))
 local base, initial_hook
 local frame = 0
 local function monitor(expected)
     local value = io:read_u8(0x40)
     assert(value & 0x7f == base, "monitor changed unrelated status bits")
-    assert((value & 0x80 ~= 0) == expected, "unexpected external loop monitor")
+    assert((value & 0x80 ~= 0) == (expected == positive), "unexpected external loop monitor")
     assert(hook:read() & 0x80000 == initial_hook, "external loop changed handset")
 end
 emu.register_frame_done(function()
@@ -33,8 +35,8 @@ emu.register_frame_done(function()
     if frame == 4 then base = io:read_u8(0x40) & 0x7f; initial_hook = hook:read() & 0x80000; monitor(false); plug:set_value(1) end
     if frame == 7 then monitor(false); loop:set_value(1) end
     if frame == 10 then monitor(true); io:write_u8(0x43, 0xc0) end
-    if frame == 13 then monitor(true); io:write_u8(0x43, 0x50) end
-    if frame == 16 then monitor(true); io:write_u8(0x43, 0x80) end
+    if frame == 13 then monitor(true); io:write_u8(0x43, 0x50); office:set_value(1) end
+    if frame == 16 then monitor(true); io:write_u8(0x43, 0x80); office:clear_value() end
     if frame == 19 then monitor(true); io:write_u8(0x43, 0x00); plug:clear_value() end
     if frame == 22 then monitor(false); loop:clear_value() end
     if frame == 25 then monitor(false); print("DATA_JACK_PIN_PROBE passed"); machine:exit() end
@@ -48,6 +50,7 @@ def main():
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/data-jack-pin-probe")
+    parser.add_argument("--profile", choices=("downloaded", "desktop", "universal"), default="downloaded")
     args = parser.parse_args()
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
@@ -65,7 +68,7 @@ def main():
     env.update(COINLINE_EMU_ROOT=str(out), COINLINE_MOTHERBOARD="later", COINLINE_HARDWARE_PRESET="multipay-v1.3",
                COINLINE_BOARD=str(ROOT / "fixtures/board/board-profile-2line-vfd.json"), COINLINE_FIRMWARE=str(seed),
                COINLINE_DIAGNOSTICS="0", COINLINE_TP8048_ROM=str(args.controller.resolve()),
-               COINLINE_DATA_JACK_PROFILE="downloaded", COINLINE_DATA_JACK_TRACE="1")
+               COINLINE_DATA_JACK_PROFILE=args.profile, COINLINE_DATA_JACK_TRACE="1")
     command = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
                "-nolog", "-video", "none", "-sound", "none", "-rompath", str(args.rompath.resolve()),
                "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
@@ -74,9 +77,11 @@ def main():
     log = result.stdout.decode(errors="replace")
     (out / "mame.log").write_text(log, encoding="utf-8")
     routes = ["laptop_and_network", "laptop_only", "network_only", "unknown"]
-    if result.returncode or "DATA_JACK_PIN_PROBE passed" not in log or any(f"route={route} " not in log for route in routes):
+    if (result.returncode or "DATA_JACK_PIN_PROBE passed" not in log or any(f"route={route} " not in log for route in routes)
+            or "plug=1 loop=1 office=1" not in log or "plug=1 loop=1 office=0" not in log):
         raise RuntimeError(f"Native data-jack monitor/relay probe failed: {out}")
-    (out / "result.json").write_text(json.dumps({"monitor": "pass", "raw_relay_actions": routes,
+    (out / "result.json").write_text(json.dumps({"profile": args.profile, "monitor": "pass", "raw_relay_actions": routes,
+                                                 "independent_office_availability": "pass",
                                                  "audio_or_data_session": "unqualified"}, indent=2))
     print(f"Native data-jack monitor and raw relay probe passed: {out}")
 

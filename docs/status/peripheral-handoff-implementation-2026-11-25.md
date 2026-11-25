@@ -50,6 +50,28 @@ gates; the synthetic CPU probe does not claim them.
 This qualifies the monitor and raw control decoding only. Analogue switching,
 external DTMF detection and modem handshake/bidirectional data remain open.
 
+### Connector and profile follow-up
+
+J34's two inner harness positions connect to the external data-jack module;
+its outer positions are joined by a current-limiting link. The numbered
+connector orientation, polarity and analogue transfer function are not
+established by that harness drawing. The model now tracks available office
+line independently of plug presence and external modem seizure. The
+documented historical non-download monitor polarity is low, while the
+downloaded-code profile uses high. An explicit polarity override remains
+available for a measured alternative profile. The fourth relay combination
+still reports unknown rather than inventing an analogue topology.
+
+Native bus probes passed all four raw output combinations and monitor
+polarity for the downloaded, desktop and universal logical profiles on
+the later-board bus. They also changed office availability independently
+while the external loop remained seized and the handset remained unchanged.
+Evidence: `build/firmware-acceptance/data-jack-pin-probe/20261125T231238.457814Z/`,
+`20261125T231239.762020Z/`, and `20261125T231241.251498Z/`.
+The legacy physical board wiring, current-detector threshold and actual
+analogue path remain unqualified. Do not equate the existing switch-level
+monitor abstraction with a measured current comparator.
+
 ## ADSI deterministic timing fixture
 
 The fixture generator produces 8 kHz signed PCM with 1 second of initial

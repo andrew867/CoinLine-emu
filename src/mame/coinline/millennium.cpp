@@ -87,6 +87,12 @@ INPUT_PORTS_START(millennium)
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Data jack external equipment plugged")
 	PORT_BIT(0x02, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Data jack external loop seized")
 
+	// Explicit diagnostic inputs. No default keyboard shortcut or implicit
+	// coupling between the CPU NMI and the telephony power indication.
+	PORT_START("POWERUI")
+	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Control power-failure NMI test")
+	PORT_BIT(0x02, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Control rail unavailable test")
+
 	// MAME's digit codes identify physical keys. Shift selects * or # on a US keyboard.
 	auto &keypad = *portlist.at(owner.subtag("KEYMATRIX"));
 	keypad.field(0x004U)->set_defseq(input_seq(KEYCODE_3, input_seq::not_code, KEYCODE_LSHIFT,

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace coinline::terminal {
@@ -101,11 +102,13 @@ public:
 	void configure(profile wiring, bool monitor_active_high) noexcept;
 	void reset() noexcept;
 	void set_connector(bool plugged, bool seized) noexcept;
+	void set_office_line(bool available) noexcept { m_office_line_available = available; }
 	void write_pio_c(std::uint8_t value) noexcept { m_pio_c = value; }
 	void write_hw_control(std::uint8_t value) noexcept { m_hw_control = value; }
 	bool enabled() const noexcept { return m_profile != profile::disabled; }
 	bool plugged() const noexcept { return m_plugged; }
 	bool external_loop() const noexcept { return m_plugged && m_seized; }
+	bool office_line_available() const noexcept { return m_office_line_available; }
 	std::uint8_t merge_monitor(std::uint8_t status) const noexcept;
 	route selected_route() const noexcept;
 	std::uint8_t raw_relay_mask() const noexcept { return m_pio_c & 0xc0U; }
@@ -117,8 +120,35 @@ private:
 	bool m_monitor_active_high = true;
 	bool m_plugged = false;
 	bool m_seized = false;
+	bool m_office_line_available = false;
 	std::uint8_t m_pio_c = 0;
 	std::uint8_t m_hw_control = 0;
+};
+
+// Observe completed firmware-generated positive watchdog pulses. Times are
+// emulated nanoseconds; the one-second service deadline is not a measured
+// supervisor IC threshold.
+class watchdog_monitor {
+public:
+	static constexpr std::uint64_t deadline_ns = 1000000000ULL;
+	struct pulse { std::uint64_t at, width, gap; bool has_gap; };
+	void reset(bool high) noexcept {
+		m_high = high; m_have_rise = false; m_have_pulse = false;
+		m_rise = 0; m_last = 0;
+	}
+	std::optional<pulse> observe(bool high, std::uint64_t now) noexcept {
+		if (high == m_high) return std::nullopt;
+		m_high = high;
+		if (high) { m_rise = now; m_have_rise = true; return std::nullopt; }
+		if (!m_have_rise) return std::nullopt;
+		m_have_rise = false;
+		pulse const result{now, now - m_rise, m_have_pulse ? now - m_last : 0, m_have_pulse};
+		m_have_pulse = true; m_last = now;
+		return result;
+	}
+private:
+	bool m_high = false, m_have_rise = false, m_have_pulse = false;
+	std::uint64_t m_rise = 0, m_last = 0;
 };
 
 class eeprom_model {
