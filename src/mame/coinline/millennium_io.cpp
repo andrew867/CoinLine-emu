@@ -21,7 +21,11 @@ u8 millennium_state::external_io_r(offs_t offset)
 			return m_unknown_default; // No pixel readback interface.
 		}
 		if (low == 0x80) {
-			u8 const result = m_graphic_vfd.read_status(catch_all_io_r(low), m_maincpu->total_cycles());
+			// Independent, active-low analogue expansion outputs.
+			u8 status = catch_all_io_r(low) | 0x0cU;
+			if (m_adsi_rx.cas_detected()) status &= ~0x04U;
+			if (m_adsi_rx.fsk_carrier()) status &= ~0x08U;
+			u8 const result = m_graphic_vfd.read_status(status, m_maincpu->total_cycles());
 			trace_graphic_vfd(port, 'r', result);
 			return result;
 		}

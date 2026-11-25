@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
+    parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
+    parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     args = parser.parse_args()
     image = args.firmware.read_bytes()
@@ -96,6 +98,10 @@ def main():
             env["COINLINE_ACCEPTANCE_" + key.upper()] = str(settings[key])
     if settings.get("free_call"):
         env["COINLINE_OUTBOUND"] = str(settings["free_call"])
+    if args.adsi:
+        env["COINLINE_LOCAL_VOICE_ROUTE"] = json.dumps(settings.get("adsi_route", {
+            "digits": ["2374", "7095550174", "17095550174"], "target": "2374", "port": 5069}))
+        env["COINLINE_ADSI_TRACE"] = "1"
     if args.trace and args.display == "11line":
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
@@ -107,7 +113,7 @@ def main():
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     view = "Graphical" if args.display == "11line" else "Standard"
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
-           "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "none",
+           "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "auto" if args.sound else "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),
            "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
            "-snapshot_directory", str(out), "-snapview", view if args.artwork else "native",

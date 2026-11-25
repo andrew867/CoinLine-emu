@@ -20,6 +20,7 @@ From the emulator to the office:
 - `H1` / `H0` — handset off-hook / on-hook
 - `E1` / `E0` — firmware ringer enable
 - `S` / `X` — loop seized / released
+- `Q1` / `Q0` : modem relay connected / disconnected, independent of handset seizure. On a management dial, `Q0` restores the CO to its voice-ready state even when the handset continues holding the loop.
 - `D<digit>` — digit the firmware outpulsed
 - `M<hex>` — 8 kHz PCM from the handset microphone
 
@@ -79,6 +80,22 @@ The registrar bridge calls the destination outpulsed on the jack. It converts
 10- and 11-digit North American dials and 011 international dials to E.164.
 For a fixed-target lab probe, set `COINLINE_SIP_DEST` and set
 `COINLINE_OUTBOUND` to the exact trigger digits.
+
+### Local ADSI service
+
+The optional `--adsi` launcher switch enables the exact local route in the
+`[adsi]` section of `coinline.ini`. It also works in local CO mode without
+credentials. The aliases must be permitted by the installed terminal tables.
+The office sends an unauthenticated UDP SIP INVITE to the configured loopback
+service, offers PCMU at 8 kHz, and bridges actual RTP audio. It reserves the
+advertised receive socket before dialing. Post-answer DTMF events from the
+terminal, including A through D, are transmitted as audio. A failed local
+route never falls through to the external SIP or PSTN destination.
+
+The graphical receiver examines the received PCM for the CAS tones and Bell
+202 serial data; neither the CO nor the launcher provides display text or
+fabricated terminal acknowledgements. A live graphical firmware exchange is
+required to qualify the complete service.
 
 Inbound SIP INVITEs set ring on the jack until the handset answers; then the
 office answers SIP and applies polarity reversal. For a loopback ring probe

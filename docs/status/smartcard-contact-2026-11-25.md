@@ -63,3 +63,14 @@
   modem relay released with the handset still off-hook. No settlement was
   demonstrated in this run.
   Run: `build/firmware-acceptance/graphic-firmware/20261125T064954.854171Z/`.
+- The CO now receives an independent modem-relay transition. A normal
+  release clears management supervision without requiring a handset loop
+  release. With this corrected model, the same installed battery reached
+  service, accepted the synthetic stripe, obtained a second host quote and
+  approved authorization, outpulsed the local test destination, and received
+  CO answer supervision. Hangup returned the terminal to service. The host
+  observed no CDR or debit, including during the subsequent cover alarm
+  call; the attempted standalone Craft upload did not reach its menu.
+  The virtual balance is unchanged. This qualifies authorization and a
+  locally connected call, not payment settlement.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T065959.364003Z/`.

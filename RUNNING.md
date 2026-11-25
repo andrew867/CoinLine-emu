@@ -59,10 +59,19 @@ INSTALL and restart cases. All four staged later V1.3 images (`NLA1X05`,
 `NQA1X01`, `NOK1X03`, and `NOA1X04`) also completed INSTALL and returned to
 service after restart. Both V1.1 images (`NKA1X02` and `NKA1X05`) also
 passed. Their dedicated NCC set includes the two mandatory expanded
-visual-prompt records, MT85 and MT86. Chip-card acceptance and several
-other firmware families still have open gates.
+visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
+passed on the later Multi-pay board; funded chip-card applications and
+several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
-and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
+and [firmware results catalog](../docs/uat/firmware-acceptance-catalog.md).
+
+An optional graphical voice-service route is available with `--adsi`. Set
+the exact local aliases, target and UDP port under `[adsi]` in `coinline.ini`.
+The corresponding terminal tables must permit the aliases. This route is
+loopback only and has no external SIP fallback. See the
+[CO bridge instructions](tools/line-jack/README.md#local-adsi-service).
+Live firmware menu acceptance is tracked separately from the audio decoder
+and SIP transport tests.
 
 Coin Basic uses the earlier I/O map with display and Voiceware ports exchanged.
 Use `--portable-display attached` during Craft setup, then exit and start the

@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 import base64
+import json
+import math
+import struct
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -30,25 +33,52 @@ class ScriptedJack:
 
 
 class OutboundRoutingTest(unittest.TestCase):
-    def run_office(self, mode, steps, target="", inbound=False):
+    def run_office(self, mode, steps, target="", inbound=False, route="", fail_direct=False):
         jack = ScriptedJack(steps + [(0.0, b"")])
         with (
             patch.object(office, "MODE", mode),
             patch.object(office, "EXPECT", "5550123"),
             patch.object(office, "SIP_DEST", target),
-            patch.dict(office.os.environ, {"COINLINE_SIP_PEER_ONLY": "0", "COINLINE_CO_INBOUND": str(int(inbound))}),
+            patch.dict(office.os.environ, {"COINLINE_SIP_PEER_ONLY": "0", "COINLINE_CO_INBOUND": str(int(inbound)),
+                                           "COINLINE_LOCAL_VOICE_ROUTE": route}),
             patch.object(office, "connect_jack", return_value=jack),
             patch.object(office, "select", SimpleNamespace(select=jack.select)),
             patch.object(office, "time", SimpleNamespace(monotonic=lambda: jack.now)),
             patch.object(office, "answer_reversal") as reversal,
             patch.object(office.SipSide, "start"),
             patch.object(office.SipSide, "answered", return_value=False),
-            patch.object(office.SipSide, "dial") as dial,
+            patch.object(office.SipSide, "dial", side_effect=(OSError("unavailable") if fail_direct else None)) as dial,
         ):
             office.run_local_or_sip()
         self.writes = [call.args[0] for call in jack.sendall.call_args_list]
         self.timed_writes = jack.writes
         return [call.args[0] for call in dial.call_args_list], reversal.call_count
+
+    def test_exact_local_route_has_precedence_and_no_fallback(self):
+        route = json.dumps({"digits": ["2374", "7095550174"], "target": "2374", "port": 5069})
+        calls, _ = self.run_office("sip", [(0.0, outpulse("7095550174")), (2.0, None), (2.0, None)],
+                                   route=route, fail_direct=True)
+        self.assertEqual(calls, ["2374"])
+        calls, _ = self.run_office("sip", [(0.0, outpulse("7095550175")), (2.0, None)], route=route)
+        self.assertEqual(calls, ["+17095550175"])
+        calls, _ = self.run_office("local", [(0.0, outpulse("2374")), (2.0, None)], route=route)
+        self.assertEqual(calls, ["2374"])
+
+    def test_loopback_manager_number_cannot_be_voice_alias(self):
+        with self.assertRaises(ValueError):
+            office.LocalVoiceRoute.parse(json.dumps({"digits": [office.NCC_LOOPBACK], "target": "2374", "port": 5069}))
+
+    def test_post_answer_dtmf_is_pcm_with_extended_digits(self):
+        pcm = office.PcmBridge()
+        pcm.queue_line_dtmf("A")
+        samples = struct.unpack("<1040h", pcm.take_from_phone(1040))
+        self.assertTrue(any(samples[:640]))
+        self.assertEqual(samples[640:], (0,) * 400)
+        def power(hz):
+            return sum(samples[i] * math.cos(math.tau * hz * i / 8000) for i in range(640))**2 + \
+                   sum(samples[i] * math.sin(math.tau * hz * i / 8000) for i in range(640))**2
+        self.assertGreater(power(697), power(770) * 10)
+        self.assertGreater(power(1633), power(1477) * 10)
 
     def test_sip_calls_each_outpulsed_number(self):
         calls, reversals = self.run_office("sip", [
@@ -70,6 +100,16 @@ class OutboundRoutingTest(unittest.TestCase):
             (4.1, None),
         ])
         self.assertEqual(calls, [])
+        self.assertEqual(reversals, 1)
+
+    def test_manager_releases_without_handset_loop_release(self):
+        calls, reversals = self.run_office("sip", [
+            (0.0, b"Q1\n" + outpulse(office.NCC_LOOPBACK)),
+            (6.1, None),
+            (0.0, b"Q0\n" + b"".join(f"D{d}\n".encode() for d in "2025550123")),
+            (1.6, None),
+        ])
+        self.assertEqual(calls, ["+12025550123"])
         self.assertEqual(reversals, 1)
 
     def test_jack_labels_dial_tone_until_the_first_digit(self):

@@ -143,6 +143,7 @@ void millennium_modem_model::reset()
 	m_ncc_lab_hello_at = -1.0;
 	m_ncc_tx_pending.clear();
 	m_ssi_cr0 = m_ssi_cr1 = m_ssi_cr2 = m_ssi_cr3 = m_ssi_dr = m_ssi_tr = 0;
+	m_adsi_carrier = false;
 	m_ssi_pio = 0;
 	m_ssi_shift = 0;
 	m_ssi_bit = -1;
@@ -435,7 +436,19 @@ void millennium_modem_model::refresh_detect_register()
 		dr = 0x00;
 		break;
 	}
+	if (!m_ncc_up && adsi_receiver_mode()) {
+		dr &= ~0x08U;
+		if (m_adsi_carrier) dr |= 0x08U;
+	}
 	m_ssi_dr = dr;
+}
+
+void millennium_modem_model::set_adsi_carrier(bool carrier) noexcept
+{
+	if (m_adsi_carrier != carrier) {
+		m_adsi_carrier = carrier;
+		refresh_detect_register();
+	}
 }
 
 void millennium_modem_model::poll_call_progress(double now_sec)

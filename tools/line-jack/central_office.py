@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import json
 import math
 import os
 import random
@@ -52,6 +53,35 @@ MODE = (os.environ.get("COINLINE_CO_MODE") or "auto").strip().lower()
 
 
 NCC_LOOPBACK = str(int.from_bytes(socket.inet_aton(HOST), "big"))
+
+
+@dataclass(frozen=True)
+class LocalVoiceRoute:
+	digits: tuple[str, ...]
+	target: str
+	port: int
+	from_user: str = "co"
+
+	@classmethod
+	def parse(cls, raw: str) -> LocalVoiceRoute | None:
+		if not raw:
+			return None
+		value = json.loads(raw)
+		if not isinstance(value, dict):
+			raise ValueError("Invalid exact loopback voice route")
+		digits = value.get("digits")
+		target = value.get("target")
+		port = value.get("port")
+		if (not isinstance(digits, list) or not digits
+				or not all(isinstance(d, str) and re.fullmatch(r"[0-9]{1,15}", d) and d != NCC_LOOPBACK for d in digits)
+				or len(set(digits)) != len(digits)
+				or not isinstance(target, str) or not re.fullmatch(r"[0-9]{1,15}", target)
+				or type(port) is not int or not 1 <= port <= 65535):
+			raise ValueError("Invalid exact loopback voice route")
+		return cls(tuple(digits), target, port)
+
+	def matches(self, digits: str) -> bool:
+		return digits in self.digits
 
 
 def env_mode() -> str:
@@ -640,6 +670,7 @@ class PcmBridge:
 		self._lock = threading.Lock()
 		self.to_phone: deque[int] = deque(maxlen=16000)
 		self.from_phone: deque[int] = deque(maxlen=16000)
+		self.from_phone_tones: deque[int] = deque(maxlen=16000)
 
 	def push_to_phone(self, samples: bytes) -> None:
 		with self._lock:
@@ -651,6 +682,8 @@ class PcmBridge:
 			out = bytearray()
 			for _ in range(n):
 				s = self.from_phone.popleft() if self.from_phone else 0
+				if self.from_phone_tones:
+					s = self.from_phone_tones.popleft()
 				s = max(-32768, min(32767, int(s)))
 				out += struct.pack("<h", s)
 			return bytes(out)
@@ -658,6 +691,25 @@ class PcmBridge:
 	def push_from_phone_i16(self, sample: int) -> None:
 		with self._lock:
 			self.from_phone.append(int(sample))
+
+	def queue_line_dtmf(self, digit: str) -> None:
+		if len(digit) != 1:
+			return
+		keys = ("123A", "456B", "789C", "*0#D")
+		for row, group in enumerate(keys):
+			if digit not in group:
+				continue
+			low = (697, 770, 852, 941)[row]
+			high = (1209, 1336, 1477, 1633)[group.index(digit)]
+			with self._lock:
+				self.from_phone_tones.extend(round(5000 * (math.sin(math.tau * low * i / 8000)
+					+ math.sin(math.tau * high * i / 8000))) for i in range(640))
+				self.from_phone_tones.extend([0] * 400)
+			return
+
+	def clear_line_dtmf(self) -> None:
+		with self._lock:
+			self.from_phone_tones.clear()
 
 	def take_to_phone_i16(self, n: int) -> list[int]:
 		with self._lock:
@@ -706,8 +758,14 @@ def answer_reversal(sock: socket.socket) -> None:
 
 
 class SipSide:
-	def __init__(self, pcm: PcmBridge) -> None:
+	# Reserved direct-call sockets are consumed by the shared RTP start hook.
+	_reserved_lock = threading.Lock()
+	_reserved_rtp: dict[tuple[str, int], socket.socket] = {}
+
+	def __init__(self, pcm: PcmBridge, direct: LocalVoiceRoute | None = None) -> None:
 		self.pcm = pcm
+		self.direct = direct
+		self._reserved_keys: set[tuple[str, int]] = set()
 		self.phone = None
 		self.call = None
 		self.local_peer: LocalSipPeer | None = None
@@ -715,9 +773,9 @@ class SipSide:
 		self._thread: threading.Thread | None = None
 		self.inbound_pending = threading.Event()
 		self._lock = threading.Lock()
-		self._local_only = (SIP_DEST.strip().lower() == "local") or (
+		self._local_only = direct is None and ((SIP_DEST.strip().lower() == "local") or (
 			os.environ.get("COINLINE_SIP_PEER_ONLY", "0") == "1"
-		)
+		))
 
 	def destination_for(self, digits: str) -> str | None:
 		if self._local_only or SIP_DEST:
@@ -755,9 +813,14 @@ class SipSide:
 				print("sip RTP packet decoded", flush=True)
 
 		def start_rtp(stream):
-			udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			with SipSide._reserved_lock:
+				udp = SipSide._reserved_rtp.pop((stream.inIP, stream.inPort), None)
+			reserved = udp is not None
+			if udp is None:
+				udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			try:
-				udp.bind((stream.inIP, stream.inPort))
+				if not reserved:
+					udp.bind((stream.inIP, stream.inPort))
 				udp.setblocking(False)
 			except OSError:
 				udp.close()
@@ -766,22 +829,25 @@ class SipSide:
 			for target in (stream.recv, stream.trans):
 				threading.Thread(target=target, daemon=True).start()
 
-		RTPClient.encode_packet = encode_g711
-		RTPClient.parse_packet = observe_rtp
-		RTPClient.start = start_rtp
+		if not getattr(RTPClient, "coinline_hooks_installed", False):
+			RTPClient.encode_packet = encode_g711
+			RTPClient.parse_packet = observe_rtp
+			RTPClient.start = start_rtp
+			RTPClient.coinline_hooks_installed = True
 
-		host = os.environ["COINLINE_SIP_HOST"]
-		user = os.environ["COINLINE_SIP_USER"]
-		password = os.environ["COINLINE_SIP_PASSWORD"]
-		port = int(os.environ.get("COINLINE_SIP_PORT") or "5060")
-		local_port = int(os.environ.get("COINLINE_SIP_LOCAL_PORT") or "5070")
-		my_ip = os.environ.get("COINLINE_SIP_MY_IP") or "0.0.0.0"
-		media_ip = os.environ.get("COINLINE_SIP_PUBLIC_IP", "")
-		rtp_port = int(os.environ.get("COINLINE_SIP_RTP_PORT") or 0)
-		print(
-			f"sip registering local={local_port}",
-			flush=True,
-		)
+		if self.direct is not None:
+			host, user, password = HOST, self.direct.from_user, ""
+			port, local_port, my_ip, media_ip, rtp_port = self.direct.port, 0, HOST, "", 0
+		else:
+			host = os.environ["COINLINE_SIP_HOST"]
+			user = os.environ["COINLINE_SIP_USER"]
+			password = os.environ["COINLINE_SIP_PASSWORD"]
+			port = int(os.environ.get("COINLINE_SIP_PORT") or "5060")
+			local_port = int(os.environ.get("COINLINE_SIP_LOCAL_PORT") or "5070")
+			my_ip = os.environ.get("COINLINE_SIP_MY_IP") or "0.0.0.0"
+			media_ip = os.environ.get("COINLINE_SIP_PUBLIC_IP", "")
+			rtp_port = int(os.environ.get("COINLINE_SIP_RTP_PORT") or 0)
+			print(f"sip registering local={local_port}", flush=True)
 		self.phone = VoIPPhone(
 			host,
 			port,
@@ -796,6 +862,26 @@ class SipSide:
 		# The outbound identity is the registered SIP address. Via and Contact
 		# keep the local transport address used by the SIP socket.
 		client = self.phone.sip
+		if self.direct is not None:
+			def direct_ready():
+				nonlocal local_port
+				# SIPClient.start has already bound its real UDP socket.
+				local_port = client.s.getsockname()[1]
+				client.myPort = local_port
+				self.phone._status = PhoneStatus.REGISTERED
+				print("local SIP voice endpoint ready without REGISTER", flush=True)
+				return True
+			client.register = direct_ready
+			def reserve_direct_rtp(blocking=True):
+				udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+				udp.bind((HOST, 0))
+				key = (HOST, udp.getsockname()[1])
+				with SipSide._reserved_lock:
+					SipSide._reserved_rtp[key] = udp
+				self._reserved_keys.add(key)
+				self.phone.assignedPorts.append(key[1])
+				return key[1]
+			self.phone.request_port = reserve_direct_rtp
 		parse_message = client.parse_message
 		gen_ack = client.gen_ack
 		gen_answer = client.gen_answer
@@ -965,7 +1051,13 @@ class SipSide:
 			pending_invites.clear()
 			call_id = client.gen_call_id()
 			session_id = client.sessID.next()
+			if self.direct is not None:
+				for payloads in media.values():
+					payloads.pop(101, None)  # direct ADSI route is in-band PCMU
 			invite = client.gen_invite(number, str(session_id), media, send_type, client.gen_branch(), call_id)
+			if self.direct is not None:
+				invite = invite.replace(f"INVITE sip:{number}@{host} ", f"INVITE sip:{number}@{host}:{port} ", 1)
+				invite = re.sub(r"(?m)^(Via:[^\r\n]+)(\r?)$", r"\1;rport\2", invite, count=1)
 			if media_ip:
 				invite = advertise_rtp_address(invite, media_ip)
 			invite = invite.replace(f"\r\nFrom: <sip:{user}@{my_ip}>", f"\r\nFrom: <sip:{user}@{host}>", 1)
@@ -991,6 +1083,9 @@ class SipSide:
 			if status in (401, 407) and call_id in pending_invites:
 				invite = pending_invites.pop(call_id)
 				client.out.sendto(client.gen_ack(message).encode(), (host, port))
+				if self.direct is not None:
+					print("local SIP voice endpoint unexpectedly requested authentication", flush=True)
+					return
 				proxy = status == 407
 				challenge = message.headers.get("Proxy-Authenticate" if proxy else "WWW-Authenticate", "")
 				try:
@@ -1005,6 +1100,11 @@ class SipSide:
 				return
 			pending_invites.pop(call_id, None)
 			if 200 <= status < 300:
+				if self.direct is not None:
+					contact_host, _ = sip_hop(sip_uri(message.headers["Contact"]))
+					if contact_host != HOST or message.body["c"][0]["address"] != HOST or sip_route_set(message.raw):
+						print("local SIP response attempted a non-loopback media or dialog route", flush=True)
+						return
 				sequence = int(cseq["check"])
 				if call_id not in dialogs:
 					call = self.phone.calls.get(call_id)
@@ -1038,6 +1138,8 @@ class SipSide:
 						pending_byes[key] = (packet, target, now + delay, expiry, delay)
 						client.s.sendto(packet, target)
 				raw, peer = client.s.recvfrom(8192)
+				if self.direct is not None and peer[0] != HOST:
+					return
 				if raw in (b"\x00\x00\x00\x00", b"\r\n", b"\r\n\r\n"):
 					return
 				raw = normalize_sip_packet(raw)
@@ -1064,6 +1166,10 @@ class SipSide:
 				message.coinline_audio_offer = offer
 				if message.type == SIPMessageType.MESSAGE:
 					accepted = reply_socket.accept_request(message, peer)
+					if self.direct is not None and message.method == "INVITE" and message.headers.get("Call-ID") not in dialogs:
+						if accepted:
+							server_reply(message, "486 Busy Here")
+						return
 					if accepted or message.method == "ACK":
 						observe_request(message)
 				else:
@@ -1085,7 +1191,8 @@ class SipSide:
 		while time.time() < deadline:
 			status = self.phone.get_status()
 			if status == PhoneStatus.REGISTERED:
-				print(f"sip status {status}", flush=True)
+				if self.direct is None:
+					print(f"sip status {status}", flush=True)
 				break
 			time.sleep(0.25)
 		else:
@@ -1098,6 +1205,11 @@ class SipSide:
 		self.hangup()
 		if self.phone is not None:
 			self.phone.stop()
+		with SipSide._reserved_lock:
+			for key in self._reserved_keys:
+				if (udp := SipSide._reserved_rtp.pop(key, None)) is not None:
+					udp.close()
+		self._reserved_keys.clear()
 
 	def hangup(self) -> None:
 		peer, self.local_peer = self.local_peer, None
@@ -1161,6 +1273,8 @@ class SipSide:
 		return False
 
 	def dial(self, number: str) -> None:
+		if self.direct is not None and number != self.direct.target:
+			return
 		if number.strip().lower() == "local" or self._local_only:
 			self.local_peer = LocalSipPeer(self.pcm)
 			ok = self.local_peer.dial()
@@ -1190,11 +1304,13 @@ class SipSide:
 		from pyVoIP.VoIP import CallState
 
 		logged_mic = None
+		next_audio = time.monotonic()
 		while not self._stop.is_set():
 			with self._lock:
 				call = self.call
 			if call is None or call.state != CallState.ANSWERED:
 				logged_mic = None
+				next_audio = time.monotonic()
 				time.sleep(0.02)
 				continue
 			try:
@@ -1214,17 +1330,34 @@ class SipSide:
 			except Exception:
 				time.sleep(0.02)
 				continue
-			time.sleep(0.018)
+			if self.direct is not None:
+				now = time.monotonic()
+				next_audio = max(now, next_audio + 0.020)
+				self._stop.wait(max(0.0, next_audio - now))
+			else:
+				time.sleep(0.018)
 
 
 def run_local_or_sip() -> None:
 	mode = env_mode()
+	local_route = LocalVoiceRoute.parse(os.environ.get("COINLINE_LOCAL_VOICE_ROUTE", ""))
 	print(f"co mode {mode}", flush=True)
 	pcm = PcmBridge()
 	sip: SipSide | None = None
 	if mode == "sip":
 		sip = SipSide(pcm)
 		sip.start()
+	direct_sip: SipSide | None = None
+	active_sip: SipSide | None = None
+
+	def release_voice() -> None:
+		nonlocal active_sip
+		if active_sip is not None:
+			active_sip.hangup()
+		elif sip is not None:
+			sip.hangup()
+		active_sip = None
+		pcm.clear_line_dtmf()
 
 	sock = connect_jack()
 	sock.settimeout(0.05)
@@ -1245,6 +1378,7 @@ def run_local_or_sip() -> None:
 	released_at = None
 	remote_released = False
 	last_digit_at = None
+	modem_relay = False
 	mic_frames = 0
 	received_audio_frames = 0
 	phase = 0.0
@@ -1277,6 +1411,19 @@ def run_local_or_sip() -> None:
 			if text == "S":
 				seized = True
 				print("seized", flush=True)
+			elif text == "Q1":
+				modem_relay = True
+			elif text == "Q0":
+				# The manager modem can release while the handset keeps the
+				# same physical loop seized. Restore the CO before voice dialing.
+				if modem_relay and digits == NCC_LOOPBACK:
+					answered = voice_bridged = sip_bridged = False
+					digits = ""
+					last_digit_at = None
+					outbound_attempted = False
+					sock.sendall(b"V\n")
+					print("manager modem released; voice dialing ready", flush=True)
+				modem_relay = False
 			elif text == "X":
 				seized = False
 				answered = False
@@ -1285,14 +1432,17 @@ def run_local_or_sip() -> None:
 				digits = ""
 				last_digit_at = None
 				outbound_attempted = False
-				if sip is not None:
-					sip.hangup()
+				release_voice()
 				print("released", flush=True)
 				sock.sendall(b"V\n")
-			elif text.startswith("D") and len(text) == 2 and seized and offhook:
-				digits += text[1]
-				last_digit_at = time.monotonic()
-				print(f"digit {digits}" if mode == "local" else f"dialed {len(digits)} digits", flush=True)
+			elif text.startswith("D") and len(text) == 2 and offhook:
+				if answered and active_sip is direct_sip and direct_sip is not None:
+					pcm.queue_line_dtmf(text[1])
+					print("local SIP post-answer DTMF event", flush=True)
+				elif seized and not answered:
+					digits += text[1]
+					last_digit_at = time.monotonic()
+					print(f"digit {digits}" if mode == "local" else f"dialed {len(digits)} digits", flush=True)
 			elif text.startswith("M") and len(text) > 1:
 				mic_frames += 1
 				hexpart = text[1:]
@@ -1314,6 +1464,7 @@ def run_local_or_sip() -> None:
 						answered = True
 						voice_bridged = True
 						sip_bridged = sip_answered
+						active_sip = sip if sip_answered else None
 						print("answered inbound", flush=True)
 			elif text == "H0":
 				offhook = False
@@ -1323,8 +1474,7 @@ def run_local_or_sip() -> None:
 				print("onhook", flush=True)
 				if outbound_attempted or answered:
 					outbound_attempted = False
-					if sip is not None:
-						sip.hangup()
+					release_voice()
 				if answered:
 					sock.sendall(b"V\n")
 					answered = False
@@ -1353,8 +1503,9 @@ def run_local_or_sip() -> None:
 			ring_on = should_ring
 			sock.sendall(b"R1\n" if ring_on else b"R0\n")
 
-		if sip_bridged and not sip.answered():
+		if sip_bridged and (active_sip is None or not active_sip.answered()):
 			answered = voice_bridged = sip_bridged = False
+			release_voice()
 			remote_released = True
 			released_at = now + 1.0
 			sock.sendall(b"C0\nV\n")
@@ -1373,9 +1524,26 @@ def run_local_or_sip() -> None:
 					answer_reversal(sock)
 					answered = True
 					print("manager answer supervision", flush=True)
+			elif local_route is not None and local_route.matches(digits):
+				# An exact loopback route is consumed even if the peer is unavailable;
+				# never retry it through the ordinary SIP/PSTN destination logic.
+				outbound_attempted = True
+				try:
+					if direct_sip is None:
+						direct_sip = SipSide(pcm, direct=local_route)
+						direct_sip.start()
+					active_sip = direct_sip
+					direct_sip.dial(local_route.target)
+					print("local SIP exact voice route selected", flush=True)
+				except (OSError, ValueError, ImportError, RuntimeError) as exc:
+					if direct_sip is not None:
+						direct_sip.stop()
+					direct_sip = active_sip = None
+					print(f"local SIP voice route unavailable: {type(exc).__name__}", flush=True)
 			elif sip is not None:
 				if destination := sip.destination_for(digits):
 					outbound_attempted = True
+					active_sip = sip
 					sip.dial(destination)
 			elif digits == EXPECT:
 				outbound_attempted = True
@@ -1384,7 +1552,7 @@ def run_local_or_sip() -> None:
 				voice_bridged = True
 				print("answered outbound", flush=True)
 
-		if outbound_attempted and not answered and sip is not None and sip.answered():
+		if outbound_attempted and not answered and active_sip is not None and active_sip.answered():
 			answer_reversal(sock)
 			answered = True
 			voice_bridged = True
@@ -1408,11 +1576,11 @@ def run_local_or_sip() -> None:
 			dial_phase, payload = dial_tone_frame(dial_phase)
 		else:
 			samples = pcm.take_to_phone_i16(160)
-			if mode == "local" and not any(samples):
+			if mode == "local" and not sip_bridged and not any(samples):
 				phase, payload = tone_frame(440.0, phase)
 			else:
 				payload = struct.pack("<160h", *samples).hex()
-			if mode == "sip" and any(samples):
+			if sip_bridged and any(samples):
 				if received_audio_frames == 0:
 					print("SIP audio reached the line jack", flush=True)
 				received_audio_frames += 1
@@ -1428,6 +1596,8 @@ def run_local_or_sip() -> None:
 	)
 	if sip is not None:
 		sip.stop()
+	if direct_sip is not None:
+		direct_sip.stop()
 
 
 if __name__ == "__main__":
