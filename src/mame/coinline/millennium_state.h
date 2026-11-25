@@ -74,6 +74,7 @@ public:
 	u8 board_status_r();
 	void board_status_w(u8 data);
 	void write_hw_cntl(u8 data);
+	void update_async_contacts();
 	void write_display_port(u8 data, std::uint16_t port);
 	u8 pio_keypad_r(offs_t offset);
 	void pio_keypad_w(offs_t offset, u8 data);

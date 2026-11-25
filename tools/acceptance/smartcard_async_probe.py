@@ -71,6 +71,42 @@ def synthetic_program(protocol):
 
     emit(0x16, 0x10)  # stage marker D
     poll(0x40, 6, 6)  # wait for both card insertion switches
+    if protocol == "slots":
+        # Independently powered internal laboratory endpoints share ASCI0.
+        # Release the actual reset line only after its selected clock starts.
+        for slot in range(3):
+            emit(0x16, 0x50 + slot)
+            out(0x00, 0x06)
+            out(0xc0, 0xf0)
+            out(0xc1, 4 | slot)
+            out(0xc2, 0)
+            out(0x43, 0xf0)
+            out(0x63, 0xc1)
+            delay(0x4000)
+            out(0x02, 2)
+            out(0x00, 0x66)
+            out(0x63, 0xc1 | (8 << slot))
+            out(0xc2, 2)
+            delay(0x4000)
+            out(0x43, 0xf0 | (1 << slot))
+            select = (0, 0xa4, 4, 0, 5, 0xf0, 0x4c, 0x41, 0x42, 1)
+            read = (0, 0xb0, 0, 0, 4)
+            data = (ord('M'), ord('O'), ord('D'), ord('0') + slot)
+            if slot == 1:
+                rx((0x3b, 0x80, 1, 0x81))
+                tx(block(0, select)); rx(block(0, (0x90, 0)))
+                tx(block(0x40, read)); rx(block(0x40, (*data, 0x90, 0)))
+            else:
+                rx((0x3b, 0))
+                tx(select[:5]); rx((0xa4,)); tx(select[5:]); rx((0x90, 0))
+                tx(read); rx((0xb0, *data, 0x90, 0))
+            out(0x00, 0x06)
+            out(0xc0, 0xf8)
+            out(0x43, 0xff)
+            out(0x63, 0xff)
+            out(0xc2, 0)
+            delay(0x1000)
+        # Continue with a different fixture at the physical customer socket.
     out(0xc0, 0xf0)  # clear only async gate bit in the reset latch
     out(0xc1, 7)     # customer contact, manual output released
     out(0xc2, 0)
@@ -136,7 +172,7 @@ end, "synthetic native smart-card UART")
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mame", required=True, type=Path)
-    parser.add_argument("--protocol", choices=("t0", "t1", "t0-inverse", "t0-pps", "all"), default="all")
+    parser.add_argument("--protocol", choices=("t0", "t1", "t0-inverse", "t0-pps", "slots", "all"), default="all")
     parser.add_argument("--pps-spacing-us", type=int, default=1500, help="declared synthetic PPS card inter-character delay")
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
@@ -144,7 +180,7 @@ def main():
     args = parser.parse_args()
     root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     root.mkdir(parents=True)
-    for protocol in ("t0", "t1", "t0-inverse", "t0-pps") if args.protocol == "all" else (args.protocol,):
+    for protocol in ("t0", "t1", "t0-inverse", "t0-pps", "slots") if args.protocol == "all" else (args.protocol,):
         out = root / protocol
         out.mkdir()
         shutil.copytree(ROOT / "fixtures", out / "fixtures")
@@ -171,6 +207,19 @@ def main():
                    COINLINE_BOARD=str(ROOT / "fixtures/board/board-profile-2line-vfd.json"), COINLINE_FIRMWARE=str(seed),
                    COINLINE_DIAGNOSTICS="0", COINLINE_TP8048_ROM=str(args.controller.resolve()),
                    COINLINE_SMART_CARD=str(fixture), COINLINE_SMART_CARD_TRACE="1", COINLINE_SMART_CARD_LAB_TRACE="1")
+        if protocol == "slots":
+            customer = ROOT / "fixtures/cards/smartcard-async-t0-lab.json"
+            env["COINLINE_SMART_CARD"] = str(customer)
+            env["COINLINE_SAM_PIN_TRACE"] = "1"
+            for slot in range(3):
+                source = ROOT / f"fixtures/cards/smartcard-async-{'t1' if slot == 1 else 't0'}-lab.json"
+                lab = json.loads(source.read_text())
+                lab["memory_hex"] = f"MOD{slot}".encode().hex()
+                # Native probe explicitly releases the independently reset socket.
+                lab["reset_policy"] = "external"
+                path = out / f"slot{slot}-lab.json"
+                path.write_text(json.dumps(lab), encoding="ascii")
+                env[f"COINLINE_SAM_SLOT{slot}"] = str(path)
         command = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
                    "-video", "none", "-sound", "none", "-rompath", str(args.rompath.resolve()),
                    "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),

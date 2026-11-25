@@ -8,6 +8,48 @@
 int main()
 {
 	{
+		// An asymmetric, non-payment fixture distinguishes MSB-first readout
+		// from reversed or shifted bits, including address crossings.
+		for (bool earlier : {false, true}) {
+			millennium_smartcard_model card;
+			std::string error;
+			if (!card.parse_fixture_json(R"({"protocol":"sync","atr_hex":"00","memory_hex":"963CA700"})", error)) return 40;
+			card.insert_card_at(0, 1000000);
+			if (earlier) {
+				card.update_earlier_pins(0, 0xc0);
+				card.update_earlier_pins(0x40, 0xc0);
+				card.update_earlier_pins(0, 0xc0);
+			} else {
+				card.update_later_pins(4, 8, 0);
+				card.update_later_pins(4, 8, 2);
+				card.update_later_pins(4, 8, 0);
+			}
+			auto pins = [&](bool reset, bool clock) {
+				if (earlier)
+					card.update_earlier_pins(0, (reset ? 0 : 0x80) | (clock ? 0 : 0x40));
+				else
+					card.update_later_pins(4 | (clock ? 8 : 0), 8 | (reset ? 4 : 0), 0);
+			};
+			auto seek_zero = [&] { pins(true, false); pins(true, true); pins(true, false); pins(false, false); };
+			auto advance = [&] { pins(false, true); pins(false, false); };
+			auto read = [&](unsigned count) {
+				std::uint32_t value = 0;
+				for (unsigned i = 0; i < count; ++i) { value = (value << 1) | unsigned(card.sync_data_high()); advance(); }
+				return value;
+			};
+			seek_zero();
+			if (read(32) != 0x963ca700U || card.sync_bit_address() != 32) return 41;
+			if (read(8) != 0xffU || card.sync_bit_address() != 32) return 42;
+			seek_zero();
+			for (unsigned i = 0; i < 8; ++i) advance();
+			if (card.sync_bit_address() != 8 || read(16) != 0x3ca7U) return 43;
+			seek_zero();
+			if (read(8) != 0x96 || card.memory() != std::vector<std::uint8_t>{0x96,0x3c,0xa7,0}) return 44;
+			card.remove_card();
+			if (!card.sync_data_high() || card.sync_powered()) return 45;
+		}
+	}
+	{
 		millennium_smartcard_model m;
 		std::string err;
 		if (!m.parse_fixture_json(R"({"protocol":"sync","atr_hex":"00","memory_hex":"FFFF","sync_program_enabled":true,"sync_program_first_bit":1,"sync_program_end_bit":4,"sync_program_us":10})", err))

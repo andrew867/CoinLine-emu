@@ -36,6 +36,9 @@ def main():
     parser.add_argument("--keypad-trace", action="store_true", help="capture panel inputs and TP command/key transactions without per-edge CSIO logs")
     parser.add_argument("--dtmf-trace", action="store_true", help="trace controller dial-pad tone gating and genuine tone events")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
+    parser.add_argument("--sam-pin-trace", action="store_true", help="capture bounded internal contact selector and latch transitions")
+    for slot in range(3):
+        parser.add_argument(f"--sam-slot{slot}", type=Path, help=f"read-only non-payment internal contact fixture for socket {slot}")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
     parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
     parser.add_argument("--adsi-offline-pcm", type=Path, help="deterministic signed 8 kHz line stimulus, triggered by actual configured local outpulse")
@@ -57,6 +60,9 @@ def main():
         parser.error("Use the dedicated offline CO controls for deterministic PCM tests")
     if args.snapshot_interval < 0:
         parser.error("--snapshot-interval cannot be negative")
+    sam_slots = {slot: getattr(args, f"sam_slot{slot}") for slot in range(3) if getattr(args, f"sam_slot{slot}") is not None}
+    if any(not path.is_file() for path in sam_slots.values()):
+        parser.error("Each configured internal contact fixture must be an existing local file.")
     if args.adsi_offline_pcm and (args.adsi or args.display != "11line" or not args.adsi_offline_pcm.is_file()):
         parser.error("--adsi-offline-pcm requires an existing fixture, 11line display and no SIP route")
     if args.offline_co and not args.adsi_offline_pcm:
@@ -139,6 +145,13 @@ def main():
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
         env["COINLINE_SMART_CARD_TRACE"] = "1"
+    if args.sam_pin_trace:
+        env["COINLINE_SAM_PIN_TRACE"] = "1"
+    for slot, path in sam_slots.items():
+        env[f"COINLINE_SAM_SLOT{slot}"] = str(path.resolve())
+    if sam_slots:
+        (out / "sam-lab-fixtures.json").write_text(json.dumps({str(slot): hashlib.sha256(path.read_bytes()).hexdigest()
+            for slot, path in sam_slots.items()}, indent=2), encoding="utf-8")
     if args.dtmf_trace:
         env["COINLINE_DTMF_TRACE"] = "1"
     if args.read_watch:

@@ -4,7 +4,7 @@
 
 Both the earlier and later control-board profiles have passed the native synchronous Smart Card Test. The later profile has also passed two selector values, repeated insert/remove trials, and bounded synthetic memory programming with persistence across removal. The fixture is an unfunded test contact card. Its rejection by the normal payment interface is correct. Neither the Craft contact test nor an ATR is evidence of successful application acceptance, authorization, charging or settlement.
 
-The next objective is native asynchronous contact operation, including ATR, T=0 and T=1 transport, and clean separation of transport from card applications. Keep the working synchronous contact implementation intact.
+Native generic asynchronous customer-card operation, including ATR, T=0 and T=1 transport, is now qualified. The three internal positions have also passed a synthetic native ASCI0 probe with independent fixtures. Scheme-specific application and physical module qualification remain separate objectives. Keep the working synchronous contact implementation intact.
 
 ## Contact hardware
 
@@ -23,6 +23,11 @@ The reader can present either a clock-addressed memory card or a processor card.
 | `0xC2` | `0x08` | Write | Customer card supply enable request. |
 | `0xC3` | `0x01` | Write | Extra manual card control line. |
 | `0xC3` | `0x02` | Write | Latch-clock edge used with the card-supply request. This output is also used for warning-tone transitions; preserve shared-port semantics and do not treat every toggle as an independent card insertion or reset. |
+| `0xC2` | `0x02` | Write | Shared internal module clock control; the model treats set as enable, pending physical polarity confirmation. |
+| `0x43` | `0x07` | Write | Internal module reset bits 0, 1 and 2, active low. |
+| `0x43` | `0x08` | Write | Socket 0 supply, active low. |
+| `0x63` | `0x06` | Write | Socket 1 and 2 supply bits 1 and 2, active low. |
+| `0x63` | `0x38` | Write | Individual socket clock enables, bits 3, 4 and 5. |
 | `0xC0` | `0x02` | Read | Synchronous customer-card data contact. Other independent status bits remain intact. |
 
 The card contact has been observed with more than one selector value in synchronous operation. Do not constrain the manual clock/data path to the asynchronous selector value. The selector matters to the asynchronous UART route. The earlier board uses its separate A/C latch mapping and must not inherit the later-board port map. Its native synchronous tests have already passed.

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <deque>
 #include <optional>
 #include <string>
@@ -24,6 +25,12 @@ struct millennium_smart_fixture {
 	unsigned sync_program_end_bit = 0; // exclusive
 	unsigned sync_program_us = 10000;
 };
+
+// Port H gates the asynchronous side; D selects the physical contact.
+inline std::optional<unsigned> millennium_async_contact_selector(std::uint8_t h, std::uint8_t d)
+{
+	return (h & 0x08U) ? std::nullopt : std::optional<unsigned>(d & 0x03U);
+}
 
 class millennium_smartcard_model {
 public:
@@ -59,6 +66,7 @@ public:
 	// serviced separately by the device; these methods operate on characters
 	// only after they have crossed the selected contact.
 	void update_async_later_pins(std::uint8_t h, std::uint8_t d, std::uint8_t e, std::uint64_t cycle);
+	void update_async_contact_pins(bool selected, bool power, bool clock, bool reset, std::uint64_t cycle);
 	bool async_routed() const noexcept { return m_async_routed; }
 	bool async_active() const noexcept { return m_async_active; }
 	bool async_inverse() const noexcept { return m_fixture.protocol == "async" && !m_fixture.atr.empty() && m_fixture.atr[0] == 0x3f; }
@@ -143,4 +151,33 @@ private:
 	unsigned m_t1_ifsd = 32;
 	bool m_t1_rx_sequence = false;
 	bool m_t1_tx_sequence = false;
+};
+
+// Independent internal contact slots. Board-specific power/reset/clock
+// decoding is external to this model; customer contact pins are not SAM pins.
+class millennium_sam_model {
+public:
+	bool configure_lab_slot(unsigned slot, std::string const &fixture, std::uint64_t cycle,
+		std::uint64_t cpu_hz, std::string &error);
+	void remove(unsigned slot, std::uint64_t cycle);
+	void select(std::optional<unsigned> selector, std::uint64_t cycle);
+	void pins(unsigned slot, bool power, bool clock, bool reset, std::uint64_t cycle);
+	void later_pins(std::uint8_t h, std::uint8_t d, std::uint8_t e, std::uint8_t c,
+		std::uint8_t g, std::uint64_t cycle);
+	bool active() const noexcept;
+	millennium_smartcard_model *active_card() noexcept;
+	std::optional<std::uint8_t> read(std::uint64_t cycle);
+	void write(std::uint8_t data, std::uint64_t cycle);
+	std::optional<unsigned> selected() const noexcept { return m_selected; }
+
+private:
+	struct socket {
+		millennium_smartcard_model card;
+		bool power = false;
+		bool clock = false;
+		bool reset = false;
+	};
+	void update(unsigned slot, std::uint64_t cycle);
+	std::array<socket, 3> m_slots{};
+	std::optional<unsigned> m_selected;
 };

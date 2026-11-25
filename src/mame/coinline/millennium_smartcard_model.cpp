@@ -465,11 +465,17 @@ void millennium_smartcard_model::activate_async(std::uint64_t cycle)
 
 void millennium_smartcard_model::update_async_later_pins(std::uint8_t h, std::uint8_t d, std::uint8_t e, std::uint64_t cycle)
 {
+	update_async_contact_pins(millennium_async_contact_selector(h, d) == 3U,
+		(e & 0x08U) && m_later_power_latch, (e & 0x01U) != 0,
+		(e & 0x04U) != 0, cycle);
+}
+
+void millennium_smartcard_model::update_async_contact_pins(bool selected, bool power, bool clock, bool reset,
+	std::uint64_t cycle)
+{
 	if (m_fixture.protocol != "async")
 		return;
-	bool const routed = m_card_present && !(h & 0x08U) &&
-		(d & 0x03U) == 3U && (e & 0x01U) && (e & 0x08U) && m_later_power_latch;
-	bool const reset = (e & 0x04U) != 0U;
+	bool const routed = m_card_present && selected && power && clock;
 	bool const was_routed = m_async_routed;
 	bool const was_reset = m_async_reset;
 	if (!routed || (was_routed && was_reset && !reset))
@@ -481,6 +487,101 @@ void millennium_smartcard_model::update_async_later_pins(std::uint8_t h, std::ui
 	if ((m_fixture.async_internal_reset && !was_routed && !reset) ||
 		(!m_fixture.async_internal_reset && was_routed && !was_reset && reset))
 		activate_async(cycle);
+}
+
+bool millennium_sam_model::configure_lab_slot(unsigned slot, std::string const &fixture,
+	std::uint64_t cycle, std::uint64_t cpu_hz, std::string &error)
+{
+	if (slot >= m_slots.size()) {
+		error = "Internal contact slot out of range";
+		return false;
+	}
+	millennium_smartcard_model candidate;
+	if (!candidate.parse_fixture_json(fixture, error))
+		return false;
+	if (!candidate.async_lab_application()) {
+		error = "Internal fixture must be a non-payment read-only async application";
+		return false;
+	}
+	candidate.insert_card_at(cycle, cpu_hz);
+	m_slots[slot].card = std::move(candidate);
+	update(slot, cycle);
+	return true;
+}
+
+void millennium_sam_model::remove(unsigned slot, std::uint64_t cycle)
+{
+	if (slot < m_slots.size()) {
+		m_slots[slot].card.remove_card();
+		update(slot, cycle);
+	}
+}
+
+void millennium_sam_model::select(std::optional<unsigned> selector, std::uint64_t cycle)
+{
+	if (selector && *selector >= m_slots.size())
+		selector.reset();
+	if (m_selected == selector)
+		return;
+	m_selected = selector;
+	for (unsigned slot = 0; slot < m_slots.size(); ++slot)
+		update(slot, cycle);
+}
+
+void millennium_sam_model::pins(unsigned slot, bool power, bool clock, bool reset, std::uint64_t cycle)
+{
+	if (slot >= m_slots.size())
+		return;
+	auto &s = m_slots[slot];
+	if (s.power == power && s.clock == clock && s.reset == reset)
+		return;
+	s.power = power;
+	s.clock = clock;
+	s.reset = reset;
+	update(slot, cycle);
+}
+
+void millennium_sam_model::later_pins(std::uint8_t h, std::uint8_t d, std::uint8_t e,
+	std::uint8_t c, std::uint8_t g, std::uint64_t cycle)
+{
+	auto const selector = millennium_async_contact_selector(h, d);
+	// Disconnect the old destination before applying updated control levels.
+	if (m_selected != selector)
+		select(std::nullopt, cycle);
+	for (unsigned slot = 0; slot < m_slots.size(); ++slot) {
+		bool const power = slot == 0 ? !(c & 0x08U) : !(g & (1U << slot));
+		bool const clock = (e & 0x02U) && (g & (0x08U << slot));
+		bool const reset = (c & (1U << slot)) != 0U;
+		pins(slot, power, clock, reset, cycle);
+	}
+	select(selector, cycle);
+}
+
+void millennium_sam_model::update(unsigned slot, std::uint64_t cycle)
+{
+	auto &s = m_slots[slot];
+	s.card.update_async_contact_pins(m_selected == slot, s.power, s.clock, s.reset, cycle);
+}
+
+bool millennium_sam_model::active() const noexcept
+{
+	return m_selected && m_slots[*m_selected].card.async_active();
+}
+
+millennium_smartcard_model *millennium_sam_model::active_card() noexcept
+{
+	return active() ? &m_slots[*m_selected].card : nullptr;
+}
+
+std::optional<std::uint8_t> millennium_sam_model::read(std::uint64_t cycle)
+{
+	return m_selected ? m_slots[*m_selected].card.async_read_byte(cycle) : std::nullopt;
+}
+
+void millennium_sam_model::write(std::uint8_t data, std::uint64_t cycle)
+{
+	if (m_selected)
+		m_slots[*m_selected].card.async_write_byte(data, cycle);
 }
 
 std::optional<std::uint8_t> millennium_smartcard_model::async_read_byte(std::uint64_t cycle)

@@ -33,6 +33,18 @@ edge, then advances one bit on each rising clock with reset inactive. The
 data is read MSB first. Removal clears its power and reset state. No card
 data is returned through a fabricated byte FIFO on the native bus.
 
+The address within the physical contact stream is `8 * byte_offset + bit`,
+where physical bit zero has byte weight `0x80`. The separate read-only
+four-byte laboratory fixture `smartcard-sync-address-test.json` contains
+`96 3C A7 00`. It detects reversed bits, shifted addresses and byte-boundary
+errors. Each native board mapping is tested by resetting to zero, reading
+the complete pattern, advancing to the second byte, resetting again, reading
+past the declared end and removing/reinserting the card. Out-of-range contact
+reads on this fixture release the data line rather than wrapping. Its
+capacity and contents are synthetic, not a claimed GPM103 or GPM416 device
+geometry. No family-specific carry, erase or protected-area programming is
+inferred from the generic contact test.
+
 For the earlier board, the firmware drives a low/high/low supply-enable
 pulse and subsequently clocks the contact while that pin remains low. The
 model retains supply across the falling edge; a card removal or device reset
@@ -59,6 +71,39 @@ synthetic Z180 transactions. The earlier coin-ASCI0 path and later coin UART
 remain separate from customer-card traffic. The lab application is read-only;
 unsupported instructions are rejected.
 
+### Internal contact modules
+
+The later SAM daughterboard has three separate internal contact positions,
+independent of the customer card and the ADSI/graphical expansion. The same
+ASCI0 serial adapter follows the physical selector, rather than creating a
+UART for each device. The following later-board controls have independent
+effects on each module:
+
+| Socket | Selector (`0xC1` bits 1:0) | Reset, active low | Supply, active low | Clock enable |
+| --- | --- | --- | --- | --- |
+| 0 | 0 | `0x43` bit 0 | `0x43` bit 3 | `0x63` bit 3 |
+| 1 | 1 | `0x43` bit 1 | `0x63` bit 1 | `0x63` bit 4 |
+| 2 | 2 | `0x43` bit 2 | `0x63` bit 2 | `0x63` bit 5 |
+
+The shared async gate is active low at `0xC0` bit 3. The model uses
+`0xC2` bit 1 as an active-high common module clock enable, in addition
+to the individually enabled clock. The synthetic CPU probe exercises that
+interpretation; physical clock polarity measurement remains outstanding.
+Selector 3 retains the separate customer card controls. Disconnecting an
+endpoint flushes its pending serial transfer and releases the UART line.
+All internal sockets are absent by default. The optional laboratory socket
+fixtures accept only the generic read-only async application; they cannot
+perform payment authentication, loading or debits.
+
+For a local diagnostic run, `graphic_session.py --sam-pin-trace` records
+bounded selector/latch transitions; `--sam-slot0`, `--sam-slot1` and
+`--sam-slot2` accept separate non-payment fixture paths. Fixture hashes
+are retained in the local run directory. The native `smartcard_async_probe.py
+--protocol slots` exercises all three internal positions with distinct
+immutable values, then selects and reads the customer contact through
+the real Z180 ASCI0. This qualifies routing and serial transport, not a
+historical scheme module or its association state.
+
 ## State machine
 
 ```
@@ -84,6 +129,8 @@ Per board profile. Default behavior is polled.
 - `fixtures/cards/smartcard-sync-test.json` is the default synthetic contact
   test fixture. Its nonuniform first byte exercises every contact data bit;
   it is not a funded payment card or a valid issuer credential.
+- `fixtures/cards/smartcard-sync-address-test.json` is a four-byte read-only
+  address and bit-order fixture, used on both native motherboard maps.
 - `fixtures/cards/smartcard-valid.json` is the earlier byte-model test fixture.
 - `fixtures/cards/smartcard-async-t0-lab.json` and
   `fixtures/cards/smartcard-async-t1-lab.json` are native asynchronous

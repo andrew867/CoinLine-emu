@@ -29,3 +29,18 @@ recognition, graphical applet behavior, SAM interactions and ADSI are
 independent outstanding qualification gates. Generic asynchronous contact
 transport is already covered by the native laboratory fixtures; that does
 not establish a historical payment application or payment acceptance.
+
+## Internal contact board follow-up
+
+The separate three-socket module board is now modeled with independent
+supply, reset and clock controls and a shared native ASCI0 connection.
+The synthetic CPU successfully exercised T=0 and T=1 through all three
+module positions and a subsequent customer-card selection. See
+[native contact transport](smartcard-native-transport-2026-11-25.md).
+
+A fresh NLA1X09 boot on the revised executable again reached the normal
+not-installed prompt. Its bounded pin trace retained selector 0, with the
+common module clock-control bit clear throughout the observed pre-install
+interval. No module activated and no application readiness is inferred.
+Evidence: `build/firmware-acceptance/proton-module-observation/20261125T220704.664640Z/`.
+The full NCC set and post-install behavior still require a separate run.

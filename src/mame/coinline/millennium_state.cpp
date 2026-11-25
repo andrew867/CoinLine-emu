@@ -5030,6 +5030,7 @@ void millennium_state::pio_keypad_w(offs_t offset, u8 data)
 	if (idx == 0U)
 		write_modem_pio(data);
 	if (idx == 2U) {
+		update_async_contacts();
 		u16 const sp = u16(m_maincpu->state_int(Z180_SP) & 0xffffU);
 		trace_pio_port_c_telephony_routing(prev_latched, data, cy, pc, sp);
 		m_data_jack_hw.write_pio_c(data);
@@ -5144,7 +5145,19 @@ u8 millennium_state::pio_port_g_r()
 void millennium_state::pio_port_g_w(u8 data)
 {
 	m_pio_port_g = data;
+	if (!m_earlier_motherboard)
+		update_async_contacts();
 	maybe_io_trace("pio_port_g", 0x63, 'w', data);
+}
+
+void millennium_state::update_async_contacts()
+{
+	if (m_earlier_motherboard)
+		return;
+	u8 const h = m_mach_pio_shadow[0], d = m_mach_pio_shadow[1], e = m_mach_pio_shadow[2];
+	m_sam->observe_later_pins(h, d, e, m_pio_8255_shadow[2], m_pio_port_g,
+		machine().time().as_ticks(12288000));
+	m_smartcard->later_async_pins(h, d, e, m_sam->active_card());
 }
 
 namespace {
@@ -5992,7 +6005,7 @@ void millennium_state::mach_pio_w(offs_t offset, u8 data)
 	if (offset >= 1 && offset <= 3)
 		m_smartcard->later_pins(m_mach_pio_shadow[1], m_mach_pio_shadow[2], m_mach_pio_shadow[3], cy);
 	if (!m_earlier_motherboard && offset <= 3)
-		m_smartcard->later_async_pins(m_mach_pio_shadow[0], m_mach_pio_shadow[1], m_mach_pio_shadow[2]);
+		update_async_contacts();
 }
 
 u8 millennium_state::card_reader_signals() const
