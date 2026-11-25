@@ -4,6 +4,7 @@ import json
 import math
 import socket
 import struct
+import sys
 import threading
 import time
 import unittest
@@ -11,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import central_office as office
+from sip_media import RtpDtmfSender, RtpWireSocket, TelephoneEventOffer, sdp_answer
 
 
 def outpulse(number):
@@ -161,6 +163,78 @@ class OutboundRoutingTest(unittest.TestCase):
         self.assertGreater(power(697), power(770) * 10)
         self.assertGreater(power(1633), power(1477) * 10)
 
+    def test_connected_dtmf_selects_one_transport(self):
+        transmit = SimpleNamespace(SENDRECV="sendrecv", SENDONLY="sendonly")
+        call_state = SimpleNamespace(ANSWERED="answered")
+        modules = {"pyVoIP.RTP": SimpleNamespace(TransmitType=transmit),
+                   "pyVoIP.VoIP": SimpleNamespace(CallState=call_state)}
+        with patch.dict(sys.modules, modules), patch.object(office, "SIP_DEST", ""), patch.dict(
+                office.os.environ, {"COINLINE_SIP_PEER_ONLY": "0", "COINLINE_SIP_DTMF_MODE": "auto"}):
+            pcm = office.PcmBridge()
+            side = office.SipSide(pcm)
+            sender = RtpDtmfSender(TelephoneEventOffer(105, frozenset(range(12))))
+            side.call = SimpleNamespace(state="answered", RTPClients=[SimpleNamespace(coinline_dtmf_sender=sender)],
+                                        sip=SimpleNamespace(recvLock=threading.RLock()), coinline_dtmf_info=True)
+            side._send_dtmf_info = Mock(return_value=True)
+            self.assertEqual(side.send_dtmf("1"), "rtp-event")
+            self.assertEqual(pcm.take_from_phone(160), bytes(320))
+            side._send_dtmf_info.assert_not_called()
+            # A is not negotiated in this event set. Explicit peer support permits INFO.
+            self.assertEqual(side.send_dtmf("A"), "info")
+            side._send_dtmf_info.assert_called_once_with(side.call, "A", 90)
+            side.call.coinline_dtmf_info = False
+            self.assertEqual(side.send_dtmf("D"), "inband")
+            self.assertTrue(any(pcm.take_from_phone(720)))
+            side.call.coinline_media_direction = "inactive"
+            self.assertIsNone(side.send_dtmf("5"))
+            direct = office.SipSide(office.PcmBridge(), office.LocalVoiceRoute.parse(
+                '{"digits":["2374"],"target":"2374","port":5069}'))
+            self.assertEqual(direct.send_dtmf("A"), "inband")
+
+    def test_connected_digit_dispatch_is_not_a_second_dial(self):
+        jack = ScriptedJack([(0.0, outpulse("2025550123")), (2.0, None),
+                             (0.1, b"D5\nD#\n"), (0.0, b"")])
+        with (
+            patch.object(office, "MODE", "sip"), patch.object(office, "SIP_DEST", ""),
+            patch.dict(office.os.environ, {"COINLINE_SIP_PEER_ONLY": "0", "COINLINE_CO_INBOUND": "0",
+                                           "COINLINE_LOCAL_VOICE_ROUTE": ""}),
+            patch.object(office, "connect_jack", return_value=jack),
+            patch.object(office, "select", SimpleNamespace(select=jack.select)),
+            patch.object(office, "time", SimpleNamespace(monotonic=lambda: jack.now)),
+            patch.object(office, "answer_reversal"), patch.object(office.SipSide, "start"),
+            patch.object(office.SipSide, "answered", return_value=True),
+            patch.object(office.SipSide, "dial") as dial,
+            patch.object(office.SipSide, "send_dtmf", return_value="rtp-event") as dtmf,
+        ):
+            office.run_local_or_sip()
+        self.assertEqual([call.args[0] for call in dial.call_args_list], ["+12025550123"])
+        self.assertEqual([call.args[0] for call in dtmf.call_args_list], ["5", "#"])
+
+    def test_rfc4733_uses_audio_sequence_timestamp_and_end_redundancy(self):
+        sender = RtpDtmfSender(TelephoneEventOffer(110, frozenset(range(12))))
+        self.assertTrue(sender.queue("#", 90))
+        self.assertFalse(sender.queue("A"))
+        self.assertTrue(sender.queue("0", 90))
+        stream = SimpleNamespace(coinline_dtmf_sender=sender, coinline_payloads={112: 0})
+        sock = Mock()
+        wire = RtpWireSocket(sock, stream)
+        packets = []
+        for index in range(11):
+            audio = struct.pack("!BBHII", 0x80, 0, 100 + index, 5000 + index * 160, 42) + bytes(160)
+            wire.sendto(audio, ("127.0.0.1", 12345))
+            packets.append(sock.sendto.call_args.args[0])
+        events = packets[:7]
+        self.assertEqual([packet[1] for packet in events], [0x80 | 110] + [110] * 6)
+        self.assertEqual([struct.unpack("!H", packet[2:4])[0] for packet in events], list(range(100, 107)))
+        self.assertTrue(all(packet[4:8] == struct.pack("!I", 5000) for packet in events))
+        self.assertTrue(all(packet[8:12] == struct.pack("!I", 42) for packet in events))
+        self.assertEqual([struct.unpack("!BBH", packet[12:]) for packet in events],
+                         [(11, 10, 160), (11, 10, 320), (11, 10, 480), (11, 10, 640),
+                          (11, 0x8a, 720), (11, 0x8a, 720), (11, 0x8a, 720)])
+        self.assertEqual([packet[1] for packet in packets[7:10]], [112] * 3)
+        self.assertEqual(packets[10][1], 0x80 | 110)
+        self.assertEqual(packets[10][12], 0)
+
     def test_sip_calls_each_outpulsed_number(self):
         calls, reversals = self.run_office("sip", [
             (0.0, outpulse("2025550123")),
@@ -237,6 +311,33 @@ class SipServerResponseTest(unittest.TestCase):
         self.assertIn(b"From: <sip:lab@example>;tag=local\r\n", packet)
         self.assertIn(b"To: <sip:caller@example>;tag=remote\r\n", packet)
         self.assertIn(b"CSeq: 1 BYE\r\nRoute: <sip:192.0.2.42:5074;lr>\r\nRoute: <sip:192.0.2.43;lr>", packet)
+
+    def test_dtmf_info_requires_explicit_peer_capability_and_keeps_dialog(self):
+        self.assertFalse(office.supports_dtmf_info(b"SIP/2.0 200 OK\r\nAllow: INVITE, INFO\r\n\r\n"))
+        self.assertTrue(office.supports_dtmf_info(b"SIP/2.0 200 OK\r\nAllow: INVITE, INFO\r\nAccept: application/sdp, application/dtmf-relay\r\n\r\n"))
+        dialog = office.SipDialog("test", "<sip:lab@example>;tag=local", "<sip:peer@example>;tag=remote",
+                                  "sip:peer@192.0.2.31:5092", ("sip:192.0.2.42:5074;lr",), 7)
+        body = b"Signal=#\r\nDuration=90\r\n"
+        packet, target = dialog.request("INFO", 8, "192.0.2.2", 5087, "z9hG4bK-info", "application/dtmf-relay", body)
+        head, content = packet.split(b"\r\n\r\n", 1)
+        self.assertEqual(target, ("192.0.2.42", 5074))
+        self.assertIn(b"CSeq: 8 INFO\r\n", head)
+        self.assertIn(b"Content-Type: application/dtmf-relay\r\n", head)
+        self.assertIn(b"Content-Length: " + str(len(body)).encode(), head)
+        self.assertEqual(content, body)
+
+    def test_sdp_retains_negotiated_telephone_event_without_exposing_it_as_pcm(self):
+        body = (b"v=0\r\no=lab 1 1 IN IP4 192.0.2.1\r\ns=Lab\r\nc=IN IP4 192.0.2.1\r\nt=0 0\r\n"
+                b"m=audio 8002 RTP/AVP 112 110\r\na=rtpmap:112 PCMA/8000\r\n"
+                b"a=rtpmap:110 telephone-event/8000\r\na=fmtp:110 0-11,16\r\n")
+        raw = b"INVITE sip:lab SIP/2.0\r\nContent-Type: application/sdp\r\nContent-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body
+        normalized, offer = office.select_g711_media(raw)
+        self.assertIn(b"m=audio 8002 RTP/AVP 8\r\n", normalized)
+        self.assertNotIn(b"telephone-event", normalized)
+        self.assertEqual(offer.telephone_event, TelephoneEventOffer(110, frozenset(range(12))))
+        answer = sdp_answer(normalized.decode(), offer, None)
+        self.assertIn("m=audio 8002 RTP/AVP 112 110\r\n", answer)
+        self.assertIn("a=rtpmap:110 telephone-event/8000\r\n", answer)
 
     def test_normalize_compact_headers_and_select_the_audio_media_connection(self):
         body = (b"v=0\r\no=fixture 1 1 IN IP4 192.0.2.1\r\ns=Test\r\nc=IN IP4 192.0.2.1\r\nt=0 0\r\n"

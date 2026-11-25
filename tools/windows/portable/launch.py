@@ -60,6 +60,10 @@ def configure_sip(env, settings):
         if not user or "@" in user or domain.casefold() != env["COINLINE_SIP_HOST"].casefold():
             raise ValueError("Set username to the SIP account name or its address at the configured registrar.")
     env["COINLINE_SIP_USER"] = user
+    dtmf_mode = settings.get("dtmf_mode", "auto").strip().lower()
+    if dtmf_mode not in ("auto", "inband", "info"):
+        raise ValueError("Set dtmf_mode under [sip] to auto, inband or info.")
+    env["COINLINE_SIP_DTMF_MODE"] = dtmf_mode
     port = settings.getint("registrar_port", 5060)
     env["COINLINE_SIP_PORT"] = str(port)
     env["COINLINE_SIP_LOCAL_PORT"] = str(settings.getint("local_port", 5087))

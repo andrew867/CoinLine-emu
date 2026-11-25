@@ -34,7 +34,16 @@ Full table: [`../fixtures/board/audio-routing-state-map.json`](../fixtures/board
 | ------ | -------------- |
 | CO receive model | `gate_rx` open |
 | Voice playback PCM/marker | Active phrase flag + `gate_rx` open after conditioning |
-| Keypad DTMF | `dtmf_from_pad` open AND TX path policy allows |
+| Keypad DTMF | Qualified controller key make, autonomous tone gate enabled, handset off-hook, voice loop present and no active management data link |
+
+Local keypad feedback is not a line tone. The modem relay can remain
+engaged during a supervised voice call, so the relay alone must not block
+the controller's autonomous dial-pad generator. Explicit controller and
+modem DTMF commands use their existing line-emission paths. Applications
+can disable the autonomous tone gate and generate their own return digits;
+the emulator must not bypass that policy. The CO converts qualified line
+events to one negotiated SIP transport, not simultaneous duplicate audio
+and events.
 
 ## Voice-prompt RX conditioning (CO connected)
 

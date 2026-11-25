@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--trace", action="store_true", help="capture the graphical I/O stream")
     parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
     parser.add_argument("--keypad-trace", action="store_true", help="capture panel inputs and TP command/key transactions without per-edge CSIO logs")
+    parser.add_argument("--dtmf-trace", action="store_true", help="trace controller dial-pad tone gating and genuine tone events")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
     parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
@@ -48,6 +49,7 @@ def main():
     parser.add_argument("--external-co-port", type=int, help="fixed local jack port; an independently managed CO connects to it")
     parser.add_argument("--snapshot-interval", type=int, default=180, metavar="FRAMES",
                         help="automatic native screenshot interval; zero disables it for timing tests")
+    parser.add_argument("--snapshot-native", action="store_true", help="capture the native VFD rather than the complete artwork")
     args = parser.parse_args()
     if args.external_co_port is not None and not 1 <= args.external_co_port <= 65535:
         parser.error("--external-co-port must be a valid TCP port")
@@ -137,6 +139,8 @@ def main():
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
         env["COINLINE_SMART_CARD_TRACE"] = "1"
+    if args.dtmf_trace:
+        env["COINLINE_DTMF_TRACE"] = "1"
     if args.read_watch:
         if not args.read_watch.is_file():
             parser.error("--read-watch must be a local file")
@@ -158,7 +162,7 @@ def main():
            "-nolog", "-video", args.video if args.artwork else "none", "-sound", "auto" if args.sound else "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),
            "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
-           "-snapshot_directory", str(out), "-snapview", view if args.artwork else "native",
+           "-snapshot_directory", str(out), "-snapview", view if args.artwork and not args.snapshot_native else "native",
            "-view", view, "-window", "-nomaximize", "-seconds_to_run", str(args.seconds),
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
     if args.realtime_priority and os.name == "nt":

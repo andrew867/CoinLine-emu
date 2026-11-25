@@ -27,6 +27,8 @@ struct composite_state {
 	bool hook_off = false;
 	bool voice_prompt_path = false;
 	bool modem_carrier_up = false;
+	/// Autonomous dial-pad tone generator is commanded by the telephony controller.
+	bool keypad_dtmf_enabled = false;
 	/// RX gain step index 0–3 for preset commands (comment-only semantics).
 	unsigned rx_gain_step = 0U;
 };
@@ -46,6 +48,7 @@ void snapshot_mute_json(composite_state const &s, std::string &out_json_object);
 void reset_to_idle_fixture(composite_state &s);
 
 bool call_state_established(call_state c) noexcept;
+bool dialpad_line_tone_enabled(composite_state const &s, bool hook_off, bool voice_loop, bool modem_data_active) noexcept;
 
 /// Integration label for optional `call_state_if_known` trace field (`audio-call-state-integration.spec.md`).
 /// Empty string when not confidently derivable from composite hardware state alone.
