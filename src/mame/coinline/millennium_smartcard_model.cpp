@@ -193,10 +193,12 @@ void millennium_smartcard_model::reset_session()
 	m_fixture = millennium_smart_fixture{};
 	m_selected_protocol = negotiated_protocol::none;
 	m_authorized = false;
+	clear_sync_session();
 }
 
 void millennium_smartcard_model::insert_card_at(std::uint64_t cycle, std::uint64_t cpu_hz)
 {
+	clear_sync_session();
 	m_cpu_hz = cpu_hz ? cpu_hz : 12288000;
 	m_card_present = true;
 	m_rx.clear();
@@ -217,6 +219,88 @@ void millennium_smartcard_model::remove_card()
 	m_atr_enqueued = false;
 	m_selected_protocol = negotiated_protocol::none;
 	m_authorized = false;
+	clear_sync_session();
+}
+
+void millennium_smartcard_model::clear_sync_session()
+{
+	m_sync_selected = false;
+	m_sync_powered = false;
+	m_sync_reset = false;
+	m_sync_clock = false;
+	m_sync_released = true;
+	m_sync_reset_clocked = false;
+	m_sync_ready = false;
+	m_sync_bit_address = 0;
+	m_later_power_latch = false;
+	m_later_power_clock = false;
+}
+
+void millennium_smartcard_model::drive_sync_pins(bool selected, bool power, bool reset,
+	bool clock, bool released)
+{
+	bool const clock_rise = clock && !m_sync_clock;
+	bool const reset_rise = reset && !m_sync_reset;
+	bool const reset_fall = !reset && m_sync_reset;
+	m_sync_selected = selected;
+	m_sync_released = released;
+	if (!selected || !power || !m_card_present) {
+		m_sync_powered = false;
+		m_sync_ready = false;
+		m_sync_reset_clocked = false;
+		m_sync_bit_address = 0;
+	} else {
+		if (!m_sync_powered || reset_rise) {
+			m_sync_ready = false;
+			m_sync_reset_clocked = false;
+			m_sync_bit_address = 0;
+		}
+		m_sync_powered = true;
+		if (reset && clock_rise)
+			m_sync_reset_clocked = true;
+		if (reset_fall && m_sync_reset_clocked) {
+			m_sync_ready = true;
+			m_sync_bit_address = 0;
+		} else if (!reset && clock_rise && m_sync_ready) {
+			if (m_sync_bit_address < m_fixture.memory.size() * 8U)
+				++m_sync_bit_address;
+		}
+	}
+	m_sync_reset = reset;
+	m_sync_clock = clock;
+}
+
+void millennium_smartcard_model::update_later_pins(std::uint8_t d, std::uint8_t e, std::uint8_t f)
+{
+	bool const request = (e & 0x08U) != 0U;
+	bool const power_clock = (f & 0x02U) != 0U;
+	if (!request)
+		m_later_power_latch = false;
+	else if (power_clock && !m_later_power_clock && m_card_present)
+		m_later_power_latch = true;
+	m_later_power_clock = power_clock;
+	drive_sync_pins(request && !(e & 0x01U) && (d & 0x03U) == 0x03U, m_later_power_latch,
+		(e & 0x04U) != 0U, (d & 0x08U) != 0U, (d & 0x04U) != 0U);
+}
+
+void millennium_smartcard_model::update_earlier_pins(std::uint8_t a, std::uint8_t c)
+{
+	bool const power = (a & 0x40U) != 0U;
+	// On the earlier board the bidirectional contact has a pull-up while
+	// the low nibble of port C is configured as input.
+	drive_sync_pins(power, power, (c & 0x80U) != 0U, (c & 0x40U) != 0U, true);
+}
+
+bool millennium_smartcard_model::sync_data_high() const noexcept
+{
+	if (!m_sync_released)
+		return false;
+	if (!m_sync_powered || !m_sync_ready || m_fixture.protocol != "sync")
+		return true; // undriven contact
+	if (m_sync_bit_address >= m_fixture.memory.size() * 8U)
+		return true;
+	return (m_fixture.memory[m_sync_bit_address / 8U] &
+		(0x80U >> (m_sync_bit_address % 8U))) != 0U;
 }
 
 void millennium_smartcard_model::notify_reset(std::uint64_t cycle)

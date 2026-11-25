@@ -10,6 +10,54 @@ int main()
 	{
 		millennium_smartcard_model m;
 		std::string err;
+		if (!m.parse_fixture_json("{\"protocol\":\"sync\",\"atr_hex\":\"00\",\"memory_hex\":\"A55A\"}", err))
+			return 20;
+		m.insert_card_at(0, 12288000);
+		m.update_later_pins(0x04, 0x08, 0x00); // another socket selected
+		if (m.sync_data_selected()) return 28;
+		// Later-board supply request alone does not power the contact.
+		m.update_later_pins(0x07, 0x08, 0x00);
+		if (m.sync_powered() || !m.sync_data_high()) return 21;
+		m.update_later_pins(0x07, 0x08, 0x02);
+		m.update_later_pins(0x07, 0x08, 0x00);
+		if (!m.sync_powered() || !m.sync_data_high()) return 22;
+		// Reset is qualified by a clock pulse and release, then bit zero is visible.
+		m.update_later_pins(0x07, 0x0c, 0x00);
+		m.update_later_pins(0x0f, 0x0c, 0x00);
+		m.update_later_pins(0x07, 0x0c, 0x00);
+		m.update_later_pins(0x07, 0x08, 0x00);
+		unsigned value = 0;
+		for (unsigned i = 0; i < 16; ++i) {
+			if (m.sync_bit_address() != i) return 23;
+			value = (value << 1) | unsigned(m.sync_data_high());
+			m.update_later_pins(0x0f, 0x08, 0x00);
+			m.update_later_pins(0x0f, 0x08, 0x00); // same level is not another edge
+			m.update_later_pins(0x07, 0x08, 0x00);
+		}
+		if (value != 0xa55aU || !m.sync_data_high()) return 24;
+		m.remove_card();
+		m.update_later_pins(0x07, 0x08, 0x00);
+		if (m.sync_powered() || !m.sync_data_high()) return 25;
+		m.insert_card_at(0, 12288000);
+		// Earlier-board contact uses direct supply and port C clock/reset.
+		m.update_earlier_pins(0x40, 0x00);
+		m.update_earlier_pins(0x40, 0x80);
+		m.update_earlier_pins(0x40, 0xc0);
+		m.update_earlier_pins(0x40, 0x80);
+		m.update_earlier_pins(0x40, 0x00);
+		value = 0;
+		for (unsigned i = 0; i < 8; ++i) {
+			value = (value << 1) | unsigned(m.sync_data_high());
+			m.update_earlier_pins(0x40, 0x40);
+			m.update_earlier_pins(0x40, 0x00);
+		}
+		if (value != 0xa5U) return 26;
+		m.update_earlier_pins(0x00, 0x00);
+		if (m.sync_powered() || m.sync_data_selected()) return 27;
+	}
+	{
+		millennium_smartcard_model m;
+		std::string err;
 		// T=0-only ATR.
 		if (!m.parse_fixture_json("{\"protocol\":\"memory\",\"atr_hex\":\"3B 00\",\"memory_hex\":\"00\"}", err)) {
 			std::cerr << "parse failed for t0 fixture\n";

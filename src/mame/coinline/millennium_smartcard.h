@@ -22,9 +22,13 @@ public:
 	std::uint8_t status_lines() const;
 
 	void notify_reset(u64 cycle);
+	void later_pins(u8 d, u8 e, u8 f, u64 cycle);
+	void earlier_pins(u8 a, u8 c, u64 cycle);
+	u8 merge_data_pin(u8 value, u8 mask, u64 cycle) const;
 
 	millennium_smartcard_model &model() noexcept { return m_model; }
 
 private:
 	millennium_smartcard_model m_model{};
+	bool m_pin_trace = false;
 };

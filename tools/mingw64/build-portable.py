@@ -150,6 +150,7 @@ def stage_files(bundle, mame, rom_input, windows):
         "fixtures/board/io-port-map.json": ROOT / "fixtures/board/io-port-map.json",
         "fixtures/cards/magcard-valid.json": ROOT / "fixtures/cards/magcard-valid.json",
         "fixtures/cards/smartcard-valid.json": ROOT / "fixtures/cards/smartcard-valid.json",
+        "fixtures/cards/smartcard-sync-test.json": ROOT / "fixtures/cards/smartcard-sync-test.json",
         "fixtures/display/vfd-2line-idle.json": ROOT / "fixtures/display/vfd-2line-idle.json",
         "fixtures/firmware/firmware-hashes.json": ROOT / "fixtures/firmware/firmware-hashes.json",
         "docs/Verification.md": ROOT / "docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md",

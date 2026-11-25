@@ -13,10 +13,10 @@ inline constexpr std::uint8_t k_h_async_gate_bit = 0x08U; ///< When **clear**, a
 inline constexpr std::uint8_t k_d_device_addr_mask = 0x03U;
 
 enum class device_addr : std::uint8_t {
-	coin_path = 0,
-	mag_reader = 1,
-	sam_socket = 2,
-	electronic_lock = 3,
+	epm0 = 0,
+	epm1 = 1,
+	epm2 = 2,
+	user_card = 3,
 };
 
 inline constexpr std::uint8_t k_g_epm_clock_mask = 0x38U; ///< Bits 3–5: one-hot style EPM clock enables.

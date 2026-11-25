@@ -24,7 +24,7 @@ SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "P
 def config_for_run():
     config = configparser.ConfigParser(interpolation=None)
     config.read(ROOT / "coinline.ini", encoding="utf-8-sig")
-    for section in ("line", "sip", "hardware"):
+    for section in ("line", "sip", "hardware", "cards"):
         if section not in config:
             config.add_section(section)
     return config
@@ -33,7 +33,7 @@ def config_for_run():
 def check_files(program, rompath, display):
     files = [EXECUTABLE, "firmware/tp_pcd3349a_behavioural.rom",
              f"fixtures/board/board-profile-{display}-vfd.json", "fixtures/firmware/firmware-hashes.json",
-             "fixtures/cards/magcard-valid.json", "app/central_office.py",
+             "fixtures/cards/magcard-valid.json", "fixtures/cards/smartcard-sync-test.json", "app/central_office.py",
              "app/sip_media.py"]
     paths = [*(ROOT / name for name in files), *program,
              *(rompath / "cl_millennium" / name for name in ("voice_u16.bin", "voice_u26.bin"))]
@@ -164,6 +164,11 @@ def run(args, config, hardware):
             raise ValueError("Set a distinct 10-digit code_server_number and a valid code_server_port under [line].")
     if not use_sip and (not digits or any(digit not in "0123456789*#" for digit in digits)):
         raise ValueError("Set valid outbound_digits for the local CO under [line] in coinline.ini.")
+    cards = config["cards"]
+    mag_card = ROOT / (args.mag_card or cards.get("mag_fixture", "").strip() or "fixtures/cards/magcard-valid.json")
+    smart_card = ROOT / (args.smart_card or cards.get("smart_fixture", "").strip() or "fixtures/cards/smartcard-sync-test.json")
+    if not mag_card.is_file() or not smart_card.is_file():
+        raise ValueError("The selected local card fixture file is missing.")
     if args.check:
         print(f"{args.profile.upper()} package inputs are ready. Hardware: {description}")
         return 0
@@ -179,7 +184,8 @@ def run(args, config, hardware):
         **hardware_env,
         "COINLINE_TP_BACKEND": "pcd3349a",
         "COINLINE_TP8048_ROM": str(ROOT / "firmware/tp_pcd3349a_behavioural.rom"),
-        "COINLINE_MAG_CARD": str(ROOT / "fixtures/cards/magcard-valid.json"),
+        "COINLINE_MAG_CARD": str(mag_card),
+        "COINLINE_SMART_CARD": str(smart_card),
         "COINLINE_LINE_PORT": get_line_port(),
         "COINLINE_NCC_PORT": str(port),
         "COINLINE_CO_MODE": mode,
@@ -251,6 +257,8 @@ def main():
     parser.add_argument("--firmware", type=Path, help="single program image or first half of split flash")
     parser.add_argument("--flash1", type=Path, help="second half of split flash")
     parser.add_argument("--rompath", type=Path, help="directory containing cl_millennium/ Voiceware images")
+    parser.add_argument("--mag-card", type=Path, help="local synthetic magnetic-stripe fixture")
+    parser.add_argument("--smart-card", type=Path, help="local synthetic contact-card fixture")
     parser.add_argument("--portable-display", choices=("attached", "detached"),
                         help="Coin Basic temporary display connection at power-on")
     calling_mode = parser.add_mutually_exclusive_group()
