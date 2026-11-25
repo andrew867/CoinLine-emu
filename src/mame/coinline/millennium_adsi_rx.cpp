@@ -99,8 +99,11 @@ void millennium_adsi_rx::sample(std::int16_t input, bool fsk_enabled)
 	bool const signal = energy > 7 * 200.0 * 200.0;
 	bool const bit = mark > space;
 	unsigned const prior_mark = m_mark_run;
-	m_mark_run = signal && bit ? std::min(m_mark_run + 1U, 1000U) : 0;
-	if (m_mark_run >= 100 && mark > energy * 0.45) m_carrier = true;
+	// Start-of-carrier requires a sustained coherent 1200 Hz mark, not just
+	// a succession of windows that happen to favour the lower frequency.
+	bool const coherent_mark = signal && mark > energy * 0.65 && mark > space * 1.7;
+	m_mark_run = (m_carrier ? signal && bit : coherent_mark) ? std::min(m_mark_run + 1U, 1000U) : 0;
+	if (m_mark_run >= 100 && coherent_mark) m_carrier = true;
 	if (signal) m_no_signal = 0;
 	else if (++m_no_signal > 40) {
 		m_carrier = false;

@@ -30,6 +30,9 @@ uses the verified firmware registry and otherwise selects `2line`.
 Use a compatible later-board program image and its matching hardware preset.
 The launcher selects the graphical artwork and isolates its persistent terminal
 state. The registered NLA1X08 image automatically selects its graphical profile.
+The graphical board profile and Multi-pay V1.3 control-board preset use a
+24.576 MHz oscillator, corresponding to a 12.288 MHz Z180 processor clock.
+The conventional earlier-board profile retains its 12.288 MHz oscillator.
 This MTR 2.12-based graphical/ADSI terminal (type 40, DLA 1.3) completed
 cold INSTALL, a separate in-service restart, and rendered downloaded
 bitmap advertisements. Its original INSTALL chip-card check failed, but a

@@ -2,7 +2,10 @@
 import base64
 import json
 import math
+import socket
 import struct
+import threading
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -33,6 +36,84 @@ class ScriptedJack:
 
 
 class OutboundRoutingTest(unittest.TestCase):
+    def test_direct_pcmu_packet_payload_and_bounded_queue(self):
+        payload = bytes([0xff, 0x7f]) * 80
+        header = struct.pack("!BBHII", 0x80, 0, 42, 160, 1234)
+        self.assertEqual(office.pcmu_rtp_payload(header + payload), (42, payload))
+        self.assertIsNone(office.pcmu_rtp_payload(header[:4]))
+        self.assertIsNone(office.pcmu_rtp_payload(header[:1] + bytes([8]) + header[2:] + payload))
+        padded = bytes([0xa0]) + header[1:] + payload + b"\x00\x02"
+        self.assertEqual(office.pcmu_rtp_payload(padded), (42, payload))
+        pcm = office.PcmBridge()
+        pcm.push_to_phone(struct.pack("<10h", *range(10)), max_pending=5)
+        self.assertEqual(pcm.take_to_phone_i16(5), list(range(5, 10)))
+        pcm.push_to_phone(struct.pack("<2h", 1, 2))
+        self.assertIsNone(pcm.take_to_phone_frame(3))
+        pcm.push_to_phone(struct.pack("<h", 3))
+        self.assertEqual(pcm.take_to_phone_frame(3), [1, 2, 3])
+
+    def test_direct_pcmu_media_uses_the_reserved_socket_both_directions(self):
+        pcm = office.PcmBridge()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as local, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as peer:
+            local.bind(("127.0.0.1", 0))
+            peer.bind(("127.0.0.1", 0))
+            local.setblocking(False)
+            peer.settimeout(0.1)
+            stream = SimpleNamespace(outIP="127.0.0.1", outPort=peer.getsockname()[1],
+                                     outSequence=1, outTimestamp=0, outSSRC=1234, NSD=True)
+            worker = threading.Thread(target=office.run_direct_rtp, args=(stream, local, pcm), daemon=True)
+            worker.start()
+            try:
+                packet = struct.pack("!BBHII", 0x80, 0, 1, 0, 5678) + bytes([office.mulaw_encode(3000)]) * 160
+                peer.sendto(packet, local.getsockname())
+                pcm.queue_line_dtmf("A")
+                received_tone = False
+                deadline = time.monotonic() + 1.0
+                while time.monotonic() < deadline and not received_tone:
+                    try:
+                        wire, source = peer.recvfrom(8192)
+                    except socket.timeout:
+                        continue
+                    self.assertEqual(source, local.getsockname())
+                    decoded = office.pcmu_rtp_payload(wire)
+                    self.assertIsNotNone(decoded)
+                    received_tone = any(office.mulaw_decode(value) != 0 for value in decoded[1])
+                self.assertTrue(received_tone)
+                received_audio = False
+                while time.monotonic() < deadline and not received_audio:
+                    received_audio = any(pcm.take_to_phone_i16(160))
+                    if not received_audio:
+                        time.sleep(0.01)
+                self.assertTrue(received_audio)
+            finally:
+                stream.NSD = False
+                worker.join(1.0)
+
+    def test_direct_answer_phases_leave_media_clock_unblocked(self):
+        sock = Mock()
+        pulse = office.DirectAnswerReversal()
+        pulse.start(sock, 0.0)
+        pulse.poll(sock, 0.10)
+        self.assertEqual([call.args[0] for call in sock.sendall.call_args_list], [b"V0\n"])
+        # The loop remains available to deliver audio between polarity phases.
+        sock.sendall(b"Waudio\n")
+        pulse.poll(sock, 0.15)
+        sock.sendall(b"Waudio\n")
+        pulse.poll(sock, 0.35)
+        self.assertEqual([call.args[0] for call in sock.sendall.call_args_list],
+                         [b"V0\n", b"Waudio\n", b"V1\n", b"Waudio\n", b"V\nC1\n"])
+        pulse.poll(sock, 1.0)
+        self.assertEqual(sock.sendall.call_count, 5)
+
+    def test_reset_voice_queues_removes_previous_dialog_audio(self):
+        pcm = office.PcmBridge()
+        pcm.push_to_phone(struct.pack("<h", 123))
+        pcm.push_from_phone_i16(123)
+        pcm.queue_line_dtmf("A")
+        pcm.reset_voice_queues()
+        self.assertEqual(pcm.take_to_phone_i16(4), [0] * 4)
+        self.assertEqual(pcm.take_from_phone(4), bytes(8))
+
     def run_office(self, mode, steps, target="", inbound=False, route="", fail_direct=False):
         jack = ScriptedJack(steps + [(0.0, b"")])
         with (
@@ -71,12 +152,12 @@ class OutboundRoutingTest(unittest.TestCase):
     def test_post_answer_dtmf_is_pcm_with_extended_digits(self):
         pcm = office.PcmBridge()
         pcm.queue_line_dtmf("A")
-        samples = struct.unpack("<1040h", pcm.take_from_phone(1040))
-        self.assertTrue(any(samples[:640]))
-        self.assertEqual(samples[640:], (0,) * 400)
+        samples = struct.unpack("<960h", pcm.take_from_phone(960))
+        self.assertTrue(any(samples[:480]))
+        self.assertEqual(samples[480:], (0,) * 480)
         def power(hz):
-            return sum(samples[i] * math.cos(math.tau * hz * i / 8000) for i in range(640))**2 + \
-                   sum(samples[i] * math.sin(math.tau * hz * i / 8000) for i in range(640))**2
+            return sum(samples[i] * math.cos(math.tau * hz * i / 8000) for i in range(480))**2 + \
+                   sum(samples[i] * math.sin(math.tau * hz * i / 8000) for i in range(480))**2
         self.assertGreater(power(697), power(770) * 10)
         self.assertGreater(power(1633), power(1477) * 10)
 

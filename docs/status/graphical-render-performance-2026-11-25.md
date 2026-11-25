@@ -27,3 +27,14 @@
   firmware pacing or display refresh rate. Whole-terminal frame rate and
   audio performance require a separate measurement with a representative
   installed program and a stable host workload.
+
+## Subsequent hardware-clock qualification
+
+The live graphical voice-service trace identified another, separate problem:
+the terminal sampled its analogue detector every 2.5 ms with the generic
+12.288 MHz oscillator. The graphical profile and V1.3 control-board preset
+now select 24.576 MHz. A second actual firmware call measured the intended
+1.25 ms sample interval and successfully produced its own A response to the
+unaltered CAS waveform. This establishes the emulated timing correction,
+not a benchmark of Windows host frame rate. See the
+[ADSI qualification](adsi-interop-2026-11-25.md).

@@ -14,6 +14,7 @@ From the office to the emulator:
 - `V0` / `V1` / `V` — polarity-reversal phase 0, phase 1, or clear
 - `W<hex>` — 8 kHz signed little-endian PCM toward the handset
 - `T1` / `T0` mark when that PCM is CO dial tone or ordinary line audio.
+- `B1` / `B0` : enable or disable the bounded direct-voice playout cushion.
 
 From the emulator to the office:
 
@@ -89,7 +90,10 @@ credentials. The aliases must be permitted by the installed terminal tables.
 The office sends an unauthenticated UDP SIP INVITE to the configured loopback
 service, offers PCMU at 8 kHz, and bridges actual RTP audio. It reserves the
 advertised receive socket before dialing. Post-answer DTMF events from the
-terminal, including A through D, are transmitted as audio. A failed local
+terminal, including A through D, are transmitted as 60 ms tones with the
+ADSI interdigit cadence. The direct path delivers full received RTP audio
+frames and uses a small native playout cushion instead of independently
+zero-padding an empty audio queue. A failed local
 route never falls through to the external SIP or PSTN destination.
 
 The graphical receiver examines the received PCM for the CAS tones and Bell

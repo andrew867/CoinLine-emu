@@ -52,5 +52,17 @@ int main()
 	for (unsigned i = 0; i < 1600; ++i)
 		rx.sample(std::int16_t(4000 * std::sin(tau * 1200 * i / 8000)), false);
 	std::uint8_t byte;
-	return rx.fsk_carrier() || rx.take_byte(byte) ? 7 : 0;
+	if (rx.fsk_carrier() || rx.take_byte(byte)) return 7;
+	rx.reset();
+	unsigned seed = 12345;
+	for (unsigned i = 0; i < 16000; ++i) {
+		seed = seed * 1664525U + 1013904223U;
+		// Broadband, voice-like interference should not establish a modem mark.
+		double const t = double(i) / 8000;
+		int const v = int(2600 * std::sin(tau * 330 * t) + 1700 * std::sin(tau * 850 * t)
+			+ 1500 * std::sin(tau * 1580 * t) + int(seed % 2001) - 1000);
+		rx.sample(std::int16_t(v), true);
+		if (rx.fsk_carrier() || rx.take_byte(byte)) return 8;
+	}
+	return 0;
 }

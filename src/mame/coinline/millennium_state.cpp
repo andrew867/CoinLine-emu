@@ -707,8 +707,15 @@ void millennium_state::load_firmware_and_emit_m0()
 			throw emu_fatalerror("millennium: COINLINE_CARD_DMA_CHANNEL must be 0 or 1");
 		m_card_uses_dma1 = std::strcmp(channel, "1") == 0;
 	}
-	if (char const *preset = osd_getenv("COINLINE_HARDWARE_PRESET"))
+	if (char const *preset = osd_getenv("COINLINE_HARDWARE_PRESET")) {
 		m_coin_basic_layout = m_earlier_motherboard && std::strcmp(preset, "coin-basic") == 0;
+		// This later control-board revision doubles the oscillator, independently
+		// of whether the two-line or graphical display is attached. Retain
+		// explicitly calibrated non-default board-profile clocks.
+		if (!m_earlier_motherboard && std::strcmp(preset, "multipay-v1.3") == 0 &&
+			m_z180_board.clock_hz == 12288000U)
+			m_z180_board.clock_hz = 24576000U;
+	}
 	if (char const *display = osd_getenv("COINLINE_PORTABLE_VFD"))
 		m_portable_vfd_connected = !m_coin_basic_layout || std::strcmp(display, "0") != 0;
 	m_flash->seed(rom->base(), m_firmware_sha256_hex, !m_earlier_motherboard);
@@ -3645,9 +3652,12 @@ void millennium_state::exchange_line_pcm(std::int16_t mic, std::int16_t &line, b
 		bool const carrier_before = m_adsi_rx.fsk_carrier();
 		m_adsi_rx.sample(sample, modem.adsi_receiver_mode());
 		modem.set_adsi_carrier(m_adsi_rx.fsk_carrier());
-		if (m_adsi_trace && (cas_before != m_adsi_rx.cas_detected() || carrier_before != m_adsi_rx.fsk_carrier()))
-			std::fprintf(stderr, "ADSI audio %.6f CAS=%d carrier=%d framing_errors=%u\n",
-				machine().time().as_double(), m_adsi_rx.cas_detected(), m_adsi_rx.fsk_carrier(), m_adsi_rx.framing_errors());
+		if (m_adsi_trace && (cas_before != m_adsi_rx.cas_detected() || carrier_before != m_adsi_rx.fsk_carrier())) {
+			if (!cas_before && m_adsi_rx.cas_detected()) m_adsi_status_reads = 0;
+			std::fprintf(stderr, "ADSI audio %.6f CAS=%d carrier=%d framing_errors=%u status_reads=%u\n",
+				machine().time().as_double(), m_adsi_rx.cas_detected(), m_adsi_rx.fsk_carrier(),
+				m_adsi_rx.framing_errors(), m_adsi_status_reads);
+		}
 	}
 	line = m_line.co_dial_tone() && !m_handset_dial_tone ? 0 : sample;
 	have = true;
@@ -3669,6 +3679,8 @@ void millennium_state::write_modem_pio(std::uint8_t data)
 		return;
 	auto &modem = m_modem->model();
 	if (char const digit = modem.ssi_pio_a_write(data, !m_earlier_motherboard)) {
+		if (m_adsi_trace && digit >= 'A' && digit <= 'D')
+			std::fprintf(stderr, "ADSI SSI tone start %.6f %c\n", machine().time().as_double(), digit);
 		char const note[] = {'D', digit, '\n', 0};
 		m_line.send_line(note);
 		modem.note_outpulse_digit(digit, machine().time().as_double());

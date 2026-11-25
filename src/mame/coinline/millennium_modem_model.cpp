@@ -523,6 +523,8 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a, bool extended_a
 		}
 	};
 	auto store_reg = [&](unsigned a, std::uint8_t v) {
+		if (char const *trace = std::getenv("COINLINE_ADSI_TRACE"); trace && *trace == '1')
+			std::fprintf(stderr, "ADSI SSI register write %u=%02X\n", a, unsigned(v));
 		switch (a) {
 		case 0: m_ssi_cr0 = v; break;
 		case 1: m_ssi_cr1 = v; break;
