@@ -12,11 +12,14 @@ Emulate ISO/IEC 7816 memory cards (and microprocessor cards on SKUs that support
 | --------- | --------- | ----- |
 | Reset / clock control | W | Power, reset, clock to the card. |
 | Data port | R/W | Serial line for ATR / APDU / memory protocol. |
-| Status port | R | card_present, atr_ready, response_ready, error. |
+| Status inputs | R | Card presence and synchronous contact data; asynchronous status is the native ASCI0 register state. |
 
 ## I/O ports
 
-Per `fixtures/board/io-port-map.json` rows with `device = "smartcard"`.
+The earlier board uses a latched pulse on PIO A bit 6 and active-low clock
+and reset outputs on PIO C bits 6 and 7. The later board uses the manual
+D/E/F contact selection and supply latch; customer asynchronous operation
+uses the selected ASCI0 route. See the hardware mapping in the device guide.
 
 ## State machine
 
@@ -39,17 +42,21 @@ Per board profile; default polled.
 ## MAME files
 
 - `src/mame/coinline/millennium_smartcard.cpp/h`
+- `src/mame/coinline/millennium_smartcard_model.cpp/h`
 
 ## Fixture files
 
-- `fixtures/cards/smartcard-valid.json`
-- `fixtures/cards/smartcard-empty.json`
+- `fixtures/cards/smartcard-sync-test.json`
+- `fixtures/cards/smartcard-async-t0-lab.json`
+- `fixtures/cards/smartcard-async-t1-lab.json`
 
 ## Tests
 
-- `tests/devices/test_smartcard_atr.cpp`
-- `tests/devices/test_smartcard_apdu.cpp`
-- `tests/devices/test_smartcard_memory_read.cpp`
+- `tests/devices/test_smartcard_protocol_negotiation.cpp`
+- `tests/devices/test_smartcard_async_transport.cpp`
+- `tools/acceptance/smartcard_pin_probe.py`
+- `tools/acceptance/smartcard_async_probe.py`
+- `tools/acceptance/smartcard_craft_probe.py`
 
 ## Boot milestone dependencies
 
@@ -57,6 +64,10 @@ Per board profile; default polled.
 
 ## Acceptance criteria
 
-- ATR is honored; firmware proceeds.
-- APDU exchange follows the spec for the selected protocol.
-- Removing the card mid-operation produces the firmware's expected error path.
+- The synchronous fixture returns its own contact bits on the actual board
+  pins, and the selected real firmware passes its contact check where offered.
+- The generic asynchronous fixture returns its ATR and read-only APDU
+  responses through the native selected UART; unsupported operations fail.
+- Removal clears the active contact session and pending serial traffic.
+- Historical application recognition and settlement require independent
+  authorized lab acceptance and are not implied by the preceding gates.

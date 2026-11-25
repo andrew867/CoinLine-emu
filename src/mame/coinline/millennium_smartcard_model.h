@@ -117,6 +117,8 @@ private:
 	bool m_sync_released = true;
 	bool m_sync_reset_clocked = false;
 	bool m_sync_ready = false;
+	bool m_earlier_power_latch = false;
+	bool m_earlier_power_clock = false;
 	bool m_later_power_latch = false;
 	bool m_later_power_clock = false;
 	std::size_t m_sync_bit_address = 0;
