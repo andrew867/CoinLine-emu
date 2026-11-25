@@ -31,6 +31,9 @@ int main()
 	d = millennium_mach_decode_phys_ram(0x06U, 0xc8000U, cap);
 	if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0x8000U)
 		return 5;
+	d = millennium_mach_decode_phys_ram(0xffU, 0xe0000U, cap);
+	if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0U)
+		return 6;
 
 	return 0;
 }

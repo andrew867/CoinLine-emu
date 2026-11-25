@@ -31,6 +31,7 @@
 #include "millennium_terminal_peripherals_model.h"
 #include "millennium_z180_boot_init_model.h"
 #include "millennium_pcd3349a.h"
+#include "millennium_flash.h"
 
 #include "sound/beep.h"
 #include "sound/flt_rc.h"
@@ -86,7 +87,7 @@ public:
 	u8 phys_ram_r(offs_t offset);
 	void phys_ram_w(offs_t offset, u8 data);
 
-	/// Physical 0x00000–0xBFFFF: flash image + overlay for writes (MMU may map logical stack here).
+	/// Physical 0x00000–0xBFFFF: board-specific program flash or earlier RAM.
 	u8 phys_low_r(offs_t offset);
 	void phys_low_w(offs_t offset, u8 data);
 
@@ -166,6 +167,7 @@ private:
 	unsigned m_pad_dtmf_n = 0;
 	required_device<millennium_hostbridge_device> m_hostbridge;
 	required_device<millennium_nvram_device> m_nvram;
+	required_device<millennium_flash_device> m_flash;
 	required_device<millennium_card_device> m_card;
 	required_device<millennium_smartcard_device> m_smartcard;
 	required_device<millennium_sam_device> m_sam;
@@ -645,6 +647,8 @@ private:
 	/// Earlier universal motherboard: PIO 0x40–0x43, control latch 0x60, status 0x80, display 0xA0.
 	/// Later motherboard: control/status 0x40, PIO 0x41–0x44, display 0x60.
 	bool m_earlier_motherboard = false;
+	bool m_coin_basic_layout = false;
+	bool m_portable_vfd_connected = true;
 	unsigned m_vector_event_budget = 0U;
 	u16 m_vecprobe_last_pc = 0;
 	std::uint8_t m_vecprobe_last_op0 = 0xffU;

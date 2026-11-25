@@ -6,12 +6,15 @@ The manager column records external hardware reports. CoinLine acceptance applie
 
 ## Current acceptance
 
-Twenty of the 24 staged IDs with usable program candidates have a verified
+Twenty-three of the 24 staged IDs with usable program candidates have a verified
 cold INSTALL and separate in-service restart. This includes all four tested
 V1.3 and both V1.1 split-flash images, both Desk hardware revisions, earlier
-Multi-Pay and Card-only cases, and the local FreeTel demo. The V1.1 and V1.3
-chip-card tests remain failed. The four remaining runnable IDs have recorded
-blockers. The other 102 catalogue IDs have missing dumps or unresolved program
+Multi-Pay and Card-only cases, all three staged Coin Basic images, and the
+local FreeTel demo. The Coin Basic cases also passed the detached portable
+display preparation, attached-display INSTALL and restart, and detached-display
+local call and hangup sequence. The V1.1 and V1.3 chip-card tests remain failed.
+MTR 2.0 `NCA1X03` remains blocked during required table updates. The other
+102 catalogue IDs have missing dumps or unresolved program
 layout.
 
 ## Local firmware library
@@ -151,6 +154,8 @@ and `build/firmware-acceptance/runs/20261124T165017.237538Z/`.
 | `NBJ1F03` | NCC download completed 01 | A subsequent run ACKed its ten records, then reported that the telephony board was not responding before the keypad test. A further diagnostic attempt cleared during download with status 24. |
 | `NBJ1F03` | Cold INSTALL and in-service restart | The French Desk REL 1 image passed Craft, both line checks, all ten table ACKs, keypad and magnetic card checks, and returned to service on restart. |
 | `NPE1S01`, `NAD4K02`, `NAD4S02` | Voiceware commands and telephony processor handshake | All three reached the M7B telephony receive checkpoint on the earlier map. Neither map produced a stable display. A model-appropriate service indicator or line behavior still needs verification for the no-display variant. |
+| `NPE1S01`, `NAD4K02`, `NAD4S02` | Cold INSTALL and in-service restart with VFD attached | Captures established that these images send display bytes to I/O `0xC0`, whereas the other earlier-board images use `0xA0`. Coin Basic now routes the display and Voiceware to the appropriate exchanged ports. All three completed keypad and coin tests, INSTALL, and a separate in-service restart. The MTR 1.20 image acknowledged ten records, and both MTR 1.7 images acknowledged nine. |
+| `NPE1S01`, `NAD4K02`, `NAD4S02` | Full portable-display workflow and local call | All three completed detached Craft access, a power cycle to attach the portable display, firmware-driven INSTALL, attached-display restart to service, and a separate detached-display call that was answered and hung up through the local CO. |
 
 The legacy INSTALL and restart results are in `build/firmware-acceptance/runs/20261124T182658.858280Z/`.
 The split-flash boot results are in `build/firmware-acceptance/runs/20261124T183624.319068Z/`
@@ -243,6 +248,40 @@ The additional `NPE1S01` I/O capture in
 recorded no VFD-tagged accesses, despite the firmware containing the Craft prompts.
 The corrected interrupt-core retest also timed out before the first usable
 display in `build/firmware-acceptance/runs/20261124T223431.895557Z/`.
+The corrected Coin Basic display-map passes are in
+`build/firmware-acceptance/runs/20261125T001143.534536Z/` and
+`build/firmware-acceptance/runs/20261125T001144.670711Z/`.
+The complete portable-display and local-call runs are under
+`build/firmware-acceptance/runs/20261125T002828.482620Z/`
+for MTR 1.20 and
+`build/firmware-acceptance/runs/20261125T003507.616429Z/`
+for both MTR 1.7 images.
+The later-board bootstrap and NOR model boot probe reached the startup
+display in `build/firmware-acceptance/runs/20261125T001146.165708Z/`.
+The NLA1X05 cold INSTALL passed with twelve record ACKs in
+`build/firmware-acceptance/runs/20261125T001336.179620Z/`.
+Its first warm launch timed out at the old 40-second prompt deadline.
+A separate launch of its retained state reached service after the firmware's
+bootstrap and maintenance dialogue, in
+`build/firmware-acceptance/warm-bootstrap-probe/20261125T002610.235858Z/`.
+The later warm-start deadline now allows 120 emulated seconds.
+After correcting the reset-time latch, the V1.3 reference `NLA1X05`
+completed cold INSTALL with all twelve records and returned to service
+with both its battery and initial program flash restored in
+`build/firmware-acceptance/runs/20261125T004254.220778Z/`.
+The flash image's active hash and both chip hashes remained unchanged
+through this ordinary INSTALL and restart.
+Both V1.1 images reached their initial display using the corrected
+bootstrap, then accepted all fourteen records in the first full retest.
+Both reached the peripheral tests before the 600-second wall deadline.
+The runner now allows 1200 seconds by default for full acceptance.
+The MTR 2.0 bootstrap retest still acknowledged all eleven records in each
+of two calls and reported status 34 in
+`build/firmware-acceptance/runs/20261125T001335.925140Z/`.
+The Inmate candidate `M06KEC12` remains blocked because no runnable image
+was located in the reviewed public archives.
+The explicit inventory-only check is in
+`build/firmware-acceptance/inmate-input-check/20261124T235639.561882Z/`.
 The MTR 1.9 Multi-Pay regression passed cold INSTALL and warm restart for both
 program images in `build/firmware-acceptance/runs/20261124T190234.144509Z/`.
 A separate later-board restart loaded a copy of a battery from an older build,
@@ -301,7 +340,7 @@ The numeric type is the wiki's terminal-type code. A dash indicates a field abse
 | `NAJ2S07` | 1.7 | 25 | Desk Multicard E/S REL 2 H/W | - | - | No dump located | Input missing |
 | `NAD4J01` | 1.7 | 19 | Coin Only Display E/J | - | - | No dump located | Input missing |
 | `NAD4J02` | 1.7 | 19 | Coin Only Display E/J | - | - | No dump located | Input missing |
-| `NAD4S02` | 1.7 | 19 | Coin Only Display E/S | 1.7 | Coin Basic, Unconfirmed | Staged (1) | Telephony handshake |
+| `NAD4S02` | 1.7 | 19 | Coin Only Display E/S | 1.7 | Coin Basic, Unconfirmed | Staged (1) | Cold INSTALL, restart, detached VFD local call |
 | `NAD4S03` | 1.7 | 19 | Coin Only Display E/S | - | - | No dump located | Input missing |
 | `NADXS01` | 1.7 | 19, 24 | Coin Only No Display E/S | - | - | No dump located | Input missing |
 | `NADXS02` | 1.7 | 19 | Coin Only No Display E/S | - | - | No dump located | Input missing |
@@ -344,7 +383,7 @@ The numeric type is the wiki's terminal-type code. A dash indicates a field abse
 | `12AAV08` | 1.xx | - | Multipay Multicard E/F | 1.7 | MP/MC, Unconfirmed | Staged (2) | Cold INSTALL + restart |
 | `06JAA03` | 1.xx | - | Multipay Magstripe E/S | 1.7 | MP/MC, English / Japanese, Working except chip cards | Staged (2) | Cold INSTALL + restart |
 | `NPA1S01` | 1.20 | - | Multipay Multicard E/S | 1.20 | MP/MC, English / Spanish, Working | Staged (7) | Cold INSTALL + restart |
-| `NPE1S01` | 1.20 | - | Multipay Coin Basic | 1.20 | Coin Basic, Working | Staged (1) | Telephony handshake |
+| `NPE1S01` | 1.20 | - | Multipay Coin Basic | 1.20 | Coin Basic, Working | Staged (1) | Cold INSTALL, restart, detached VFD local call |
 | `NPA1F01` | 1.20 | - | Multipay | - | - | Staged (2) | Cold INSTALL + restart |
 | `NCA1S01` | 2.0 | 36 | Multipay Multicard Downloadable | - | - | No dump located | Input missing |
 | `NCA1S02` | 2.0 | 36 | Multipay Multicard Downloadable | - | - | No dump located | Input missing |
@@ -377,6 +416,6 @@ The numeric type is the wiki's terminal-type code. A dash indicates a field abse
 | `NOK1X03` | 2.13 | - | Multipay Multicard TTY | 2.13 | MP/MC/TTY, Unconfirmed | Staged (4) | Cold INSTALL + restart, chip-card failure |
 | `NKA1X05` | 2.xx | unknown | Multipay Multicard | 2.11 | MP/MC, Unconfirmed | Staged (27) | Cold INSTALL + restart, chip-card failure |
 | `NBE1J01` | - | - | Card-only | 1.9 | Card-only, English / Japanese, Provisioned, rating failed | No dump located | Input missing |
-| `NAD4K02` | - | - | Coin Basic | 1.7 | Coin Basic, Unconfirmed | Staged (1) | Telephony handshake |
+| `NAD4K02` | - | - | Coin Basic | 1.7 | Coin Basic, Unconfirmed | Staged (1) | Cold INSTALL, restart, detached VFD local call |
 | `NBJ1F03` | - | - | Desk archive image | - | - | Staged (1) | Cold INSTALL + restart |
 | `FREETEL-1.x` | - | - | FreeTel demo | - | - | Staged (1) | Cold INSTALL + restart (local) |

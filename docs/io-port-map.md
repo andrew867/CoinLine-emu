@@ -1,6 +1,22 @@
 # I/O port map
 
-This document describes the I/O port layout for the emulator. Per-port entries are pinned in `fixtures/board/io-port-map.json` (schema in [`../specs/io-port-map.spec.md`](../specs/io-port-map.spec.md)).
+## Current board-specific display and audio wiring
+
+| Control board | VFD I/O | Voiceware phrase I/O |
+| --- | --- | --- |
+| Earlier Multi-Pay, Desk and Card-only | `0xA0` | `0xC0` |
+| Earlier Coin Basic | `0xC0` | `0xA0` |
+| Later Multi-Pay | `0x60` | `0x61` |
+
+The Coin Basic VFD differentiates commands from data using PIO B bit 5.
+When the portable display is disconnected, the display port returns an
+undriven bus value and the driver does not deliver writes to the VFD.
+Select the Coin Basic preset and use the portable-display option described
+in the [operator guide](../RUNNING.md). The acceptance runner has verified
+the temporary display installation sequence on three firmware images.
+
+The original fixture records per-port entries in `fixtures/board/io-port-map.json`
+(schema in [`../specs/io-port-map.spec.md`](../specs/io-port-map.spec.md)).
 
 **Audio / supervision:** Port ownership for voiceware, routing, and supervision is additionally tracked in [`fixtures/board/audio-device-map.json`](../fixtures/board/audio-device-map.json), [`voiceware-command-map.json`](../fixtures/board/voiceware-command-map.json), [`audio-routing-state-map.json`](../fixtures/board/audio-routing-state-map.json), and [`disconnect-supervision-map.json`](../fixtures/board/disconnect-supervision-map.json). MAME implementation bindings are specified in [`specs/voiceware-mame-device-implementation.spec.md`](../specs/voiceware-mame-device-implementation.spec.md), [`specs/audio-routing-mame-device-implementation.spec.md`](../specs/audio-routing-mame-device-implementation.spec.md), [`specs/disconnect-supervision-mame-device-implementation.spec.md`](../specs/disconnect-supervision-mame-device-implementation.spec.md), and [`audio-mame-device-architecture.md`](audio-mame-device-architecture.md).
 
@@ -17,13 +33,15 @@ This document describes the I/O port layout for the emulator. Per-port entries a
 
 | Port | Direction | Active | Owning device | Firmware driver evidence | Emulator handler file | Test | Status |
 | ---- | --------- | ------ | ------------- | ------------------------ | --------------------- | ---- | ------ |
-| `0x00` | R/W | high | `<device>` | the firmware evidence inventory | `src/mame/coinline/millennium_<device>.cpp` | `tests/devices/test_<device>_*.cpp` | known/suspected/unknown |
+| `0x00` | R/W | high | `<device>` | Observed bus trace | `src/mame/coinline/millennium_<device>.cpp` | `tests/devices/test_<device>_*.cpp` | known/suspected/unknown |
 | `0x40` | W | n/a | hw control (voice reset bit among others) | pinned in `fixtures/board/voiceware-command-map.json` | `millennium_voiceware.cpp` (planned) | `test-plans/voiceware-tests.md` | known (partial) |
 | `0x42` | W | n/a | voice ROM bank select `[3:0]` | same | same | same | known |
 | `0x61` | W | n/a | voice phrase write | same | same | same | known |
 | ... | | | | | | | |
 
-> Tranche E1 pins the first **known** rows (Z180 on-chip registers, PIO, VFD display port, and board status/control) in [`fixtures/board/io-port-map.json`](../fixtures/board/io-port-map.json) with evidence recorded under ``. Remaining ports are **unknown** until tranche E2 I/O traces promote them; the unknown-port logger still captures every access.
+The original fixture records the first known Z180, PIO, VFD and board
+status/control rows. The native driver has expanded board-specific routing
+since that fixture was defined. Per-access diagnostics are opt-in.
 
 ## Unknown-port policy
 
@@ -51,7 +69,7 @@ Each access produces a structured log entry:
 }
 ```
 
-The `source_symbol` field is populated by the symbol/map loader (tranche E13) when a symbol is available. `note` is one of `unknown_port`, `suspected_port`, or `known_port`. Boot-time observations of unknown ports are aggregated in the firmware evidence inventory.
+The `source_symbol` field is populated when a symbol is available. `note` is one of `unknown_port`, `suspected_port`, or `known_port`.
 
 ## Default values
 
@@ -82,7 +100,7 @@ Full schema in [`../specs/io-port-map.spec.md`](../specs/io-port-map.spec.md). I
       "direction": "r",
       "active_level": "high",
       "device": "vfd",
-      "evidence": "the firmware evidence inventory",
+      "evidence": "earlier-board VFD status observations",
       "handler": "src/mame/coinline/millennium_vfd.cpp",
       "test": "tests/devices/test_vfd_command_decode.cpp",
       "status": "known"

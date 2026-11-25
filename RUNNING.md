@@ -40,6 +40,17 @@ other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
 and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
 
+Coin Basic uses the earlier I/O map with display and Voiceware ports exchanged.
+Use `--portable-display attached` during Craft setup, then exit and start the
+same terminal with `--portable-display detached` to remove the temporary VFD.
+The same setting is available under `[hardware]` in `coinline.ini`. The
+terminal retains its own installed battery state.
+
+Later-board sessions also retain their programmed flash contents in the
+terminal's isolated state directory. The original program inputs remain
+required to identify the initial board and its state. See the
+[remote upgrade acceptance plan](docs/firmware-download-storage.md).
+
 ```text
 "Start OEM.cmd" --local --hardware multipay-v1.1 --firmware firmware/U2.bin --flash1 firmware/X1.bin --rompath roms-v2 --check
 ```

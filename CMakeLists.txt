@@ -22,6 +22,7 @@ add_library(coinline_support STATIC
 	src/mame/coinline/millennium_nvram_model.cpp
 	src/mame/coinline/millennium_microwire_93c66.cpp
 	src/mame/coinline/millennium_mach_pio.cpp
+	src/mame/coinline/millennium_flash_model.cpp
 	src/mame/coinline/millennium_z180_snapshot.cpp
 	src/mame/coinline/millennium_evidence_bundle.cpp
 	src/mame/coinline/millennium_modem_ncc.cpp
@@ -72,6 +73,7 @@ coinline_add_test(test_z180_asci z180 tests/devices/test_z180_asci.cpp)
 coinline_add_test(test_z180_prt z180 tests/devices/test_z180_prt.cpp)
 coinline_add_test(test_z180_int z180 tests/devices/test_z180_int.cpp)
 coinline_add_test(test_z180_dma z180 tests/devices/test_z180_dma.cpp)
+coinline_add_test(test_flash_model boot tests/devices/test_flash_model.cpp)
 coinline_add_test(test_z180_refresh z180 tests/devices/test_z180_refresh.cpp)
 coinline_add_test(test_z180_wait_states z180 tests/devices/test_z180_wait_states.cpp)
 coinline_add_test(test_z180_internal_register_readback z180 tests/devices/test_z180_internal_register_readback.cpp)

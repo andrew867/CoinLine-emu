@@ -24,7 +24,7 @@ Put the lab settings in `build/firmware-acceptance/settings.json`. Keep this fil
 }
 ```
 
-From the repository root, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
+From repository root, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
 
 ```sh
 python tools/acceptance/run.py --inventory-only
@@ -61,14 +61,22 @@ per line. It records the CPU's actual reads during NCC download and follow-up,
 including their addresses, values and program counter.
 
 Coin Basic firmware can start with a blank display. The bench models an attached
-portable display and attempts Craft access and PIN on-hook after a handset cycle.
-The driver requires actual prompts before proceeding through INSTALL. Use
+portable display after an initial detached preparation launch. The driver
+enters Craft access and PIN on-hook, opens the cabinet, powers off, and
+starts a second launch with the VFD attached and the firmware-written battery.
+The driver closes the unlocked cabinet, repeats Craft access as needed, and
+opens it again when prompted. It requires actual prompts before proceeding
+through INSTALL. Use
 `--voice-trace` to retain Voiceware commands during this diagnosis.
 The terminal craft interface guide (Issue 00.01, Appendix C) describes separate
 internal Coin Basic and external Inmate portable display modules on J7. The
 maintenance procedure includes disconnecting power, attaching the display,
-restoring power, and removing the display before regular operation. The current
-bench has yet to qualify this complete attachment and removal sequence.
+restoring power, and removing the display before regular operation.
+With `--test-call`, a successful Coin Basic installation is followed by a
+separate attached-display service restart and a detached-display call test.
+This full sequence passed on the three available Coin Basic program images,
+`NPE1S01`, `NAD4K02`, and `NAD4S02`. Inmate remains unqualified without
+a usable program image.
 
 Add `desk_key_card` to the settings with a path to a synthetic Desk craft card fixture if the lab profile uses a craft card. The runner inserts it when requested after Craft PIN entry. It uses the standard synthetic test card for the separate INSTALL reader check. Add `free_call` with the digits served by the local office and pass `--test-call` to check a locally answered call and hangup after restart.
 
@@ -115,8 +123,10 @@ Use `--board earlier` or `--board later` for a specific wiring map and `--profil
 
 Use `--telephony-trace` to inspect CSIO wire activity, qualified bytes, and
 controller messages during the CO and answer-supervision checks. The
-`--timeout` wall-clock limit defaults to 600 seconds per launch. Firmware
-prompt deadlines remain based on emulated time.
+`--timeout` wall-clock limit defaults to 1200 seconds per launch, allowing
+the larger V1.1 downloads and subsequent peripheral tests to finish even
+when multiple builds share the machine. Firmware prompt deadlines remain
+based on emulated time.
 
 ```sh
 python tools/acceptance/run.py --only NKA1X02 --boot-only --board both --hardware-trace
@@ -131,11 +141,25 @@ Each batch has a timestamped directory under `build/firmware-acceptance/runs/`.
 | --- | --- |
 | `bin-hashes.json`, `SHA256SUMS` | Measured SHA-256 for every staged BIN, including Voiceware and other companion files. The JSON retains the expected digest, file role, and verification result. |
 | `summary.md`, `batch.json` | Per-candidate status, board mapping, and a comparison of the initial Z180 register snapshots. The JSON includes the selected candidates, tool hashes, and observed gates. |
-| `result.json` | Effective mapped-program hash, input hashes, cold and warm results, boot-register summary, NCC table ACKs, and battery hashes for one attempt. |
+| `result.json` | Effective mapped-program hash, input hashes, cold and warm results, boot-register summary, NCC table ACKs, battery hashes, and persistent flash hashes for later boards. |
 | `cold/`, `warm/` | VFD prompt and input history, terminal and CO logs, CRC-verified NCC frame summaries, and boot or hardware traces. |
+| `portable-preflight/`, `detached/` | Coin Basic detached preparation and, with `--test-call`, detached-display call and hangup evidence. |
 
 The run copies verified program bytes into an isolated emulator input directory. It registers the SHA-256 of the effective flash mapping there so the emulator can retain strict hash validation. The original controls and firmware write the install state through the modeled hardware.
 
 An INSTALL pass requires the firmware's completion prompt followed by an in-service prompt. A restart pass requires a reported battery load and the returned service prompt. The individual keypad, card, and coin fields record the prompts actually reached and their observed completion. NCC ACKs establish transport acceptance, and a Voiceware trace establishes command activity. Audible output, table-specific behavior, and working hardware on a physical terminal require their own evidence.
+
+For a later-board INSTALL pass, the runner also requires a persistent flash
+state file and a reported load of that state during the warm launch. The synthetic
+flash-bus test is independent of an NCC install:
+
+```sh
+python tools/acceptance/flash_probe.py --mame <path-to-mamecoinline>
+```
+
+It programs both chips through CPU memory accesses, checks persistence after
+a separate launch, and verifies that the original input bytes stay unchanged.
+See [remote firmware downloads](../../docs/firmware-download-storage.md) for
+the end-to-end upgrade gates.
 
 Run outputs can include lab identifiers, state files, and firmware images. The default output path is ignored by Git.
