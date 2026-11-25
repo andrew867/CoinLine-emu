@@ -111,9 +111,37 @@ CAS/FSK state is no longer advanced in sound-stream batches. Missing
 samples during active carrier are traceable; the ordinary network buffer
 and service deadlines are unchanged. Live menu qualification remains open.
 
+## Live retest with independent receiver clock
+
+Two actual local SIP calls used the rebuilt native receiver and unchanged
+service. The first detected CAS for 80 ms with 64 actual status polls and
+generated A, but the independent wire capture measured completion at 558 ms
+after CAS ended, 58 ms beyond the 500 ms service deadline. The service
+correctly used voice fallback and a physical hangup closed the dialog.
+
+The second call received A within the capability window (223 ms completed
+digit), delivered the exact first CONNECT, and generated native D1. Native
+carrier release-to-D command onset was 834.371 ms and commanded D duration
+69.217 ms. The independent wire capture measured completed D at 1,243 ms
+after CONNECT ended. Its retry had begun 24 ms before the initial D onset
+on the wire, so the service closed rather than deliver an ambiguous menu.
+No active-signal PCM underrun was reported by the opt-in trace. This run's
+whole-terminal average speed was 74.85%, not a controlled pre/post benchmark;
+it does not isolate scheduler cost from concurrent host workload or establish
+the speed during any individual interval. The independent-clock change is
+native and the FSK path is functional, but reliable real-time menu delivery
+remains unqualified. The next timing investigation should measure display
+ready polling, DMA and initial mode-transition latency alongside host pacing.
+Run: `build/firmware-acceptance/graphic-firmware/20261125T143933.669281Z/`.
+
+No service deadline, installed table, acknowledgement or terminal memory
+was altered to disguise the result.
+
 ## Component validation
 
 The native Windows build succeeded. CTest passed 64 tests, with two
 ROM-dependent skips and no failures. All 18 central-office tests and all
 18 fixture tests passed, including
 deterministic PCM sample boundaries and unchanged captured CONNECT input.
+Native line-jack, data-jack and synchronous contact probes also passed
+again after the final receiver-clock build.

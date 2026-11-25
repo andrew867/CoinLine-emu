@@ -52,6 +52,11 @@ responses, independently confirmed by a wire capture. The first D response
 still misses the service's strict one-second deadline. Welcome display,
 menu navigation and paid service calls are not yet qualified.
 
+A deterministic single CONNECT test produced native D onset in 791.587 ms.
+The live receiver now shares that dedicated emulated 8 kHz sampling clock;
+actual live retries still missed the service window, so the timing gate
+remains open. The ordinary terminal execution and service deadline are intact.
+
 The enclosure warning source and gate now follow the later hardware latch,
 with a separate legacy Desk oscillator profile. Native GPIO and recorded
 audio measurements verified the later waveform and silent muted phases.
