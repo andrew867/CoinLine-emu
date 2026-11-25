@@ -22,6 +22,9 @@ public:
 
 	std::uint8_t debug_port_latch(unsigned port) const override;
 	std::uint16_t debug_pc() const override { return m_pc; }
+	std::uint8_t debug_ram(std::uint8_t addr) const { return read_ram(addr); }
+	void debug_write_ram(std::uint8_t addr, std::uint8_t v) { write_ram(addr, v); }
+	void debug_force_pc(std::uint16_t pc) { m_pc = pc; }
 
 private:
 	unsigned execute_one();
@@ -48,6 +51,7 @@ private:
 	std::uint8_t m_t = 0U;
 	std::uint8_t m_flags_f1 = 0U;
 	bool m_flag_mb = false;
+	bool m_flag_mb_saved = false;
 	bool m_in_irq = false;
 	bool m_i_ena = false;
 	bool m_t_ena = false;

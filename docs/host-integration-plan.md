@@ -1,6 +1,8 @@
 # Host integration plan
 
-This document describes how the emulator integrates with **CoinLine Host** (a separately-licensed host platform that speaks the same modem-leg protocol the real terminal speaks) to exercise real terminal-to-host protocol flows. Tranche E12 owns this integration.
+The current MAME lab completed the firmware's manager call, clock sync, ten-table INSTALL, maintenance exchange, and live OEM quote against CoinLine. The [runtime documentation](../RUNNING.md) covers the portable host-side launch, and the [acceptance record](status/ncc-install-firmware-stx-handoff-2026-11-23.md) records the measured results. The remaining sections describe the integration design and planned extensions.
+
+This document describes how `coinline-emu` integrates with **CoinLine Host** (the MIT-licensed host platform under [`../../coinline/`](../../coinline/)) to exercise real terminal-to-host protocol flows. Tranche E12 owns this integration.
 
 ## Goal
 
@@ -27,7 +29,7 @@ The host bridge is the **only** integration point. There is no shared library, n
 ### Step 1 — Run CoinLine Host
 
 ```bash
-# launch your host application here
+cd ../coinline/backend
 dotnet ef database update --project src/HostPlatform.Infrastructure --startup-project src/HostPlatform.Api
 dotnet run --project src/HostPlatform.Api --launch-profile http
 ```
@@ -36,7 +38,7 @@ CoinLine Host listens on `http://localhost:5006/swagger`.
 
 ### Step 2 — Run the host-bridge listener
 
-The CoinLine Host project provides a modem-leg gateway that listens on a TCP port and forwards bytes to / from the appropriate session handler. Configure the gateway endpoint and start it. (For details, see the host project's own documentation.)
+The CoinLine Host project provides a modem-leg gateway that listens on a TCP port and forwards bytes to / from the appropriate session handler. Configure the gateway endpoint and start it. (For details, see CoinLine Host's own docs under [`../../coinline/docs-site/`](../../coinline/docs-site/).)
 
 ### Step 3 — Run the emulator
 
@@ -80,10 +82,10 @@ Each integration test run produces an evidence bundle ([`evidence-bundles.md`](e
 | Failure | Likely cause | Action |
 | ------- | ------------ | ------ |
 | `Connection refused` on `tcp://127.0.0.1:5210` | CoinLine Host gateway not running | Start CoinLine Host and the modem gateway. |
-| Firmware never reaches M11 | Modem state machine bug in emulator | Review the modem JSONL traces under the run directory and confirm DCD/CTS/RTS transitions match expected ASCI semantics. |
+| Firmware never reaches M11 | Modem state machine bug in emulator | Review modem traces; cross-check `internal/modem-driver-source-map.md`. |
 | Table download truncated | Carrier loss injection enabled | Disable injection or reproduce the failure mode intentionally. |
 | Bytes diverge between sides | Framing mismatch on either side | Compare host-bridge transcript on both sides. |
-| Unexpected NCC framing | CoinLine Host protocol version mismatch | Ensure both sides understand the same NCC version per the host project documentation. |
+| Unexpected NCC framing | CoinLine Host protocol version mismatch | Ensure both sides understand the same NCC version per [`../../coinline/docs-site/`](../../coinline/docs-site/). |
 
 ## CI configuration
 
@@ -93,6 +95,7 @@ The nightly job `nightly-host-integration` per [`ci-and-release.md`](ci-and-rele
 
 - The host bridge crosses the MIT/GPL boundary. It does not link the two trees. It carries bytes only.
 - Anything that would require a shared library between sides is split into independent implementations under each license.
+- See [`license-isolation.md`](license-isolation.md) for the operational rules.
 
 ## Cross-references
 

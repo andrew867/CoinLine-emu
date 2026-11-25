@@ -7,11 +7,11 @@
 #include <functional>
 
 /// Microwire serial EEPROM compatible with Microchip 93LC66 (4 Kbit = 512×8 or 256×16).
-/// Wired per Millennium board decode: EEPROM_CS on HW_CNTL (\c 0x40 write), EEPROM_SK on PIO B bit 7,
-/// EEPROM_DI on PIO A bit 0, EEPROM_DO sampled from board status port bit 3 on reads.
+/// Serial EEPROM. The board driver reports chip-select, each SK rising edge, and the DI bit.
+/// DO is read back on the status port while chip-select is asserted.
 ///
-/// This model shifts command/data on SK **rising** edges while CS is asserted (matches the host
-/// toggling: pulse drives low→high→low; DI must be valid before the rising edge).
+/// Bits shift on SK rising edges while CS is high. A clock pulse drives low, then high, then low;
+/// DI must be valid before the rising edge.
 class millennium_microwire_93c66 {
 public:
 	static constexpr std::size_t k_capacity_bytes = 512U;
@@ -21,12 +21,19 @@ public:
 	void reset();
 
 	void load_from_span(std::uint8_t const *src, std::size_t bytes);
+	void store_to_span(std::uint8_t *dst, std::size_t bytes) const;
 
-	/// CS input directly from HW_CNTL_PORT latch bit 6 (0x40).
+	/// Chip-select from the control latch, bit 6.
 	void set_chip_select(bool cs_high);
 
-	/// Call after PIO port B write with previous image for edge detection.
+	/// Later motherboard: SK is PIO B bit 7. \p di_from_port_a_bit0 is PIO A bit 0.
 	void notify_port_b_clock(std::uint8_t prev_b, std::uint8_t new_b, bool di_from_port_a_bit0);
+
+	/// SK level change. Rising edge while CS is high shifts DI.
+	void notify_sk_edge(bool prev_sk_high, bool new_sk_high, bool di_bit);
+
+	/// Command field length after START: two opcode bits and either six or eight address bits.
+	void set_command_body_bits(unsigned bits);
 
 	/// Current DO line (high = pull-up / logical 1) while CS asserted.
 	bool serial_out() const noexcept { return m_do; }
@@ -60,7 +67,7 @@ private:
 		write_word_in,
 	};
 
-	void append_command_bit(bool di);
+	void accept_command();
 	void begin_read_output(std::uint16_t word_addr);
 	void finish_write_word(std::uint16_t word_addr, std::uint16_t data_be);
 	void perform_erase_all_words();
@@ -75,10 +82,11 @@ private:
 	bool m_write_enabled = false;
 
 	phase m_phase = phase::idle;
-	std::uint32_t m_sr_bits = 0; // command_stream: Microwire SR (START seeds bit 0, then 11 DI bits)
+	unsigned m_command_body_bits = 10U;
+	std::uint32_t m_sr_bits = 0; // command_stream: START seeds bit 0, then m_command_body_bits DI bits
 	unsigned m_sr_len = 0;
 	std::uint16_t m_word_addr = 0;
-	unsigned m_read_bit_idx = 0; // read_word_out: SK rises completed in data phase (0..17, host read sequence)
+	unsigned m_read_bit_idx = 0; // read_word_out: SK rises completed in the data phase (0..17)
 	unsigned m_write_shift = 0;
 	std::uint16_t m_write_accum = 0;
 	/// Captured when a WRITE opcode completes: only \c true if EWEN (or equivalent) was active.

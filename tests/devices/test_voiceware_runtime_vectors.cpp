@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// Voiceware runtime vectors for the handset playback path.
 
 #include <cstdint>
 #include <iostream>
@@ -13,7 +14,8 @@ struct voiceware_runtime_model {
 	bool prompt_active = false;
 	bool fault_when_reset = false;
 
-	void write_control(std::uint8_t v) { reset_asserted = (v & 0x08U) != 0U; }
+	// Latch bit 3 is active-low: clear holds the synthesizer in reset.
+	void write_control(std::uint8_t v) { reset_asserted = (v & 0x08U) == 0U; }
 	void write_bank(std::uint8_t v)
 	{
 		bank_latched = true;
@@ -42,7 +44,7 @@ int main()
 {
 	{
 		voiceware_runtime_model m;
-		m.write_control(0x00U);
+		m.write_control(0x08U);
 		m.write_bank(0x03U);
 		m.write_phrase(0xB3U);
 		if (m.read_phrase_port() != 0x7FU || !m.prompt_active || !m.bank_latched || m.bank != 0x03U) {
@@ -58,7 +60,7 @@ int main()
 
 	{
 		voiceware_runtime_model m;
-		m.write_control(0x08U);
+		m.write_control(0x00U);
 		m.write_phrase(0x10U);
 		if (!m.fault_when_reset || m.prompt_active || m.read_phrase_port() != 0xFFU) {
 			std::cerr << "voiceware reset gate vector failed\n";

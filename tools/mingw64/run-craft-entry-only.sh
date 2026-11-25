@@ -33,27 +33,27 @@ RUN_WIN="$(cygpath -aw "$RUN")"
 PARENT_ROOT="$(cd "$EMU_ROOT/.." && pwd)"
 FW_DIR="$PARENT_ROOT/firmware"
 
-if [[ -z "${COINLINE_FIRMWARE_FLASH1:-}" ]] && [[ -f "$FW_DIR/flash.bin" ]] && [[ -f "$FW_DIR/flash1.bin" ]]; then
-	export COINLINE_FIRMWARE_FLASH0="$FW_DIR/flash.bin"
-	export COINLINE_FIRMWARE_FLASH1="$FW_DIR/flash1.bin"
+if [[ -z "${COINLINE_FIRMWARE_FLASH1:-}" ]] && [[ -f "$FW_DIR/FLASH0.BIN" ]] && [[ -f "$FW_DIR/FLASH1.BIN" ]]; then
+	export COINLINE_FIRMWARE_FLASH0="$FW_DIR/FLASH0.BIN"
+	export COINLINE_FIRMWARE_FLASH1="$FW_DIR/FLASH1.BIN"
 fi
 if [[ -n "${COINLINE_FIRMWARE_FLASH1:-}" ]]; then
-	FW_PRIMARY="${COINLINE_FIRMWARE_FLASH0:-${COINLINE_FIRMWARE:-$FW_DIR/flash.bin}}"
+	FW_PRIMARY="${COINLINE_FIRMWARE_FLASH0:-${COINLINE_FIRMWARE:-$FW_DIR/FLASH0.BIN}}"
 else
-	FW_PRIMARY="${COINLINE_FIRMWARE:-$FW_DIR/flash.bin}"
+	FW_PRIMARY="${COINLINE_FIRMWARE:-$FW_DIR/FLASH0.BIN}"
 fi
 FW_WIN="$(cygpath -aw "$FW_PRIMARY")"
 FWS_WIN="$(cygpath -aw "${COINLINE_FIRMWARE_SOURCE_ROOT:-$PARENT_ROOT}")"
 
-U16_PATH="${COINLINE_VOICE_ROM_U16:-$PARENT_ROOT/firmware/voice_a.bin}"
-U26_PATH="${COINLINE_VOICE_ROM_U26:-$PARENT_ROOT/firmware/voice_b.bin}"
+U16_PATH="${COINLINE_VOICE_ROM_U16:-$PARENT_ROOT/firmware/voice_u16.bin}"
+U26_PATH="${COINLINE_VOICE_ROM_U26:-$PARENT_ROOT/firmware/voice_u26.bin}"
 if [[ ! -f "$U16_PATH" || ! -f "$U26_PATH" ]]; then
-	if [[ -f "$FW_DIR/voice_a.bin" && -f "$FW_DIR/voice_b.bin" ]]; then
-		U16_PATH="$FW_DIR/voice_a.bin"
-		U26_PATH="$FW_DIR/voice_b.bin"
-	elif [[ -f "$FW_DIR/voice_a.bin" && -f "$FW_DIR/voice_b.bin" ]]; then
-		U16_PATH="$FW_DIR/voice_a.bin"
-		U26_PATH="$FW_DIR/voice_b.bin"
+	if [[ -f "$FW_DIR/u16_vw20a.bin" && -f "$FW_DIR/u26_vw20a.bin" ]]; then
+		U16_PATH="$FW_DIR/u16_vw20a.bin"
+		U26_PATH="$FW_DIR/u26_vw20a.bin"
+	elif [[ -f "$FW_DIR/u16_vw20a.BIN" && -f "$FW_DIR/u26_vw20a.BIN" ]]; then
+		U16_PATH="$FW_DIR/u16_vw20a.BIN"
+		U26_PATH="$FW_DIR/u26_vw20a.BIN"
 	fi
 fi
 if [[ ! -f "$U16_PATH" || ! -f "$U26_PATH" ]]; then
@@ -65,7 +65,9 @@ U26_WIN="$(cygpath -aw "$U26_PATH")"
 
 export COINLINE_TP_BACKEND="${COINLINE_TP_BACKEND:-pcd3349a}"
 
-export COINLINE_TRACE_ASCI=1
+# Craft validator needs a narrow slice of TP/CP traces; do not enable the broad ASCI fan-out
+# (~30 sidecar JSONLs incl. tp-csio-raw / tp-8048-runtime) — sync IO during MAME hurts perf badly.
+export COINLINE_TRACE_ASCI=0
 export COINLINE_TRACE_AUDIO=0
 export COINLINE_TRACE_AUDIO_ROUTE=0
 export COINLINE_TRACE_TELEPHONY=1
@@ -86,23 +88,16 @@ export COINLINE_CRAFT_ONLY_MODE=1
 export COINLINE_SCRIPTED_PANEL_DEMO=1
 export COINLINE_TEL_RESPONSE_POLICY="${COINLINE_TEL_RESPONSE_POLICY:-immediate}"
 
-TRACE_PROF="${COINLINE_TRACE_PROFILE:-craft}"
-if [[ -z "$TRACE_PROF" || "$TRACE_PROF" == "acceptance" || "$TRACE_PROF" == "craft" ]]; then
-	TRACE_PROF="uart"
-fi
-export COINLINE_TRACE_PROFILE="$TRACE_PROF"
+export COINLINE_TRACE_PROFILE="${COINLINE_TRACE_PROFILE:-craft}"
 
-RUN_SECONDS="${COINLINE_CRAFT_RUN_SECONDS:-100}"
+# 180s leaves room after OOS (~frame 3.3k) + post-OOS dwell + 10s off-hook + install digits.
+RUN_SECONDS="${COINLINE_CRAFT_RUN_SECONDS:-180}"
 
-# Default to factory NVRAM so craft/install entry gates see an installed, valid configuration.
-# Override with COINLINE_NVRAM (path to .nvram.json) or COINLINE_CRAFT_NO_INITIAL_NVRAM=1 for blank persistence.
+# Cold starts use erased EEPROM. An explicitly supplied image is available
+# for fixture-specific runs.
 CRAFT_NV_ARGS=()
-if [[ "${COINLINE_CRAFT_NO_INITIAL_NVRAM:-}" != "1" ]]; then
-	if [[ -n "${COINLINE_NVRAM:-}" && -f "$COINLINE_NVRAM" ]]; then
-		CRAFT_NV_ARGS=( -InitialNvramJson "$(cygpath -aw "$COINLINE_NVRAM")" )
-	elif [[ -f "$EMU_ROOT/fixtures/nvram/factory-default.nvram.json" ]]; then
-		CRAFT_NV_ARGS=( -InitialNvramJson "$(cygpath -aw "$EMU_ROOT/fixtures/nvram/factory-default.nvram.json")" )
-	fi
+if [[ "${COINLINE_CRAFT_NO_INITIAL_NVRAM:-}" != "1" && -n "${COINLINE_NVRAM:-}" ]]; then
+	CRAFT_NV_ARGS=( -InitialNvramJson "$(cygpath -aw "$COINLINE_NVRAM")" )
 fi
 
 set +e
@@ -112,7 +107,7 @@ set +e
 	-HostUrl "http://127.0.0.1:5000" \
 	-RunSeconds "$RUN_SECONDS" \
 	-OutputDir "$RUN_WIN" \
-	-TraceProfile "$TRACE_PROF" \
+	-TraceProfile "$COINLINE_TRACE_PROFILE" \
 	-VoiceRomU16 "$U16_WIN" \
 	-VoiceRomU26 "$U26_WIN" \
 	-VoiceRomLayout banked_two_roms \
@@ -205,13 +200,35 @@ for row in tcp_rows:
         cy = int(row.get("cycle", 0) or 0)
         cp_digit_rows.append((cy, d, row))
 
+craft_hook_off_cycle = 0
+for row in fp_rows:
+    ev = str(row.get("event", ""))
+    if ev not in ("input_hook_offhook_seen_by_mame", "input_hook_offhook_scheduled"):
+        continue
+    cy = int(row.get("cycle", 0) or 0)
+    if cy > 0:
+        if oos_cycle and cy <= oos_cycle:
+            continue
+        craft_hook_off_cycle = cy
+        break
+if not craft_hook_off_cycle:
+    import re
+    lua_path = r / "real-input-demo.lua"
+    if lua_path.exists():
+        m = re.search(r"frame >= (\d+) and frame < (\d+)", lua_path.read_text(encoding="utf-8", errors="replace"))
+        if m:
+            hook_frame = int(m.group(1))
+            # Throttled craft runs: ~204800 Z180 cycles per 60fps frame.
+            craft_hook_off_cycle = int(hook_frame * (12288000.0 / 60.0))
+
 first_digit_cycle = None
 for cy, _d, _row in cp_digit_rows:
-    if not oos_cycle or cy >= oos_cycle:
-        first_digit_cycle = cy
-        break
-if first_digit_cycle is None and cp_digit_rows:
-    first_digit_cycle = cp_digit_rows[0][0]
+    if oos_cycle and cy < oos_cycle:
+        continue
+    if craft_hook_off_cycle and cy < craft_hook_off_cycle:
+        continue
+    first_digit_cycle = cy
+    break
 
 last_digit_cycle = 0
 cp_digits = []
@@ -228,21 +245,58 @@ def has_subsequence(stream: str, needle: str) -> bool:
 
 cp_consumed_2727378 = "2727378" in cp_digit_stream or has_subsequence(cp_digit_stream, "2727378")
 cp_buffer_contains = any("2727378" in str(row.get("cp_key_buffer", "")) for row in tcp_rows)
-tp_reported_2727378 = "2727378" in "".join(
-    ({0x24: "2", 0x2E: "7", 0x26: "3", 0x30: "8"}.get(int(str(row.get("tp_to_cp", "0")).replace("0x", ""), 16), "")
-     if str(row.get("event", "")).find("telephony_tp_ui_event") >= 0 and str(row.get("tp_to_cp", "")).startswith("0x")
-     else "")
-    for row in tb_rows
+tp_digit_map = {0x24: "2", 0x2E: "7", 0x26: "3", 0x30: "8"}
+
+def tp_byte_to_digit(raw):
+    s = str(raw or "").strip().lower()
+    if not s.startswith("0x"):
+        return ""
+    try:
+        return tp_digit_map.get(int(s, 16), "")
+    except ValueError:
+        return ""
+
+tp_reported_digits = []
+for row in tb_rows:
+    if "telephony_tp_ui_event" not in str(row.get("event", "")):
+        continue
+    d = tp_byte_to_digit(row.get("tp_to_cp"))
+    if d:
+        tp_reported_digits.append(d)
+if not tp_reported_digits:
+    proto_rows = parse_jsonl(r / "tp-8048-cp-protocol-trace.jsonl")
+    for row in proto_rows:
+        if str(row.get("event", "")) != "tp_to_cp_byte":
+            continue
+        d = tp_byte_to_digit(row.get("value"))
+        if d:
+            tp_reported_digits.append(d)
+tp_reported_2727378 = "2727378" in "".join(tp_reported_digits) or has_subsequence(
+    "".join(tp_reported_digits), "2727378"
 )
 
-a6_oos_stable_before_code = bool(oos_cycle and first_digit_cycle and first_digit_cycle > oos_cycle)
-a6_onhook_before_code = any("input_hook_onhook" in str(row.get("event", "")) for row in fp_rows) or any(
-    str(row.get("hook_stable", "")).lower() == "true" for row in tcp_rows if int(row.get("cycle", 0) or 0) <= (first_digit_cycle or 0)
+a6_oos_stable_before_code = bool(
+    oos_cycle
+    and craft_hook_off_cycle
+    and craft_hook_off_cycle > oos_cycle
+    and (not first_digit_cycle or first_digit_cycle > craft_hook_off_cycle)
 )
-a6_tp_ready_before_code = any(
-    str(row.get("event", "")) in ("tp_ready_state_true", "tp_readiness_sequence_complete")
-    and int(row.get("cycle", 0) or 0) <= (first_digit_cycle or 0)
-    for row in ready_rows
+code_anchor_cycle = first_digit_cycle or craft_hook_off_cycle
+a6_onhook_before_code = bool(
+    craft_hook_off_cycle
+    and any(
+        str(row.get("event", "")) in ("input_hook_onhook_seen_by_mame", "input_line_interruption_seen_by_mame")
+        and int(row.get("cycle", 0) or 0) > craft_hook_off_cycle
+        for row in fp_rows
+    )
+)
+a6_tp_ready_before_code = bool(
+    code_anchor_cycle
+    and any(
+        str(row.get("event", "")) in ("tp_ready_state_true", "tp_readiness_sequence_complete")
+        and int(row.get("cycle", 0) or 0) <= code_anchor_cycle
+        for row in ready_rows
+    )
 )
 a6_service_input_active_if_required = any("input_sec_door_service_gate" in str(row.get("event", "")) for row in fp_rows)
 

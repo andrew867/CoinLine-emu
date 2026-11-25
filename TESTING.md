@@ -2,6 +2,22 @@
 
 This document is the entry point for everyone running tests against `coinline-emu`. The full per-area test plans live under [`test-plans/`](test-plans/), and the global test strategy lives at [`docs/test-strategy.md`](docs/test-strategy.md).
 
+## Portable Windows smoke test
+
+Extract the ZIP to a new writable directory. Verify its hashes in `SHA256SUMS.txt`. From Command Prompt in the extracted directory run:
+
+```cmd
+"Start OEM.cmd" --check
+"Start OEM.cmd" --headless --seconds 18 --record
+"Start OEM.cmd" --seconds 12
+```
+
+The bounded headless boot should reach the expected first-boot out-of-service display, report line battery in `central-office.log`, and create the OEM battery file. The last command checks the windowed renderer. A full firmware acceptance run continues through INSTALL and restart against CoinLine. See the [verified installation and calling results](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md).
+
+To check the terminal controls, start a fresh OEM profile and follow the craft entry steps in the [operator guide](tools/windows/portable/quick-start.txt). After the PIN, use **K** and then **C**. The display should show `Not installed` and `Use # to INSTALL`. The packaged build's input-port smoke check confirmed the default bindings and reached that screen by actuating the lock and housing switches in sequence.
+
+The OEM CO check should display `Completed: 00` after one hookswitch transition with the prompt settled. The front-panel smoke check exercises the housing, lock, and coin-vault indicators in both positions. The portable launchers leave trace collection off. For audio debugging, compare the emulated `--record` WAV with a Windows default-output loopback capture from the same run.
+
 ## Test taxonomy
 
 | Tier | Scope | Speed | Run on every push? |
@@ -24,7 +40,7 @@ Each tier is described in detail in [`docs/test-strategy.md`](docs/test-strategy
 .\tools\windows\test-coinline-emulator.ps1 -FirmwareBinary '<absolute path to flash.bin>'
 ```
 
-That path chains `run-coinline-emulator.ps1` (spawns `mame.exe` with system name **`millennium`**) and `validate-boot-milestones.ps1` (reads real `boot-trace.jsonl`, not scenario JSON), then the PowerShell files under `tests/integration/*.Tests.ps1`.
+That path chains `run-coinline-emulator.ps1` (spawns the MAME subtarget with system name **`cl_millennium`**) and `validate-boot-milestones.ps1`, then the PowerShell files under `tests/integration/*.Tests.ps1`. Its boot traces are emitted by the emulator.
 
 CMake targets such as `test_boot_to_idle` / `test_evidence_bundle` exercise **scenario JSON and the evidence-bundle writer** only. They **do not** launch MAME and **cannot** close M0–M10 against live firmware. Treat them as preconditions for automation, not as firmware boot proof.
 
@@ -37,10 +53,10 @@ See [`docs/building-on-windows-msys2.md`](docs/building-on-windows-msys2.md) for
 Boot / unknown-port C++ tests (CMake + Ninja or your generator):
 
 ```bash
-cmake -S coinline-emu -B build
-cmake --build build
-ctest --test-dir build --label-regex "boot|unknown_port" --output-on-failure
-ctest --test-dir build --label-regex z180 --output-on-failure
+cmake -S coinline-emu -B coinline-emu/build
+cmake --build coinline-emu/build
+ctest --test-dir coinline-emu/build --label-regex "boot|unknown_port" --output-on-failure
+ctest --test-dir coinline-emu/build --label-regex z180 --output-on-failure
 ```
 
 `test_firmware_load` returns skip code **77** when `../firmware/flash.bin` is absent (CI machines without the operator firmware).
@@ -48,12 +64,12 @@ ctest --test-dir build --label-regex z180 --output-on-failure
 Reserved invocations for additional tiers (still rolling out):
 
 ```bash
-ctest --test-dir build --label-regex unit
-ctest --test-dir build --label-regex device
-ctest --test-dir build --label-regex integration
-ctest --test-dir build --label-regex scenario
-ctest --test-dir build --label-regex acceptance
-ctest --test-dir build --label-regex regression
+ctest --test-dir coinline-emu/build --label-regex unit
+ctest --test-dir coinline-emu/build --label-regex device
+ctest --test-dir coinline-emu/build --label-regex integration
+ctest --test-dir coinline-emu/build --label-regex scenario
+ctest --test-dir coinline-emu/build --label-regex acceptance
+ctest --test-dir coinline-emu/build --label-regex regression
 ```
 
 The MAME track may use additional MAME-side regression invocations (saved state replay), documented in [`docs/test-strategy.md`](docs/test-strategy.md).
@@ -114,14 +130,14 @@ The host integration tests in [`test-plans/host-integration-tests.md`](test-plan
 
 ```bash
 # In one shell — start CoinLine Host (MIT)
-# launch your host application here
+cd ../coinline/backend
 dotnet run --project src/HostPlatform.Api --launch-profile http
 
 # In another shell — run emulator integration tests
 ctest --test-dir build --label-regex integration -R host_bridge
 ```
 
-Host integration tests communicate over the host bridge transport only; **no source-level coupling** between `coinline/` and `` is involved.
+Host integration tests communicate over the host bridge transport only; **no source-level coupling** between `coinline/` and `coinline-emu/` is involved.
 
 ## Reporting issues
 

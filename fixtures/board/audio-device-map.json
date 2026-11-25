@@ -16,8 +16,7 @@
               "active_low": true
             }
           },
-          "confidence": "high",
-          "evidence_internal": "reference firmware: IODEFS.H"
+          "confidence": "high"
         },
         {
           "port": "0x42",
@@ -28,15 +27,13 @@
               "shift": 0
             }
           },
-          "confidence": "high",
-          "evidence_internal": "reference firmware: I/O definitions header"
+          "confidence": "high"
         },
         {
           "port": "0x61",
           "role": "voice_phrase_write",
           "bits": {},
-          "confidence": "high",
-          "evidence_internal": "reference firmware: IODEFS.H"
+          "confidence": "high"
         }
       ],
       "interrupt": {

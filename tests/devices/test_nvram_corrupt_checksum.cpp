@@ -58,7 +58,7 @@ int main()
 		return 1;
 	}
 
-	model.recover_default_cleared(err);
+	model.clear_nvram();
 	if (model.checksum_failure() || !model.verify_checksum(err)) {
 		std::cerr << "recovery did not restore valid checksum state\n";
 		return 1;

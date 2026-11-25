@@ -79,6 +79,7 @@ void millennium_vfd_model::reset()
 	m_increment_write_mode = true;
 	m_vertical_scroll_mode = false;
 	m_horizontal_scroll_mode = false;
+	m_horizontal_scroll_pending = false;
 	m_cursor_visible = false;
 	m_active_line = 0;
 	m_active_page = 0U;
@@ -168,6 +169,7 @@ void millennium_vfd_model::clear_display()
 	clear_all_dots();
 	m_cursor_row = 0;
 	m_cursor_col = 0;
+	m_horizontal_scroll_pending = false;
 	mark_decoded_command();
 	try_finalize_m6();
 }
@@ -176,6 +178,7 @@ void millennium_vfd_model::home_cursor()
 {
 	m_cursor_row = 0;
 	m_cursor_col = 0;
+	m_horizontal_scroll_pending = false;
 	mark_decoded_command();
 	try_finalize_m6();
 }
@@ -183,12 +186,14 @@ void millennium_vfd_model::home_cursor()
 void millennium_vfd_model::carriage_return()
 {
 	m_cursor_col = 0;
+	m_horizontal_scroll_pending = false;
 	mark_decoded_command();
 	try_finalize_m6();
 }
 
 void millennium_vfd_model::line_feed()
 {
+	m_horizontal_scroll_pending = false;
 	if (m_cursor_row + 1 < m_profile.rows) {
 		++m_cursor_row;
 	} else {
@@ -210,6 +215,7 @@ void millennium_vfd_model::line_feed()
 
 void millennium_vfd_model::backspace()
 {
+	m_horizontal_scroll_pending = false;
 	if (m_cursor_col > 0)
 		--m_cursor_col;
 	mark_decoded_command();
@@ -218,6 +224,7 @@ void millennium_vfd_model::backspace()
 
 void millennium_vfd_model::horizontal_tab()
 {
+	m_horizontal_scroll_pending = false;
 	int const tab = 4;
 	int next = ((m_cursor_col / tab) + 1) * tab;
 	if (next >= m_profile.columns)
@@ -256,11 +263,18 @@ void millennium_vfd_model::write_glyph_byte(std::uint8_t b)
 	if (m_cursor_row < 0 || m_cursor_row >= m_profile.rows || m_cursor_col < 0
 		|| m_cursor_col >= m_profile.columns)
 		return;
-	if (m_horizontal_scroll_mode && m_cursor_col == m_profile.columns - 1) {
+	if (m_horizontal_scroll_pending) {
 		int const row = m_cursor_row;
-		for (int c = 0; c < m_profile.columns - 1; ++c)
-			m_cells[std::size_t(row * m_profile.columns + c)] = m_cells[std::size_t(row * m_profile.columns + c + 1)];
-		m_cells[std::size_t(row * m_profile.columns + (m_profile.columns - 1))] = static_cast<char>(b);
+		auto const first = std::size_t(row * m_profile.columns);
+		auto const last = std::size_t(cell_index());
+		for (auto index = first; index < last; ++index) {
+			m_cells[index] = m_cells[index + 1];
+			m_decimal_point[index] = m_decimal_point[index + 1];
+			m_comma_tail[index] = m_comma_tail[index + 1];
+			m_arrow_mark[index] = m_arrow_mark[index + 1];
+		}
+		m_cells[last] = static_cast<char>(b);
+		m_decimal_point[last] = m_comma_tail[last] = m_arrow_mark[last] = 0U;
 		for (int c = 0; c < m_profile.columns; ++c)
 			rebuild_cell_dots(row, c);
 		m_saw_printable_data = true;
@@ -273,6 +287,9 @@ void millennium_vfd_model::write_glyph_byte(std::uint8_t b)
 	if (m_increment_write_mode) {
 		if (m_cursor_col + 1 < m_profile.columns) {
 			++m_cursor_col;
+		} else if (m_horizontal_scroll_mode) {
+			// Fill the last cell before scrolling. A cursor address cancels the pending advance.
+			m_horizontal_scroll_pending = true;
 		} else {
 			m_cursor_col = 0;
 			if (m_cursor_row + 1 < m_profile.rows) {
@@ -406,6 +423,7 @@ void millennium_vfd_model::write_command_byte(std::uint8_t cmd, std::uint64_t cy
 	int const pos = std::clamp(int(cmd), 0, std::max(1, max_cells) - 1);
 	m_cursor_row = pos / m_profile.columns;
 	m_cursor_col = pos % m_profile.columns;
+	m_horizontal_scroll_pending = false;
 	mark_decoded_command();
 	try_finalize_m6();
 	set_busy(cycle, 2);
@@ -445,6 +463,7 @@ void millennium_vfd_model::write_data_byte(std::uint8_t data, std::uint64_t cycl
 			m_increment_write_mode = true;
 			m_vertical_scroll_mode = false;
 			m_horizontal_scroll_mode = false;
+			m_horizontal_scroll_pending = false;
 			mark_decoded_command();
 			try_finalize_m6();
 			set_busy(cycle, 2);
@@ -453,6 +472,7 @@ void millennium_vfd_model::write_data_byte(std::uint8_t data, std::uint64_t cycl
 		if (b == 0x12) {
 			m_vertical_scroll_mode = true;
 			m_horizontal_scroll_mode = false;
+			m_horizontal_scroll_pending = false;
 			mark_decoded_command();
 			try_finalize_m6();
 			set_busy(cycle, 2);
@@ -501,6 +521,7 @@ void millennium_vfd_model::write_data_byte(std::uint8_t data, std::uint64_t cycl
 		}
 		if (b == 0x10) {
 			m_increment_write_mode = false;
+			m_horizontal_scroll_pending = false;
 			mark_decoded_command();
 			try_finalize_m6();
 			set_busy(cycle, 2);
@@ -645,13 +666,22 @@ void millennium_vfd_model::write_data_byte(std::uint8_t data, std::uint64_t cycl
 				int const pos = std::clamp(int(m_pending_esc_args[0]), 0, (m_profile.rows * m_profile.columns) - 1);
 				m_cursor_row = pos / m_profile.columns;
 				m_cursor_col = pos % m_profile.columns;
+				m_horizontal_scroll_pending = false;
 			}
 			if (m_pending_esc_cmd == 0x16 && !m_pending_esc_args.empty()) {
 				m_blink_position_code = m_pending_esc_args[0];
 				m_blink_enabled = true;
 			}
-			if (m_pending_esc_cmd == 0x1a && !m_pending_esc_args.empty())
-				m_luminance = m_pending_esc_args[0];
+			if (m_pending_esc_cmd == 0x1a && !m_pending_esc_args.empty()) {
+				std::uint8_t const level = m_pending_esc_args[0];
+				// The terminal's level selector uses 0x00, 0x10, and 0x20 for 100%, 75%, and 50%.
+				switch (level) {
+				case 0x00: m_luminance = 0xffU; break;
+				case 0x10: m_luminance = 0xbfU; break;
+				case 0x20: m_luminance = 0x80U; break;
+				default: m_luminance = level; break;
+				}
+			}
 			if (m_pending_esc_cmd == 0x1c && m_pending_esc_args.size() >= 6U) {
 				std::uint8_t const code = m_pending_esc_args[0];
 				for (int i = 0; i < 5; ++i)

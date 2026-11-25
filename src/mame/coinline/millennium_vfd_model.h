@@ -89,6 +89,7 @@ private:
 	bool m_increment_write_mode = true;
 	bool m_vertical_scroll_mode = false;
 	bool m_horizontal_scroll_mode = false;
+	bool m_horizontal_scroll_pending = false;
 	bool m_cursor_visible = false;
 	int m_active_line = 0;
 	std::uint8_t m_active_page = 0U;

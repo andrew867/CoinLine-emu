@@ -64,10 +64,16 @@ int main()
 		}
 	}
 
-	model.recover_default_cleared(err);
-	if (model.read_nvram(0) != 0xc4U || model.read_nvram(1) != 0xa5U) {
-		std::cerr << "recover_default_cleared did not seed first validity word\n";
+	if (!model.write_nvram(0, 0xc4U, err)) {
+		std::cerr << "write before clear: " << err << '\n';
 		return 1;
+	}
+	model.clear_nvram();
+	for (unsigned offset : {0U, 1U, 30U, 31U, 40U, 41U}) {
+		if (model.read_nvram(offset) != 0U) {
+			std::cerr << "clear left a nonzero byte at offset " << offset << '\n';
+			return 1;
+		}
 	}
 	if (!model.verify_checksum(err)) {
 		std::cerr << "verify_checksum after recover: " << err << '\n';

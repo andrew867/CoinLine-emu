@@ -1,0 +1,144 @@
+name: Native emulator builds
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controller:
+    name: Assemble the telephony controller model
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: bash tools/tp8048/build-ci-rom.sh "$RUNNER_TEMP/coinline-controller"
+      - name: Test the assembled controller
+        run: |
+          cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-ci --target test_pcd3349a_boot_query_block -j2
+          ctest --test-dir build-ci -R '^test_pcd3349a_boot_query_block$' --output-on-failure
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-controller-rom
+          path: firmware/tp_pcd3349a_behavioural.rom
+          if-no-files-found: error
+
+  native:
+    name: ${{ matrix.name }}
+    needs: controller
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-2025
+            artifact: windows-x64
+          - name: Linux x64
+            runner: ubuntu-24.04
+            artifact: linux-x64
+          - name: macOS Apple Silicon
+            runner: macos-15
+            artifact: macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-controller-rom
+          path: firmware
+
+      - name: Install Windows build dependencies
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git make python curl diffutils patch
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-pkgconf mingw-w64-x86_64-python
+            mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf
+            mingw-w64-x86_64-qt6-base
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libxi-dev libxinerama-dev
+
+      - name: Install macOS build dependencies
+        if: runner.os == 'macOS'
+        run: brew install pkgconf sdl3
+
+      - name: Build and test Windows package
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          pin=$(tr -d '\r\n' < config/mame-pinned.ref)
+          git clone -c core.autocrlf=false --depth 1 --branch "$pin" https://github.com/mamedev/mame.git mame-build
+          COINLINE_MAME_REGENIE=1 /usr/bin/python tools/mingw64/build-portable.py --mame-root mame-build --output artifacts
+          package=(artifacts/*-work/'CoinLine Emulator')
+          "${package[0]}/bin/coinline-mame.exe" -listfull cl_millennium | grep cl_millennium
+          (cd artifacts && sha256sum --check ./*.sha256)
+
+      - name: Build and test Linux or macOS package
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pin=$(tr -d '\r\n' < config/mame-pinned.ref)
+          git clone --depth 1 --branch "$pin" https://github.com/mamedev/mame.git mame-build
+          python3 tools/mingw64/build-portable.py --mame-root mame-build --output artifacts
+          package=(artifacts/*-work/'CoinLine Emulator')
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            lipo "${package[0]}/bin/coinline-mame" -verify_arch arm64
+          fi
+          "${package[0]}/bin/coinline-mame" -listfull cl_millennium | grep cl_millennium
+          "${package[0]}/start-oem.sh" --help
+          (cd artifacts && shasum -a 256 -c ./*.sha256)
+
+      - name: Archive matching build sources
+        if: runner.os == 'Linux'
+        run: |
+          python3 tools/build/release-source.py mame-build artifacts/CoinLine-MAME-source.tar.gz
+          cd artifacts
+          sha256sum CoinLine-MAME-source.tar.gz > CoinLine-MAME-source.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coinline-${{ matrix.artifact }}
+          path: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
+            artifacts/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: native
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coinline-*
+          path: release
+          merge-multiple: true
+      - name: Publish tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes release/*

@@ -29,14 +29,14 @@ bool contains(std::string const &haystack, char const *needle)
 
 int main()
 {
-	std::string const map = read_text(root() / "build/generated/z180-internal-register-map.json");
-	std::string const report = read_text(root() / "build/generated/z180-internal-readback-regression.json");
-	if (map.empty() || report.empty()) {
-		// Evidence is produced by a MAME-backed run; skip when running the
-		// CMake-only suite without a MAME binary.
-		std::cerr << "skipping: Z180 register evidence not generated\n";
+	auto const map_path = root() / "build/generated/z180-internal-register-map.json";
+	auto const report_path = root() / "build/generated/z180-internal-readback-regression.json";
+	if (!std::filesystem::exists(map_path) || !std::filesystem::exists(report_path)) {
+		std::cerr << "skip: MAME register evidence is absent\n";
 		return 77;
 	}
+	std::string const map = read_text(map_path);
+	std::string const report = read_text(report_path);
 
 	for (char const *needle : { "\"port_low6\": \"0x38\"", "\"port_low6\": \"0x39\"", "\"port_low6\": \"0x3A\"",
 			 "z180_mmu_cbr", "z180_mmu_bbr", "z180_mmu_cbar" }) {

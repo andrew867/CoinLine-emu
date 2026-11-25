@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -50,7 +51,7 @@ public:
 	bool disabled() const noexcept { return m_disabled; }
 	bool jammed() const noexcept { return m_jam_latched; }
 	int pending_denom_cents() const noexcept { return m_pending_cents; }
-	bool escrow_present() const noexcept { return m_escrow_cents > 0; }
+	bool escrow_present() const noexcept { return m_escrow_cents > 0 || m_uart_escrow_cents > 0; }
 
 	void set_cpu_hz(std::uint64_t hz) noexcept { m_cpu_hz = hz ? hz : 12288000; }
 
@@ -59,6 +60,9 @@ public:
 	void protocol_note_timeout() noexcept;
 	unsigned protocol_timeout_count() const noexcept { return m_protocol_timeout_count; }
 	unsigned protocol_reset_pulse_count() const noexcept { return m_protocol_reset_pulse_count; }
+	bool uart_active() const noexcept { return m_uart_active; }
+	std::vector<std::uint8_t> uart_command(std::uint8_t byte, std::uint64_t now_ms = 0);
+	std::optional<std::uint8_t> uart_insert(int cents);
 
 private:
 	int pulses_for_valid_denom(int cents) const;
@@ -77,4 +81,13 @@ private:
 	std::uint64_t m_train_start_cycle = 0;
 	unsigned m_protocol_timeout_count = 0U;
 	unsigned m_protocol_reset_pulse_count = 0U;
+	std::uint16_t m_uart_windows = 0xffffU;
+	std::uint8_t m_uart_pending_command = 0U;
+	unsigned m_uart_address_bytes = 0U;
+	int m_uart_escrow_cents = 0;
+	std::uint64_t m_uart_escrow_motion_end_ms = 0;
+	bool m_uart_active = false;
+	bool m_uart_awake = true;
+	bool m_uart_accepting = false;
+	bool m_uart_one_coin = false;
 };

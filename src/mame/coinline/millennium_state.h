@@ -3,6 +3,7 @@
 
 #include "emu.h"
 #include "cpu/z180/z180.h"
+#include "machine/ins8250.h"
 #include "rendfont.h"
 #include "screen.h"
 
@@ -14,6 +15,7 @@
 #include "millennium_coin.h"
 #include "millennium_hostbridge.h"
 #include "millennium_keypad.h"
+#include "millennium_line.h"
 #include "millennium_modem.h"
 #include "millennium_nvram.h"
 #include "millennium_microwire_93c66.h"
@@ -64,6 +66,8 @@ public:
 
 	u8 board_status_r();
 	void board_status_w(u8 data);
+	void write_hw_cntl(u8 data);
+	void write_display_port(u8 data, std::uint16_t port);
 	u8 pio_keypad_r(offs_t offset);
 	void pio_keypad_w(offs_t offset, u8 data);
 
@@ -103,6 +107,7 @@ public:
 	void mach_pio_w(offs_t offset, u8 data);
 	u8 external_uart_r(offs_t offset);
 	void external_uart_w(offs_t offset, u8 data);
+	void trace_external_uart_access(unsigned reg, char direction, u8 data, bool dlab);
 
 	u8 pio_port_g_r();
 	void pio_port_g_w(u8 data);
@@ -128,6 +133,10 @@ private:
 	static constexpr s32 TID_VECTOR_PROBE = 7;
 	/// uPD7759 end-of-segment: firmware routes speech completion through Z180 INT0.
 	static constexpr s32 TID_VOICE_INT0 = 8;
+	static constexpr s32 TID_MODEM_LINK = 9;
+	/// Periodic flush of battery SRAM and the serial EEPROM.
+	static constexpr s32 TID_BATTERY_FLUSH = 10;
+	static constexpr s32 TID_CARD_SHIFT = 11;
 	static constexpr std::uint64_t CPU_TRACE_LINEAR_MAX = 50000ULL;
 	static constexpr std::size_t CPU_TRACE_RING_MAX = 10000U;
 	static constexpr std::size_t COMPACT_RING_MAX = 4096U;
@@ -151,12 +160,17 @@ private:
 	required_device<millennium_keypad_device> m_keypad;
 	required_device<millennium_security_device> m_security;
 	required_device<millennium_modem_device> m_modem;
+	// Digits accepted by the telephony processor. Played from the link timer so the
+	// note does not re-enter the keypad scan.
+	char m_pad_dtmf_q[16]{};
+	unsigned m_pad_dtmf_n = 0;
 	required_device<millennium_hostbridge_device> m_hostbridge;
 	required_device<millennium_nvram_device> m_nvram;
 	required_device<millennium_card_device> m_card;
 	required_device<millennium_smartcard_device> m_smartcard;
 	required_device<millennium_sam_device> m_sam;
 	required_device<millennium_coin_device> m_coin;
+	required_device<ns16550_device> m_coin_uart;
 	required_device<millennium_audio_device> m_audio;
 	required_device<millennium_voiceware_device> m_voiceware;
 	required_device<upd7759_device> m_voicew_upd;
@@ -238,6 +252,8 @@ private:
 	std::filesystem::path m_vfd_snapshots_path;
 	std::filesystem::path m_vfd_final_state_path;
 	std::filesystem::path m_vfd_final_text_path;
+	std::filesystem::path m_vfd_live_path;
+	std::string m_vfd_live_last;
 	std::filesystem::path m_vfd_idle_fixture_diff_trace_path;
 	std::filesystem::path m_tp_keypad_input_trace_path;
 	std::filesystem::path m_tp_keypad_event_trace_path;
@@ -275,8 +291,10 @@ private:
 	bool m_m5c_logged = false;
 	/// True on last poll when the board-format Voiceware decoder had pending PCM.
 	bool m_voicew_chip_was_active = false;
-	/// true == no pending Voiceware PCM on last `TID_VOICE_INT0` poll.
+	// The completion timer runs only while there is a speech segment to watch.
 	bool m_voicew_prev_upd_idle = true;
+	emu_timer *m_voicew_irq_timer = nullptr;
+	attotime m_voicew_irq_poll_period = attotime::zero;
 	/// Voice-completion INT0 is a hardware level from the speech path; firmware clears it by starting/resetting speech.
 	bool m_voicew_int0_asserted = false;
 	bool m_last_modem_dcd = false;
@@ -294,8 +312,8 @@ private:
 	bool m_craft_code_detected_traced = false;
 	bool m_craft_screen_vfd_trace_logged = false;
 	bool m_asci_baseline_ready = false;
-	std::uint8_t m_base_cntla0 = 0;
-	std::uint8_t m_base_cntlb0 = 0;
+	std::uint8_t m_base_cntla1 = 0;
+	std::uint8_t m_base_cntlb1 = 0;
 	std::uint8_t m_unknown_default = 0xff;
 	std::array<bool, 256> m_io_known_or_suspected{};
 
@@ -308,7 +326,15 @@ private:
 	bool m_m3_m4_logged = false;
 
 	void sync_microwire_from_nvram();
+	std::string battery_image_path() const;
+	bool restore_battery_image();
+	void flush_battery_image();
+	bool m_battery_live = false;
+	bool m_battery_dirty = false;
+	bool m_battery_flushed = false;
 	void load_firmware_and_emit_m0();
+	// Retained card, coin, and rate tables for the built-in-table image. Erased SRAM fails the
+	// startup memory check and forces those tables back to "download required".
 	void load_io_fixture_masks();
 	void emit_trace_m1_m2();
 	void emit_boot_m3_m4_snapshot(char const *m3_trigger);
@@ -324,7 +350,6 @@ private:
 	void maybe_trace_memory_sidecar(std::uint32_t phys_addr, std::uint8_t data, char const *region_tag);
 	void append_mmu_translation_trace_line();
 	void append_supplemental_cpu_trace_samples();
-	void sync_modem_asci_lines();
 	void cpu_trace_sample_tick();
 	void append_cpu_trace_line(std::string const &line);
 	void flush_cpu_trace_ring_to_disk();
@@ -346,6 +371,8 @@ private:
 	void try_boot_m8(u64 cycle);
 
 	void poll_card_ui();
+	u8 card_reader_signals() const;
+	void clock_magstripe();
 	void poll_coin_ui();
 
 	void telephony_note_csio_rx_byte(std::uint8_t b);
@@ -378,6 +405,7 @@ private:
 		char const **expected_consumer_out) const;
 	void user_io_harness_policy_absorb(std::uint8_t code, char const *tp_reason, char const *rule_id,
 		char const *expected_consumer);
+	void tp_enqueue_line_transitions(u32 linectrl);
 	void tp_process_front_panel_events(std::uint32_t keymatrix, std::uint32_t linectrl, std::uint32_t softkeys_raw);
 	bool tel_runtime_may_emit_c4() const noexcept;
 	void tel_queue_runtime_keepalive_c4_c0(u64 cy);
@@ -387,21 +415,23 @@ private:
 	void update_earpiece_tone_output(std::uint64_t cycle, std::uint16_t pc);
 	void tp_backend_process_front_panel(std::uint32_t keymatrix, std::uint32_t linectrl, std::uint32_t softkeys_raw,
 		std::uint8_t secmask, std::uint64_t cycle, std::uint16_t pc);
-	bool tp_backend_handle_cp_byte(std::uint8_t byte);
+	bool tp_backend_handle_cp_byte(std::uint8_t byte, bool frame_payload);
+	void apply_handset_command(std::uint8_t byte);
+	void tp_backend_queue_response_bytes(std::vector<std::uint8_t> const &bytes, char const *reason);
 
 	u32 m_card_ui_last = 0;
+	std::vector<u8> m_magstripe_bits;
+	std::size_t m_magstripe_index = 0;
+	u8 m_magstripe_signals = 0;
+	bool m_magstripe_clock = false;
+	bool m_card_uses_dma1 = false;
+	bool m_magstripe_withdrawing = false;
 	u32 m_coin_ui_last = 0;
 	std::uint8_t m_audio_dtmf_ascii = 0;
 
 	std::array<std::uint8_t, 4> m_mach_pio_shadow{};
 	std::array<std::uint8_t, 4> m_pio_8255_shadow{};
-	std::array<std::uint8_t, 8> m_ext_uart_shadow{};
-	/// Divisor latch bytes (DLAB=1); persist across THR/RBR and IER access when DLAB=0 (16550-style).
-	std::uint8_t m_ext_uart_dll = 0x80U;
-	std::uint8_t m_ext_uart_dlm = 0x02U;
-	std::deque<std::uint8_t> m_ext_uart_rx_queue;
-	bool m_ext_uart_boot_seeded = false;
-	bool m_ext_uart_tel_up_seen = false;
+	std::uint8_t m_ext_uart_lcr = 0;
 	bool m_tel_ip_link_enabled = false;
 	bool m_tel_boot_code_sent = false;
 	std::uint64_t m_tel_reset_cycle_start = 0ULL;
@@ -409,7 +439,6 @@ private:
 	std::uint64_t m_tel_boot_code_deadline_cycle = 0ULL;
 	/// When nonzero, CSI/O TP link arms after this cycle (post `PWR_FAIL_LINE` release + firmware delay).
 	std::uint64_t m_tel_ip_link_enable_deadline_cycle = 0ULL;
-	unsigned m_ext_uart_tx_count = 0U;
 
 	// External UART telephony bring-up (M7A/M7B): source-backed minimal response sequencing.
 	enum class tel_uart_phase : std::uint8_t {
@@ -475,7 +504,6 @@ private:
 	u32 m_last_secmask_state = 0U;
 	u32 m_last_linectrl_state = 0U;
 	u32 m_last_firmware_keymatrix_state = 0U;
-	u32 m_last_firmware_linectrl_state = 0U;
 	u32 m_last_tp_ui_keymatrix_state = 0U;
 	u32 m_last_tp_ui_linectrl_state = 0U;
 	std::uint32_t m_last_tp_ui_softkeys_state = 0U;
@@ -594,8 +622,29 @@ private:
 	std::array<unsigned, 8> m_uart_write_counts{};
 	std::deque<std::string> m_io_trace_ring;
 	std::unordered_map<std::uint16_t, unsigned> m_unknown_io_counts;
-	/// HW control port (0x40) output latch (SCLK, voice reset, etc.); read merges low nibble with security state.
+	/// Control latch. Later motherboard: port 0x40. Earlier motherboard: port 0x60.
+	/// Bit 7 CSI/O clock, bit 6 EEPROM chip-select, bit 5 telephony reset, bit 4 ringer enable,
+	/// bit 3 voice reset (active-low).
 	std::uint8_t m_hw_cntl_port_image = 0x80U;
+	millennium_line_jack m_line;
+	bool m_line_ring_seen = false;
+	bool m_line_connected_seen = false;
+	int m_line_phase_seen = 0;
+	bool m_loop_seized = false;
+	bool m_tp_loop_seized = false;
+	bool m_handset_dial_tone = false;
+	u8 m_handset_gates = 0xffU;
+	u8 m_handset_gain_step = 0xffU;
+	void update_line_seizure();
+	void update_handset_routing();
+	void update_external_ringer();
+	static void line_pcm_thunk(void *ctx, std::int16_t mic, std::int16_t &line, bool &have);
+	void exchange_line_pcm(std::int16_t mic, std::int16_t &line, bool &have);
+	std::uint8_t telephony_status() const;
+	void write_modem_pio(std::uint8_t data);
+	/// Earlier universal motherboard: PIO 0x40–0x43, control latch 0x60, status 0x80, display 0xA0.
+	/// Later motherboard: control/status 0x40, PIO 0x41–0x44, display 0x60.
+	bool m_earlier_motherboard = false;
 	unsigned m_vector_event_budget = 0U;
 	u16 m_vecprobe_last_pc = 0;
 	std::uint8_t m_vecprobe_last_op0 = 0xffU;
@@ -637,6 +686,9 @@ private:
 	std::unique_ptr<render_font> m_panel_font;
 	/// VFD: "Millennium" face from `artwork/Millenft.ttf` (Win: AddFontResourceEx) or gfxfont fallback.
 	std::unique_ptr<render_font> m_vfd_font;
+	std::vector<std::uint8_t> m_vfd_last_drawn_dots;
+	std::uint8_t m_vfd_last_drawn_luminance = 0;
+	std::uint8_t m_panel_security_state = 0xffU;
 	bool m_vfd_render_prepared = false;
 	bool m_vfd_use_gfxfont_fallback = true;
 	coinline::z180::boot_init_model m_boot_init_contract{};

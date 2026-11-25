@@ -83,7 +83,7 @@ Each test file's first comment block names the test plan it implements (e.g., `/
   - The CI log with the assertion message.
   - The evidence bundle (for tests that emit one).
   - A note in the relevant compatibility-validation row marking the item as `regressed` (humans triage).
-- Tests that depend on `../firmware/flash.bin` or `../firmware source tree` skip cleanly (with a documented skip reason) when the input is missing — they never silently pass.
+- Tests that require an operator-supplied firmware image report a skip reason when the image is absent.
 
 ## CI matrix
 

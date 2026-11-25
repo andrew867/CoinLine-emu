@@ -4,6 +4,8 @@
 
 namespace {
 
+constexpr std::uint64_t k_escrow_travel_ms = 2000;
+
 std::uint64_t us_to_cycles(unsigned us, std::uint64_t cpu_hz)
 {
 	return std::uint64_t(us) * (cpu_hz / 1000000ULL);
@@ -32,6 +34,15 @@ void millennium_coin_model::reset()
 	m_train_start_cycle = 0;
 	m_protocol_timeout_count = 0U;
 	m_protocol_reset_pulse_count = 0U;
+	m_uart_windows = 0xffffU;
+	m_uart_pending_command = 0;
+	m_uart_address_bytes = 0;
+	m_uart_escrow_cents = 0;
+	m_uart_escrow_motion_end_ms = 0;
+	m_uart_active = false;
+	m_uart_awake = true;
+	m_uart_accepting = false;
+	m_uart_one_coin = false;
 }
 
 bool millennium_coin_model::denom_allowed(int cents) const
@@ -205,4 +216,91 @@ void millennium_coin_model::protocol_note_timeout() noexcept
 	m_protocol_timeout_count++;
 	m_protocol_reset_pulse_count++;
 	m_jam_latched = true;
+}
+
+std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte, std::uint64_t now_ms)
+{
+	m_uart_active = true;
+	if (m_uart_address_bytes) {
+		--m_uart_address_bytes;
+		return {};
+	}
+	if (m_uart_pending_command) {
+		bool const enable = m_uart_pending_command == 'e';
+		m_uart_pending_command = 0;
+		unsigned const slot = byte >= '1' && byte <= '9' ? unsigned(byte - '1')
+			: byte >= 'a' && byte <= 'g' ? unsigned(byte - 'a' + 9) : 16U;
+		if (slot == 16U)
+			return {'G'};
+		std::uint16_t const mask = std::uint16_t(1U << slot);
+		if (enable)
+			m_uart_windows |= mask;
+		else
+			m_uart_windows &= ~mask;
+		return {};
+	}
+	if (byte == 'g') {
+		m_uart_awake = true;
+		return {std::uint8_t(m_jam_latched ? 'I' : 'A')};
+	}
+	if (!m_uart_awake)
+		return {};
+	switch (byte) {
+	case 'r':
+		// The position sensor is obstructed while the escrow gate travels.
+		return {'B', std::uint8_t(m_jam_latched ? 0x40 : 0),
+			std::uint8_t(now_ms < m_uart_escrow_motion_end_ms ? 0x08 : 0)};
+	case 'x':
+	case 'a':
+		m_uart_accepting = true;
+		m_uart_one_coin = byte == 'x';
+		break;
+	case 's':
+	case 'z':
+		m_uart_accepting = false;
+		m_uart_awake = byte != 's';
+		break;
+	case 'd':
+	case 'e':
+		m_uart_pending_command = byte;
+		break;
+	case 'f':
+	case 'c':
+		m_uart_escrow_motion_end_ms = now_ms + k_escrow_travel_ms;
+		m_uart_escrow_cents = 0;
+		break;
+	case 'n':
+		m_uart_escrow_motion_end_ms = now_ms + 250;
+		m_uart_escrow_cents = 0;
+		break;
+	case 'l':
+		m_uart_escrow_cents = 0;
+		m_uart_escrow_motion_end_ms = 0;
+		m_jam_latched = false;
+		break;
+	case 'k':
+		break;
+	case 'q':
+		// Consume the two-byte address. No validator identification PROM is configured.
+		m_uart_address_bytes = 2;
+		break;
+	default:
+		return {'G'};
+	}
+	return {};
+}
+
+std::optional<std::uint8_t> millennium_coin_model::uart_insert(int cents)
+{
+	if (!m_uart_awake || !m_uart_accepting || m_jam_latched || !denom_allowed(cents))
+		return std::nullopt;
+	for (std::size_t slot = 0; slot < m_cfg.denominations_cents.size() && slot < 16U; ++slot) {
+		if (m_cfg.denominations_cents[slot] != cents || (m_uart_windows & (1U << slot)) == 0U)
+			continue;
+		m_uart_escrow_cents += cents;
+		if (m_uart_one_coin)
+			m_uart_accepting = false;
+		return std::uint8_t(slot < 9U ? '1' + slot : 'a' + slot - 9U);
+	}
+	return std::nullopt;
 }

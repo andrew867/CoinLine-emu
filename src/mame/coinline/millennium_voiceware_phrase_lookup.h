@@ -14,7 +14,7 @@ struct coinline_voiceware_phrase_lookup_result {
 	std::uint8_t phrase_msg_index = 0;
 };
 
-/// Walks the same NEC-style directory layout as the legacy software decoder (**reference** segment walk on one voice ROM).
-/// Succeeds only when the resolved segment base matches the **physical** 128 KiB window selected by `bank_latch` (bits 3: chip, 2:0: window).
+/// Resolves a sample against the directory in the selected 128 KiB ROM window.
+/// The synthesizer sees only that window (bit 3 selects the chip, bits 2:0 select the window).
 bool coinline_voiceware_lookup_phrase_for_upd7759(std::uint8_t const *rom, std::uint32_t rom_bytes,
 	std::uint8_t bank_latch, std::uint8_t phrase, coinline_voiceware_phrase_lookup_result &out);

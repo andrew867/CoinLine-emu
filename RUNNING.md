@@ -1,132 +1,101 @@
-# Running CoinLine Terminal Emulator
+# Run the emulator
 
-This document describes how to launch `coinline-emu` once builds are available. Until tranche E10 (boot-to-idle) is reached, runs may not progress beyond early boot milestones; see [`docs/boot-milestones.md`](docs/boot-milestones.md) for the milestone ladder.
+Extract the entire Windows x64 ZIP to a writable folder and open **Start OEM.cmd**. Click the terminal window to focus the keys. The launcher starts its bundled central office. It can launch on Windows without a separate MAME, Python, or MSYS2 installation.
 
-## Prerequisites
+On Linux x64 or macOS on Apple Silicon, extract the archive, install the dependencies listed in **Quick Start.txt**, and run `./start-oem.sh`. These builds use the local central office and play terminal audio. SIP audio and capture are Windows features.
 
-- Built emulator binary (see [`BUILDING.md`](BUILDING.md)).
-- Licensed terminal firmware binary at `../firmware/flash.bin`.
-- Optional: terminal front-panel image at `docs/images/terminal-unbranded.webp` for artwork rendering.
-- Optional: a running CoinLine Host endpoint for the host-bridge connection (see [`docs/host-integration-plan.md`](docs/host-integration-plan.md)).
+Open the included **Quick Start.txt** for setup. The [Windows operator guide](tools/windows/portable/quick-start.txt) includes the full INSTALL sequence for all platforms. Supply authorized ROMs using the [ROM input layout](BUILDING.md#include-your-local-rom-inputs).
 
-## Quick launch (MAME track — planned, tranche E2 onward)
+## First INSTALL
 
-```bash
-./coinline-emu \
-    -bios millennium \
-    -rompath roms/ \
-    -firmware ../firmware/flash.bin \
-    -board fixtures/board/board-profile-2line-vfd.json \
-    -nvram fixtures/nvram/factory-default.nvram.json \
-    -hostbridge tcp://127.0.0.1:5210 \
-    -log run.log
+Start CoinLine Server with its NCC listener on loopback TCP 4000. Use the lab terminal’s configured 10-digit wire ID as the line number and assign the table set for its firmware. The default MTR 1.9 Multi-Pay lab set includes the test card and free-call screening records. The decimal NCC number for `127.0.0.1` is `2130706433`. For a different local TCP port, copy `coinline.example.ini` to `coinline.ini` and set `ncc_port`.
+
+An out-of-service display on first launch is expected. Complete the firmware’s INSTALL with the CO and answer checks, NCC download, keypad, card, and coin checks. The portable launcher never writes the terminal tables or installation flags. When the terminal enters service, later runs reuse its firmware-written battery file.
+
+## Hardware selection
+
+The launcher defaults to `auto`. It selects a hardware preset from the verified
+firmware inventory, then checks for a recognized program tag when the registry
+entry has no firmware ID. The firmware hash registry supplies the legacy I/O
+map when no preset is identified. Use `--hardware` to override selection.
+
+| Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
+| --- | --- | --- | --- |
+| `multipay-v1` | NBA1F02, NPA1S01, NPA1F01 | Earlier | 0 |
+| `multipay-v1-dual-flash` | NCA1X03 | Later | 0 |
+| `multipay-v1.1` | NKA1X02, NKA1X05 | Later | 1 |
+| `multipay-v1.3` | NLA1X05, NOA1X04, NOK1X03, NQA1X01 | Later | 1 |
+| `desk-rel1`, `desk-rel2` | NBJ1S03, NAJ2S05 | Earlier | 0 |
+| `card-only`, `coin-basic` | M06CBBX1, NPE1S01 | Earlier | 0 where fitted |
+
+These presets select the I/O and card clock wiring for each board. The earlier
+board connects the coin validator to ASCI0. The later board uses a 600-baud serial
+link through the external UART and IRQ1. Desk REL 1 and REL 2 have successful
+INSTALL and restart cases. All four staged later V1.3 images (`NLA1X05`,
+`NQA1X01`, `NOK1X03`, and `NOA1X04`) also completed INSTALL and returned to
+service after restart. Both V1.1 images (`NKA1X02` and `NKA1X05`) also
+passed. Their dedicated NCC set includes the two mandatory expanded
+visual-prompt records, MT85 and MT86. Chip-card acceptance and several
+other firmware families still have open gates.
+See the [batch acceptance guide](tools/acceptance/README.md)
+and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
+
+```text
+"Start OEM.cmd" --local --hardware multipay-v1.1 --firmware firmware/U2.bin --flash1 firmware/X1.bin --rompath roms-v2 --check
 ```
 
-Switches expected on the command line, finalized in [`docs/mame-driver-plan.md`](docs/mame-driver-plan.md):
+The same arguments work with `./start-oem.sh` on Linux and macOS. `--rompath`
+contains a `cl_millennium/` folder with the matching Voiceware pair.
+Use `--check` to verify the input paths, mapped image SHA-256, and selected
+profile. Remove `--check` to launch. OEM 1.9 retains its portable state
+directory. Other mapped programs and presets each get their own battery and
+configuration directories under `data/oem/`.
 
-| Switch | Purpose |
-| ------ | ------- |
-| `-firmware <path>` | Path to the terminal firmware binary (`../firmware/flash.bin`). |
-| `-board <profile>` | Board profile JSON selecting 2-line vs 11-line VFD and per-revision device wiring. |
-| `-nvram <image>` | Initial NVRAM image (factory-default, corrupt-checksum, or operator-supplied). |
-| `-hostbridge <url>` | Host-bridge transport endpoint (`tcp://`, `ws://`, `pipe://`, `serial://`). |
-| `-scenario <file>` | Optional scenario file to run automatically (see [`docs/scenario-runner.md`](docs/scenario-runner.md)). |
-| `-evidence <dir>` | Output directory for evidence bundles (see [`docs/evidence-bundles.md`](docs/evidence-bundles.md)). |
-| `-debug` | Enables MAME's debugger on startup. |
-| `-log <file>` | Writes a structured run log including boot trace and I/O trace. |
+Direct MAME invocations can set `COINLINE_CARD_DMA_CHANNEL` to `0` or `1`.
+The portable launcher and acceptance runner select it from the hardware preset.
 
-## Quick launch (MIT-clean track — planned)
+## Controls
 
-```bash
-./coinline-emu \
-    --firmware ../firmware/flash.bin \
-    --board fixtures/board/board-profile-2line-vfd.json \
-    --nvram fixtures/nvram/factory-default.nvram.json \
-    --host-bridge tcp://127.0.0.1:5210 \
-    --log run.log
+| Input | Action |
+| --- | --- |
+| H, the handset photo, or the handset button | Lift or replace the handset |
+| 0–9 | Digits |
+| Shift+8 or numpad `*` | Star |
+| Shift+3 or numpad `/` | Pound |
+| =, -, L, N | Volume up/down, language, next call |
+| K, C, A, or the matching LED row | Toggle the lock, housing, or cash vault |
+| P or click the card reader | Insert, read, and remove the synthetic test card |
+| `[` | Insert or remove the synthetic smart card when prompted |
+| V, B, M | Nickel, dime, quarter |
+| Q W E R T | Quick-access positions 1 through 5, also clickable on the panel |
+| Y G J X Z | Positions 6 through 10 on a ten-button profile |
+
+The handset starts on-hook at each launch. The button reads **Lift handset** on-hook and **Hang up** off-hook. MAME keeps its function-key shortcuts. If an older profile has custom keyboard assignments, reset them in MAME's input menu or transfer its `nvram` folder into a fresh package and use the new defaults.
+
+## Calls and audio
+
+The volume buttons step through four handset receive levels. The VFD brightness menu offers 50%, 75%, and 100%.
+
+With blank SIP settings, the local central office plays dial tone and answers the configured outbound digits, which default to `18005551212`. With the lab free-call policy, the demo places this call without a rating request. The OEM can ask CoinLine for a live quote on a paid lab destination. Its spoken cents use five-cent increments.
+
+For SignalWire, fill in the SIP registrar, username, and password in `coinline.ini` and open **Start OEM.cmd**. The launcher reports **SIP calling** and calls the number the terminal outpulses. Dial a 10-digit North American number with an optional leading 1. For international dialing, use 011 followed by the country code and number. Leave `local_address` blank for automatic IPv4 selection. Launch with `--local` to use the local office even with SIP credentials present. The `outbound_digits` setting controls the local office test number.
+
+The handset uses the default Windows recording device. Set `input_device` under `[audio]` in `coinline.ini` to a unique prefix of a Windows recording device name to choose a microphone or virtual mixer output for the emulator. Restart the emulator after changing the input.
+
+```cmd
+"Start OEM.cmd" --sip
 ```
 
-The flag style differs but the semantics match the MAME track. Both tracks honor the same JSON board profiles and scenario files.
+The launcher stores `cfg`, `nvram`, and `logs` under `data/oem`. Close the emulator normally to complete the save. To carry an installed terminal forward, copy `data/oem/nvram` to the same location in the new package while both copies are closed.
 
-## Board profiles
+## Diagnostics
 
-Two reference profiles are described in [`docs/board-profiles.md`](docs/board-profiles.md):
-
-- `board-profile-2line-vfd.json` — 2-line VFD variant.
-- `board-profile-11line-vfd.json` — 11-line VFD variant.
-
-Operators may add profiles for other revisions. The board profile selects:
-
-- VFD variant and dimensions.
-- Keypad layout (3x4 numeric, plus quick-access keys, volume, language).
-- Card reader presence and type (magnetic, smart, both, or none).
-- Coin validator configuration.
-- Modem UART base port and IRQ.
-- NVRAM size and base address.
-- Firmware download staging area size.
-
-## Connecting to CoinLine Host
-
-The host bridge forwards modem UART bytes between the emulated terminal and an external endpoint. By default the emulator listens (or connects) using TCP at the address supplied to `-hostbridge`. See [`docs/modem-uart-host-bridge.md`](docs/modem-uart-host-bridge.md) for transport semantics, modem state model, and DCD/CTS/RTS/DTR behavior.
-
-> The bridge does **not** synthesize protocol responses. It is a transparent byte pipe. Application-layer behavior comes from the real firmware on one side and CoinLine Host on the other.
-
-## Scenarios and evidence bundles
-
-To run a deterministic scenario for compatibility validation:
-
-```bash
-./coinline-emu \
-    -firmware ../firmware/flash.bin \
-    -board fixtures/board/board-profile-2line-vfd.json \
-    -scenario fixtures/scenarios/boot-to-idle.json \
-    -evidence out/boot-to-idle/ \
-    -log out/boot-to-idle/run.log
+```cmd
+"Start OEM.cmd" --check
+"Start OEM.cmd" --headless --seconds 18
+"Start OEM.cmd" --record
 ```
 
-Scenario format is defined in [`docs/scenario-runner.md`](docs/scenario-runner.md) and [`specs/scenario-runner.spec.md`](specs/scenario-runner.spec.md). Evidence bundle contents are defined in [`docs/evidence-bundles.md`](docs/evidence-bundles.md) and [`specs/evidence-bundle.spec.md`](specs/evidence-bundle.spec.md).
+The launcher defaults to a compact GDI window with automatic frameskip and keeps the debugger and trace sidecars off. Use `--video d3d` or `--video opengl` to test those renderers on suitable displays. The latest log directory contains `display.txt`, `emulator.log`, and `central-office.log`. Error 41 points to CO line detection. For error 24, verify the running NCC listener, matching wire ID, and published table assignment.
 
-## Front-panel artwork
-
-When a front-panel image is provided at `docs/images/terminal-unbranded.webp`, the emulator overlays:
-
-- A 2-line or 11-line VFD region (per board profile).
-- Clickable keypad, quick-access keys, volume keys, language key, hookswitch, card slot, coin input, coin return, lock, door, vault, and service switch (per [`docs/artwork-and-layout.md`](docs/artwork-and-layout.md)).
-
-If the image is absent, the emulator runs headless and exposes the same controls programmatically through scenarios.
-
-## Headless operation
-
-For CI and batch validation:
-
-```bash
-./coinline-emu \
-    -firmware ../firmware/flash.bin \
-    -board fixtures/board/board-profile-2line-vfd.json \
-    -scenario fixtures/scenarios/boot-to-idle.json \
-    -nowindow -nosound \
-    -evidence out/ \
-    -exit-on-scenario-end
-```
-
-`-nowindow` and `-nosound` correspond to MAME's standard headless flags; the MIT-clean track accepts `--headless`.
-
-## Logs and traces
-
-Every run produces:
-
-- A run log (`-log` / `--log`) with boot trace, I/O trace, UART transcript, NVRAM writes, host-bridge frames, and scenario events.
-- An evidence bundle if `-evidence` is supplied.
-- Optional MAME state snapshot files if `-savestate` is invoked from the debugger.
-
-See [`docs/debugging-guide.md`](docs/debugging-guide.md) for guidance on inspecting logs and reproducing failures.
-
-## Common issues
-
-| Symptom | Likely cause | Fix |
-| ------- | ------------ | --- |
-| `firmware binary not found` | `../firmware/flash.bin` empty or wrong | Supply the path on the command line. |
-| Emulator stops at M1 | Reset vector mismatch | Verify board profile and firmware version per ``. |
-| No display output | VFD device disabled in board profile | Enable VFD in the board profile JSON. |
-| Host bridge times out | CoinLine Host not running or wrong endpoint | Start CoinLine Host and adjust `-hostbridge`. |
-| Many `unknown port` log lines | Expected during early bring-up | See ``. |
+The [verification handoff](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) records the full MAME and CoinLine acceptance runs.

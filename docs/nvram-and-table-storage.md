@@ -1,74 +1,24 @@
 # NVRAM and table storage
 
-This document describes the NVRAM device and table storage region. NVRAM holds configuration and counters; table storage holds downloaded tables. Both are persisted across runs and emulated by the same device class with separate sub-regions.
+## Cold boot
 
-## Purpose
-
-- Provide battery-backed storage that survives reset.
-- Verify checksums and recover from corruption per firmware behavior.
-- Support factory-default and corrupt-checksum images for test fixtures.
-- Persist downloaded tables coming from CoinLine Host.
-
-## Memory regions
-
-Per the active board profile (`memory.nvram_*`, `memory.table_storage_*`):
-
-| Region | Purpose | Persistence |
-| ------ | ------- | ----------- |
-| `nvram` | Configuration records, counters, audit-relevant flags | persisted to `nvram/` |
-| `tablestore` | Downloaded tables | persisted to `nvram/` |
-
-Both regions are part of the program-space memory map and accessible to firmware via normal load/store instructions.
-
-## NVRAM image format
-
-Internal layout is firmware-specific and pinned in the firmware evidence inventory. Public format is the JSON envelope used by fixtures:
-
-```jsonc
-{
-  "version": "1.0",
-  "size": 8192,
-  "checksum_algorithm": "sum8 | crc16-ibm | none",
-  "checksum_value": "0x...",
-  "data_b64": "..."
-}
-```
-
-## Default and corrupt fixtures
-
-| Fixture | Purpose |
-| ------- | ------- |
-| `fixtures/nvram/factory-default.nvram.json` | Pristine NVRAM image used at first boot or after `--clear-nvram`. |
-| `fixtures/nvram/corrupt-checksum.nvram.json` | Same data with intentionally wrong checksum to exercise the firmware's recovery path. |
+Start with erased serial EEPROM and blank battery-backed SRAM when a profile has no battery file. The serial EEPROM begins with `0xffff` words. The MTR 1.9 demo wrote EEPROM through Microwire and copied its compiled defaults to SRAM. Its first full INSTALL still downloaded the lab records from CoinLine. The OEM also performed real INSTALL writes.
 
 ## Persistence
 
-- The MAME track uses MAME's NVRAM machinery to save/restore on machine close.
-- The MIT-clean track persists to a JSON file under `nvram/`.
-- Both tracks honor the operator's `-nvram <path>` to load a specific image.
+MAME saves the serial EEPROM and firmware-written SRAM together in the `battery` image. The portable launcher keeps these files separate for the two firmware profiles.
 
-## Tests
+| Profile | Battery path relative to the portable folder |
+| --- | --- |
+| Demo | `data/demo/nvram/cl_millennium/battery` |
+| OEM | `data/oem/nvram/cl_millennium/battery` |
 
-- `tests/devices/test_nvram_persistence.cpp` — round-trip across reset.
-- `tests/devices/test_nvram_corrupt_checksum.cpp` — corrupt fixture triggers recovery path.
-- `tests/devices/test_table_storage_region.cpp` — writes are bounded and persisted.
-- `tests/integration/test_table_download_e2e.cpp` — downloaded table appears in table storage.
+A successful warm boot uses the already-written memory and can enter service directly. Close the emulator and back up or transfer the entire profile directory to preserve that state. A fresh extraction has its own blank profiles.
 
-## Boot-milestone dependencies
+The firmware owns all table CRCs, loaded flags, and the installation state. The packed host table records reach SRAM using the ordinary NCC transfer and firmware handlers. The lab verified table readback and a warm return to **Please lift receiver**.
 
-- M3 (RAM init) — the firmware accesses NVRAM during initialization.
-- M12 — table storage accessed during table download / upload.
+## Explicit test fixtures
 
-## Acceptance criteria
+The NVRAM model tests use fixture images for startup, invalid checksums, and recovery cases. The normal portable launch starts with its native battery image or blank storage. It supplies neither a fixture battery image nor preset installation flags.
 
-- NVRAM image survives reset.
-- Corrupt-checksum image triggers the firmware's expected recovery path.
-- Table storage region writes are bounded and persisted.
-- The factory-default image produces a deterministic boot to idle.
-
-## Cross-references
-
-- [`../specs/nvram-storage-device.spec.md`](../specs/nvram-storage-device.spec.md).
-- [`../test-plans/nvram-storage-tests.md`](../test-plans/nvram-storage-tests.md).
-- [`table-download-behavior.md`](table-download-behavior.md).
-- [`firmware-download-storage.md`](firmware-download-storage.md).
+See [table download behavior](table-download-behavior.md) and the [verified cold and warm runs](status/ncc-install-firmware-stx-handoff-2026-11-23.md).

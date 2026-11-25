@@ -6,7 +6,7 @@ Hardware IDs: **HW-CPU-001**, **HW-MMU-001**, **HW-INT-001**, **HW-TMR-001**, **
 
 | Field | Detail |
 | ----- | ------ |
-| **Purpose** | Execute firmware source tree firmware with correct instruction set and timing baseline. |
+| **Purpose** | Execute terminal firmware with correct instruction set and timing baseline. |
 | **Hardware-facing** | External bus, clocks — delegated to MAME `z80180_device`. |
 | **Firmware-facing** | Standard Z180 program-visible state; internal peripherals via ICR base. |
 | **Reset state** | Per Zilog/Z180 documentation; MAME device handles. |
@@ -63,7 +63,7 @@ Hardware IDs: **HW-CPU-001**, **HW-MMU-001**, **HW-INT-001**, **HW-TMR-001**, **
 | **Purpose** | Z180 DMA channels if firmware uses them. |
 | **Status** | **complete_unverified** — DMA exists in core; terminal use **not** proven in audit. |
 | **Tests** | `test_z180_dma.cpp`. |
-| **Unknowns** | Search firmware source tree for DMA channel enables; until found, treat as optional. |
+| **Unknowns** | Confirm DMA channel enables in a device trace. |
 
 ## HW-RES-001 — Reset / watchdog
 

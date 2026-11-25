@@ -59,7 +59,7 @@ The tranches are numbered E0–E13 (with audio sub-tranches A0–A7). The full p
 
 **Goals**
 
-- Inventory the firmware evidence available at `../firmware source tree`.
+- Inventory the firmware behavior visible at the device interfaces.
 - Author the internal source-map docs: memory map, I/O ports, interrupts, Z180 registers, drivers, RTOS init.
 - Derive `fixtures/board/memory-map.json`, `io-port-map.json`, `interrupt-map.json`, `device-map.json`.
 
@@ -92,12 +92,12 @@ pytest coinline-emu/tests/fixtures
 **Acceptance criteria**
 
 - All four `*-map.json` fixtures validate against their schemas.
-- Internal source-map docs cite evidence files at `../firmware source tree` paths.
+- Record the observed signals and transactions behind each map entry.
 - Public maps reflect the same data minus internal references.
 
 **Blockers**
 
-- `../firmware source tree` not provided — fall back to binary-only inventory and mark public rows **OPEN QUESTION**.
+- Mark rows **OPEN QUESTION** when the available captures cannot establish behavior.
 
 **Exit criteria**
 

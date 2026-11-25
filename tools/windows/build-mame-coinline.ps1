@@ -58,9 +58,6 @@ function Convert-ToUnixMsysPath([string]$WinPath) {
 $LogDir = Join-Path $EmuRoot 'build\logs'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir 'mame-build.log'
-if (Test-Path -LiteralPath $LogFile) {
-    Remove-Item -LiteralPath $LogFile -Force
-}
 
 $InnerWin = (Resolve-Path (Join-Path $PSScriptRoot '_build_mame_inner.sh')).Path
 $wrapWin = Join-Path $EmuRoot 'build\_coinline_mame_build_entry.sh'

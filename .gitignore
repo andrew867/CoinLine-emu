@@ -1,6 +1,8 @@
-# Build outputs (local-only; never committed).
-build/
-build-*/
+# Build outputs and local acceptance runs.
+/build/
+/build-*/
+/mame-build/
+/artifacts/
 out/
 cmake-build-*/
 CMakeFiles/
@@ -12,16 +14,21 @@ Makefile
 .ninja_log
 compile_commands.json
 
-# Default output path for the user I/O trace when unset (local evidence).
+# Default output path for millennium_state user I/O trace when unset (local evidence).
 user-io-trace.jsonl
 
-# Evidence / local runs (never committed).
+# Evidence / local runs
 evidence-bundles/
 .evidence/
 *.log
+*.wav
+*.zip
+__pycache__/
+coinline.ini
+data/
+nvram/
 
-# Firmware / ROM blobs: by default the repo ships the committed images under
-# firmware/ and ignores everything else (dumps, evidence captures, scratch work).
+# Firmware / ROM blobs (never commit)
 *.bin
 *.rom
 *.dla
@@ -29,11 +36,8 @@ evidence-bundles/
 *.hex
 *.s19
 *.mot
-!firmware/flash.bin
-!firmware/flash1.bin
-!firmware/voice_a.bin
-!firmware/voice_b.bin
-!firmware/telephony_subprocessor.rom
+tools/tp8048/rom/*.lst
+tools/tp8048/rom/*.p
 
 # OS / IDE
 .DS_Store

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// T0.1 — pinned SHA-256 for shipped `voice_a.bin` / `voice_b.bin` (1 MiB each) when files are present.
+// T0.1 — pinned SHA-256 for shipped `voice_u16.bin` / `voice_u26.bin` (1 MiB each) when files are present.
 
 #include "millennium_sha256.h"
 
@@ -55,7 +55,7 @@ int main()
 		return 77;
 	}
 	std::string expect_u16, expect_u26;
-	if (!extract_json_string(j, "voice_a_sha256", expect_u16) || !extract_json_string(j, "voice_b_sha256", expect_u26)) {
+	if (!extract_json_string(j, "voice_u16_sha256", expect_u16) || !extract_json_string(j, "voice_u26_sha256", expect_u26)) {
 		std::cerr << "manifest parse failed\n";
 		return 1;
 	}
@@ -66,8 +66,8 @@ int main()
 	while (!romdir.empty() && (romdir.back() == '/' || romdir.back() == '\\'))
 		romdir.pop_back();
 
-	std::string const p16 = romdir + "/voice_a.bin";
-	std::string const p26 = romdir + "/voice_b.bin";
+	std::string const p16 = romdir + "/voice_u16.bin";
+	std::string const p26 = romdir + "/voice_u26.bin";
 	std::string e2;
 	std::string const b16 = read_file(p16, e2);
 	std::string const b26 = read_file(p26, e2);

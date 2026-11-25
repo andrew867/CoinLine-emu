@@ -99,6 +99,6 @@
   },
   "firmware": {
     "strict_hash": true,
-    "supported_versions": ["reference-flash-default"]
+    "supported_versions": ["reference-flash-default", "demo-universal-builtin-tables", "mtr19-universal"]
   }
 }

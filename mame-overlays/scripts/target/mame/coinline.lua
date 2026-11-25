@@ -7,6 +7,7 @@ CPUS["Z80"] = true
 
 MACHINES["Z80DAISY"] = true
 MACHINES["GEN_LATCH"] = true
+MACHINES["INS8250"] = true
 
 -- Voiceware / SPEAKER + uPD7759 (scripts/src/sound.lua gates upd7759.cpp + spkrdev.cpp)
 SOUNDS["SPEAKER"] = true

@@ -10,7 +10,7 @@
       "access": "r",
       "device": "rom",
       "evidence": "",
-      "notes": "Full flash image linearly mapped at reset. Z180 physical space is 20-bit; emulator may bank \u2014 see OPEN QUESTION in public memory-map.md."
+      "notes": "Full flash image linearly mapped at reset. Z180 physical space is 20-bit; emulator may bank — see OPEN QUESTION in public memory-map.md."
     },
     {
       "name": "ram",
@@ -46,7 +46,7 @@
       "access": "rw",
       "device": "nvram",
       "evidence": "",
-      "notes": "Staging size placeholder; align with firmware-download-source-map."
+      "notes": "Confirm the staging size with a firmware download trace."
     }
   ]
 }

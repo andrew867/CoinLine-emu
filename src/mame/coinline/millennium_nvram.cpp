@@ -56,30 +56,25 @@ void millennium_nvram_device::nvram_default()
 	}
 	m_model.configure(st->memory_layout());
 
-	char const *nvpath = osd_getenv("COINLINE_NVRAM");
-	std::string const rel =
-		(nvpath && *nvpath) ? std::string(nvpath) : std::string("fixtures/nvram/factory-default.nvram.json");
-	std::string const path = resolve_relative_path(*this, rel);
-	std::vector<std::uint8_t> raw;
 	std::string err;
+	for (u32 i = 0; i < millennium_microwire_93c66::k_capacity_bytes; ++i)
+		m_model.write_nvram(i, 0xffU, err);
+
+	char const *const nvpath = osd_getenv("COINLINE_NVRAM");
+	if (!nvpath || !*nvpath)
+		return;
+	std::string const path = resolve_relative_path(*this, nvpath);
+	std::vector<std::uint8_t> raw;
 	if (!millennium_read_file(path, raw, err)) {
-		osd_printf_warning("millennium_nvram: cannot read initial image %s (%s); zero-filled\n", path.c_str(),
-			err.c_str());
-		std::string ign;
-		m_model.recover_default_cleared(ign);
+		osd_printf_warning("millennium_nvram: cannot read initial image %s (%s)\n", path.c_str(), err.c_str());
 		return;
 	}
-	std::string const txt(reinterpret_cast<char const *>(raw.data()), raw.size());
-	if (!m_model.load_envelope_json(txt, err))
+	auto initial = m_model;
+	std::string const txt(raw.begin(), raw.end());
+	if (initial.load_envelope_json(txt, err))
+		m_model = std::move(initial);
+	else
 		osd_printf_warning("millennium_nvram: parsing initial image %s failed (%s)\n", path.c_str(), err.c_str());
-	if (m_model.checksum_failure())
-		osd_printf_info("millennium_nvram: checksum mismatch on load — firmware recovery expected\n");
-	// Blank / never-programmed image: validity sentinels at fixed offsets are zero; RTOS init is expected to program them.
-	if (!m_model.checksum_failure() && m_model.read_nvram(0) == 0U && m_model.read_nvram(1) == 0U && m_model.read_nvram(30) == 0U
-		&& m_model.read_nvram(31) == 0U)
-		// ASCII hyphen: Windows consoles often mis-render U+2014 em dash from osd_printf_info.
-		osd_printf_info(
-			"millennium_nvram: initial image has blank validity fields - first-boot EEPROM/NVRAM programming expected\n");
 }
 
 bool millennium_nvram_device::nvram_read(util::read_stream &file)
@@ -96,20 +91,7 @@ bool millennium_nvram_device::nvram_read(util::read_stream &file)
 	millennium_state *const st = dynamic_cast<millennium_state *>(owner());
 	if (st)
 		m_model.configure(st->memory_layout());
-	if (!m_model.deserialize_state(nvbuf, e))
-		return false;
-
-	// Guard against persisted stale images that keep firmware in perpetual
-	// not-installed/OOS branches. Recover to firmware-valid defaults when
-	// essential EEPROM sentinel fields are missing.
-	u16 const first_valid = u16(m_model.read_nvram(0)) | (u16(m_model.read_nvram(1)) << 8);
-	u16 const term_inst = u16(m_model.read_nvram(30)) | (u16(m_model.read_nvram(31)) << 8);
-	u16 const last_valid = u16(m_model.read_nvram(40)) | (u16(m_model.read_nvram(41)) << 8);
-	if (first_valid != 0xa5c4U || term_inst != 0x1f2eU || last_valid != 0x5a3bU) {
-		std::string ign;
-		m_model.recover_default_cleared(ign);
-	}
-	return true;
+	return m_model.deserialize_state(nvbuf, e);
 }
 
 bool millennium_nvram_device::nvram_write(util::write_stream &file)

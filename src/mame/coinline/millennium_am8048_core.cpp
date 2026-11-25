@@ -31,6 +31,7 @@ void millennium_am8048_core::reset()
 	m_t = 0U;
 	m_flags_f1 = 0U;
 	m_flag_mb = false;
+	m_flag_mb_saved = false;
 	m_in_irq = false;
 	m_i_ena = false;
 	m_t_ena = false;
@@ -130,8 +131,12 @@ void millennium_am8048_core::pop_state(bool retr)
 
 void millennium_am8048_core::jump_page(std::uint8_t opcode, std::uint8_t low)
 {
+	// SEL MB applies to the next JMP/CALL even while an interrupt is in service.
+	// A cross-bank transfer is a bank select followed by the jump. Forcing bank 0
+	// for the whole interrupt sends that jump into the low bank and leaves the
+	// select latched after the interrupt returns, so later calls miss their target.
 	std::uint16_t const hi = static_cast<std::uint16_t>((opcode << 3U) & 0x0700U);
-	std::uint16_t const bank = (m_flag_mb && !m_in_irq) ? 0x0800U : 0x0000U;
+	std::uint16_t const bank = m_flag_mb ? 0x0800U : 0x0000U;
 	m_pc = static_cast<std::uint16_t>(hi | low | bank);
 }
 
@@ -163,6 +168,10 @@ unsigned millennium_am8048_core::execute_one()
 		push_state();
 		m_pc = (m_i_ena && m_ext_irq) ? 0x0003U : 0x0007U;
 		m_in_irq = true;
+		// Vectors live in the low bank. The select in effect before the interrupt
+		// is restored by RETR so an in-service bank select cannot leak outward.
+		m_flag_mb_saved = m_flag_mb;
+		m_flag_mb = false;
 		if (m_pc == 0x0007U)
 			m_t_req = false;
 		cycles += 2U;
@@ -207,6 +216,7 @@ unsigned millennium_am8048_core::execute_one()
 	case 0x93:
 		pop_state(true);
 		m_in_irq = false;
+		m_flag_mb = m_flag_mb_saved;
 		cycles++;
 		trace_event("isr_return", op);
 		break; // RETR
@@ -254,10 +264,12 @@ unsigned millennium_am8048_core::execute_one()
 		trace_event("stop_tcnt", op);
 		break;
 	case 0x75: m_t0_clk_ena = true; break; // ENT0 CLK
-	case 0x08: { // INS A,BUS — quasi-bidirectional: pin reads external ∧ latch (latch 0 forces low).
+	case 0x08: { // INS A,BUS — true bidirectional bus port: latched output is tri-stated for the
+		// strobe, so A receives the external value directly. AND'ing with the output latch corrupts
+		// CP→TP traffic after the boot ACK leaves a non-0xFF latch byte (e.g. 0x70 → CMD_CONFIG masked
+		// to 0x40, suppressing CFG_NEED prime and RESP_CONFIG_ACK).
 		cycles++;
-		std::uint8_t const ext = m_cb.read_port ? m_cb.read_port(0U) : 0xffU;
-		m_a = static_cast<std::uint8_t>(ext & m_port_latch[0]);
+		m_a = m_cb.read_port ? m_cb.read_port(0U) : 0xffU;
 		trace_event("ins_bus", m_a);
 		break;
 	}

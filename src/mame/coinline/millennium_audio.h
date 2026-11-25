@@ -9,12 +9,24 @@
 
 DECLARE_DEVICE_TYPE(MILLENNIUM_AUDIO, millennium_audio_device)
 
-class millennium_audio_device : public device_t {
+class millennium_audio_device : public device_t, public device_sound_interface {
 public:
 	millennium_audio_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock = 0);
 
 	void device_start() override ATTR_COLD;
 	void device_reset() override;
+	void device_stop() override;
+	void sound_stream_update(sound_stream &stream) override;
+
+	/// On-hook the alerter transducer goes to the PC speakers. Off-hook the handset path owns them.
+	void set_alerter_audible(bool on) noexcept { m_alerter_audible = on; }
+
+	/// Firmware ringer-enable and the ring-detect input are both true, and the handset is on-hook.
+	void set_external_ringer(bool on) noexcept;
+
+	/// Telephony-processor hybrid gates from the control processor's routing commands.
+	void set_hybrid_gates(bool tx_muted, bool rx_muted, bool sidetone_suppressed) noexcept;
+	void set_handset_gain(float gain);
 
 	void apply_config(millennium_alerter_board_config const &cfg);
 
@@ -29,6 +41,13 @@ public:
 	void set_handset_loopback(bool on) noexcept { m_model.set_handset_loopback(on); }
 	void inject_handset_sample(float s) noexcept { m_model.inject_handset_sample(s); }
 
+	/// 8 kHz exchange with the line jack. `have` is set when `line` is a new sample for the earpiece.
+	void set_line_pcm_tap(void (*fn)(void *ctx, std::int16_t mic, std::int16_t &line, bool &have), void *ctx) noexcept
+	{
+		m_pcm_tap = fn;
+		m_pcm_ctx = ctx;
+	}
+
 	float output_sample(double t_sec) const { return m_model.output_sample(t_sec); }
 
 	millennium_audio_model &model() noexcept { return m_model; }
@@ -42,7 +61,20 @@ private:
 
 	TIMER_CALLBACK_MEMBER(cadence_edge_tick);
 
+	void open_microphone();
+	void close_microphone();
+
 	required_device<z180_device> m_maincpu;
+	void *m_mic = nullptr;
+	sound_stream *m_stream = nullptr;
+	void (*m_pcm_tap)(void *ctx, std::int16_t mic, std::int16_t &line, bool &have) = nullptr;
+	void *m_pcm_ctx = nullptr;
+	unsigned m_pcm_div = 0;
+	float m_mic_sample = 0.f;
+	bool m_alerter_audible = true;
+	bool m_external_ringer = false;
+	bool m_tx_muted = false;
+	bool m_sidetone_suppressed = false;
 	millennium_audio_model m_model{};
 	millennium_alerter_cadence_kind m_cadence_kind = millennium_alerter_cadence_kind::none;
 	std::uint16_t m_cadence_edges_storage[8]{};

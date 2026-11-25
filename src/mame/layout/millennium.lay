@@ -47,49 +47,117 @@ copyright-holders:CoinLine contributors
 			<color red="0.95" green="0.2" blue="0.95" alpha="0.00" />
 		</rect>
 	</element>
-	<element name="handset_state" defstate="0">
-		<rect state="0">
-			<color red="0.95" green="0.16" blue="0.16" alpha="0.34" />
-		</rect>
-		<rect state="1">
-			<color red="0.23" green="0.92" blue="0.45" alpha="0.36" />
-		</rect>
-	</element>
 	<element name="hit_vfd" defstate="0">
 		<rect state="0">
 			<color red="0.42" green="0.84" blue="0.97" alpha="0.00" />
 		</rect>
 	</element>
-	<element name="line_btn" defstate="0">
-		<rect state="0">
-			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+	<element name="handset_button" defstate="0">
+		<rect>
+			<color red="0.30" green="0.36" blue="0.41" />
 		</rect>
-	</element>
-	<element name="line_lbl_hook" defstate="0">
-		<rect state="0">
-			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+		<rect>
+			<bounds x="0.009" y="0.043" width="0.982" height="0.914" />
+			<color red="0.08" green="0.11" blue="0.14" />
 		</rect>
-		<text string="LINE">
-			<color red="1.0" green="1.0" blue="1.0" />
-			<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
+		<disk state="0">
+			<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+			<color red="0.36" green="0.86" blue="0.61" />
+		</disk>
+		<disk state="1">
+			<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+			<color red="1.00" green="0.68" blue="0.33" />
+		</disk>
+		<text state="0" string="Lift handset" align="1">
+			<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+			<color red="0.91" green="0.94" blue="0.97" />
+		</text>
+		<text state="1" string="Hang up" align="1">
+			<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+			<color red="1.00" green="0.84" blue="0.66" />
+		</text>
+		<rect>
+			<bounds x="0.82" y="0.24" width="0.13" height="0.52" />
+			<color red="0.19" green="0.24" blue="0.29" />
+		</rect>
+		<text string="H">
+			<bounds x="0.82" y="0.29" width="0.13" height="0.42" />
+			<color red="0.81" green="0.86" blue="0.91" />
 		</text>
 	</element>
-	<element name="line_lbl_ring" defstate="0">
-		<rect state="0">
-			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+	<element name="indicator_panel">
+		<rect>
+			<color red="0.24" green="0.29" blue="0.33" />
 		</rect>
-		<text string="REV 0">
-			<color red="1.0" green="1.0" blue="1.0" />
-			<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
+		<rect>
+			<bounds x="0.015" y="0.035" width="0.97" height="0.93" />
+			<color red="0.04" green="0.06" blue="0.08" />
+		</rect>
+	</element>
+	<element name="indicator_housing" defstate="0">
+		<text string="Housing" align="1">
+			<bounds x="0.03" y="0.12" width="0.39" height="0.76" />
+			<color red="0.85" green="0.89" blue="0.94" />
+		</text>
+		<disk state="0">
+			<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+			<color red="0.25" green="0.93" blue="0.54" />
+		</disk>
+		<disk state="1">
+			<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+			<color red="1.00" green="0.62" blue="0.18" />
+		</disk>
+		<text state="0" string="Closed" align="1">
+			<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+			<color red="0.63" green="0.94" blue="0.74" />
+		</text>
+		<text state="1" string="Open" align="1">
+			<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+			<color red="1.00" green="0.78" blue="0.46" />
 		</text>
 	</element>
-	<element name="line_lbl_answer" defstate="0">
-		<rect state="0">
-			<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
-		</rect>
-		<text string="REV 1">
-			<color red="1.0" green="1.0" blue="1.0" />
-			<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
+	<element name="indicator_lock" defstate="0">
+		<text string="Lock" align="1">
+			<bounds x="0.03" y="0.12" width="0.39" height="0.76" />
+			<color red="0.85" green="0.89" blue="0.94" />
+		</text>
+		<disk state="0">
+			<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+			<color red="0.25" green="0.93" blue="0.54" />
+		</disk>
+		<disk state="1">
+			<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+			<color red="1.00" green="0.62" blue="0.18" />
+		</disk>
+		<text state="0" string="Locked" align="1">
+			<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+			<color red="0.63" green="0.94" blue="0.74" />
+		</text>
+		<text state="1" string="Unlocked" align="1">
+			<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+			<color red="1.00" green="0.78" blue="0.46" />
+		</text>
+	</element>
+	<element name="indicator_vault" defstate="0">
+		<text string="Coin vault" align="1">
+			<bounds x="0.03" y="0.12" width="0.39" height="0.76" />
+			<color red="0.85" green="0.89" blue="0.94" />
+		</text>
+		<disk state="0">
+			<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+			<color red="0.25" green="0.93" blue="0.54" />
+		</disk>
+		<disk state="1">
+			<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+			<color red="1.00" green="0.62" blue="0.18" />
+		</disk>
+		<text state="0" string="Closed" align="1">
+			<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+			<color red="0.63" green="0.94" blue="0.74" />
+		</text>
+		<text state="1" string="Open" align="1">
+			<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+			<color red="1.00" green="0.78" blue="0.46" />
 		</text>
 	</element>
 	<view name="Standard">
@@ -155,69 +223,56 @@ copyright-holders:CoinLine contributors
 		</element>
 
 		<!-- Quick access row -->
-		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00002000">
-			<bounds left="573" top="896" right="614" bottom="919" />
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00100000">
+			<bounds left="330" top="899" right="372" bottom="920" />
 		</element>
-		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00002000">
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00200000">
 			<bounds left="392" top="897" right="436" bottom="919" />
 		</element>
-		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00004000">
-			<bounds left="513" top="897" right="553" bottom="918" />
-		</element>
-		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00008000">
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00400000">
 			<bounds left="452" top="898" right="494" bottom="918" />
 		</element>
-
-		<!-- Simulated line controls -->
-		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x01">
-			<bounds left="573" top="859" right="613" bottom="882" />
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00800000">
+			<bounds left="513" top="897" right="553" bottom="918" />
 		</element>
-		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x02">
-			<bounds left="392" top="859" right="436" bottom="882" />
-		</element>
-		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x04">
-			<bounds left="513" top="859" right="553" bottom="882" />
-		</element>
-		<element ref="line_btn" inputtag="LINECTRL" inputmask="0x08">
-			<bounds left="632" top="859" right="672" bottom="882" />
-		</element>
-		<element ref="line_lbl_hook">
-			<bounds left="573" top="859" right="613" bottom="882" />
-		</element>
-		<element ref="line_lbl_ring">
-			<bounds left="392" top="859" right="436" bottom="882" />
-		</element>
-		<element ref="line_lbl_answer">
-			<bounds left="513" top="859" right="553" bottom="882" />
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x01000000">
+			<bounds left="573" top="896" right="614" bottom="919" />
 		</element>
 
-		<!-- Handset icon / off-hook -->
-		<element ref="handset_state" inputtag="KEYMATRIX" inputmask="0x00080000">
-			<bounds left="46" top="471" right="133" bottom="761" />
+		<!-- The receiver photo and the handset button operate the same switch. -->
+		<element ref="hit_misc" inputtag="KEYMATRIX" inputmask="0x00080000">
+			<bounds left="100" top="590" right="293" bottom="1220" />
+		</element>
+		<element ref="handset_button" inputtag="KEYMATRIX" inputmask="0x00080000">
+			<bounds left="162" top="1376" right="442" bottom="1434" />
 		</element>
 
 		<!-- Service toggles -->
 		<element ref="hit_misc" inputtag="SECMASK" inputmask="0x01">
-			<bounds left="274" top="18" right="352" bottom="96" />
+			<bounds left="337" top="299" right="379" bottom="341" />
 		</element>
 
-		<!-- CARDUI: magstripe swipe (0x01), smart-card insert (0x02) -->
+		<!-- Card reader: insert, read, and remove the magstripe test card -->
 		<element ref="hit_misc" inputtag="CARDUI" inputmask="0x01">
-			<bounds left="110" top="654" right="129" bottom="673" />
-		</element>
-		<element ref="hit_misc" inputtag="CARDUI" inputmask="0x02">
-			<bounds left="236" top="654" right="255" bottom="673" />
+			<bounds left="317" top="945" right="451" bottom="1065" />
 		</element>
 
-		<!-- COINUI: coin insert (0x01), coin return (0x02), jam sim (0x04) -->
+		<!-- Coin slot -->
 		<element ref="hit_coin" inputtag="COINUI" inputmask="0x01">
-			<bounds left="573" top="896" right="614" bottom="919" />
+			<bounds left="272" top="22" right="348" bottom="121" />
 		</element>
-		<element ref="hit_coin" inputtag="COINUI" inputmask="0x02">
-			<bounds left="330" top="899" right="372" bottom="920" />
+
+		<element ref="indicator_panel">
+			<bounds left="162" top="1232" right="442" bottom="1366" />
 		</element>
-		<element ref="hit_coin" inputtag="COINUI" inputmask="0x04">
-			<bounds left="392" top="897" right="436" bottom="919" />
+		<element ref="indicator_housing" name="panel_housing_open" inputtag="SECMASK" inputmask="0x02">
+			<bounds left="173" top="1243" right="431" bottom="1280" />
+		</element>
+		<element ref="indicator_lock" name="panel_lock_open" inputtag="SECMASK" inputmask="0x01">
+			<bounds left="173" top="1280" right="431" bottom="1317" />
+		</element>
+		<element ref="indicator_vault" name="panel_vault_open" inputtag="SECMASK" inputmask="0x04">
+			<bounds left="173" top="1317" right="431" bottom="1354" />
 		</element>
 	</view>
 </mamelayout>

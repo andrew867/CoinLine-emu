@@ -2,13 +2,14 @@
 #pragma once
 
 #include "emu.h"
+#include "diserial.h"
 
 #include "millennium_modem_model.h"
 
 DECLARE_DEVICE_TYPE(MILLENNIUM_MODEM, millennium_modem_device)
 
 /// UART/modem line model. DCD is sampled in `millennium_state::screen_update` and forwarded to telephony / audio route.
-class millennium_modem_device : public device_t {
+class millennium_modem_device : public device_t, private device_serial_interface {
 public:
 	millennium_modem_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock = 0);
 
@@ -23,6 +24,13 @@ public:
 
 	millennium_modem_model &model() noexcept { return m_model; }
 
+	void configure_terminal_tx(attotime period, u8 control_a, u8 control_b);
+	void rxd_w(int state) { rx_w(state); }
+	bool samples_terminal_tx() const noexcept { return m_terminal_tx_period != attotime::never; }
+
 private:
+	void rcv_complete() override;
+	attotime m_terminal_tx_period = attotime::never;
+	u8 m_terminal_tx_frame = 0;
 	millennium_modem_model m_model{};
 };

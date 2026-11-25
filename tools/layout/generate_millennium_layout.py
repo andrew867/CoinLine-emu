@@ -18,8 +18,10 @@ from typing import Iterable
 
 from PIL import Image
 
+
 RGB = tuple[int, int, int]
 Box = tuple[int, int, int, int]
+
 
 def find_components(pixels: list[list[RGB]], color: RGB, min_pixels: int = 100) -> list[Box]:
     height = len(pixels)
@@ -57,13 +59,16 @@ def find_components(pixels: list[list[RGB]], color: RGB, min_pixels: int = 100) 
     out.sort(key=lambda b: (b[1], b[0]))
     return out
 
+
 def to_bounds(box: Box) -> str:
     return f'<bounds left="{box[0]}" top="{box[1]}" right="{box[2]}" bottom="{box[3]}" />'
+
 
 def pop_single(boxes: list[Box], label: str) -> Box:
     if len(boxes) != 1:
         raise RuntimeError(f"Expected one component for {label}, got {len(boxes)}")
     return boxes[0]
+
 
 def normalize_numeric_keypad_order(num_boxes: list[Box]) -> list[Box]:
     """Return keypad boxes in logical order 1..9,*0# despite perspective y jitter."""
@@ -78,26 +83,22 @@ def normalize_numeric_keypad_order(num_boxes: list[Box]) -> list[Box]:
         ordered.extend(sorted(chunk, key=lambda b: b[0]))
     return ordered
 
+
 def render_layout(image_w: int, image_h: int, data: dict[str, Iterable[Box] | Box]) -> str:
     nums: list[Box] = list(data["num_boxes"])  # type: ignore[arg-type]
-    quick: list[Box] = list(data["quick_boxes"])  # type: ignore[arg-type]
+    quick = sorted(data["quick_boxes"], key=lambda box: box[0])  # type: ignore[arg-type]
     vfd_box: Box = data["vfd_box"]  # type: ignore[assignment]
     down_box: Box = data["down_box"]  # type: ignore[assignment]
     up_box: Box = data["up_box"]  # type: ignore[assignment]
     lang_box: Box = data["lang_box"]  # type: ignore[assignment]
     newcall_box: Box = data["newcall_box"]  # type: ignore[assignment]
 
-    # CoinUI keeps historical three-mask mapping; source overlay provides
-    # five lavender boxes. Reuse leftmost, second-left, and rightmost.
-    coin_insert = quick[0]
-    coin_jam = quick[1]
-    coin_return = quick[-1]
-
     # Keep existing approximations for regions not included in the color map.
-    handset_box: Box = (46, 471, 133, 761)
-    service_lock_box: Box = (274, 18, 352, 96)
-    card_swipe_box: Box = (110, 654, 129, 673)
-    card_insert_box: Box = (236, 654, 255, 673)
+    handset_box: Box = (100, 590, 293, 1220)
+    handset_button_box: Box = (162, 1376, 442, 1434)
+    service_lock_box: Box = (337, 299, 379, 341)
+    coin_slot_box: Box = (272, 22, 348, 121)
+    card_reader_box: Box = (317, 945, 451, 1065)
 
     def el(ref: str, tag: str, mask: str, box: Box) -> str:
         return (
@@ -120,20 +121,47 @@ def render_layout(image_w: int, image_h: int, data: dict[str, Iterable[Box] | Bo
         "0x00000400",
         "0x00000800",
     ]
-    quick_masks = ["0x00001000", "0x00002000", "0x00004000", "0x00008000"]
-    line_masks = ["0x01", "0x02", "0x04"]
-
     number_elements = "\n".join(el("hit_num", "KEYMATRIX", m, b) for m, b in zip(num_masks, nums, strict=True))
-    quick_elements = "\n".join(el("hit_quick", "KEYMATRIX", m, b) for m, b in zip(quick_masks, quick[:4], strict=True))
-
-    line_h = max(20, quick[0][3] - quick[0][1])
-    line_y0 = max(0, quick[0][1] - line_h - 14)
-    line_boxes: list[Box] = []
-    for qb in quick[:3]:
-        cx = (qb[0] + qb[2]) // 2
-        w = qb[2] - qb[0]
-        line_boxes.append((cx - w // 2, line_y0, cx + w // 2, line_y0 + line_h))
-    line_elements = "\n".join(el("line_btn", "LINECTRL", m, b) for m, b in zip(line_masks, line_boxes, strict=True))
+    quick_elements = "\n".join(
+        el("hit_quick", "KEYMATRIX", f"0x{1 << (20 + position):08X}", box)
+        for position, box in enumerate(quick)
+    )
+    indicators = (
+        ("housing", "Housing", "Closed", "Open", 0x02),
+        ("lock", "Lock", "Locked", "Unlocked", 0x01),
+        ("vault", "Coin vault", "Closed", "Open", 0x04),
+    )
+    indicator_elements = "\n".join(
+        f'''\t<element name="indicator_{name}" defstate="0">
+\t\t<text string="{label}" align="1">
+\t\t\t<bounds x="0.03" y="0.12" width="0.39" height="0.76" />
+\t\t\t<color red="0.85" green="0.89" blue="0.94" />
+\t\t</text>
+\t\t<disk state="0">
+\t\t\t<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+\t\t\t<color red="0.25" green="0.93" blue="0.54" />
+\t\t</disk>
+\t\t<disk state="1">
+\t\t\t<bounds x="0.46" y="0.22" width="0.09" height="0.56" />
+\t\t\t<color red="1.00" green="0.62" blue="0.18" />
+\t\t</disk>
+\t\t<text state="0" string="{normal}" align="1">
+\t\t\t<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+\t\t\t<color red="0.63" green="0.94" blue="0.74" />
+\t\t</text>
+\t\t<text state="1" string="{active}" align="1">
+\t\t\t<bounds x="0.61" y="0.12" width="0.36" height="0.76" />
+\t\t\t<color red="1.00" green="0.78" blue="0.46" />
+\t\t</text>
+\t</element>'''
+        for name, label, normal, active, _ in indicators
+    )
+    indicator_rows = "\n".join(
+        f'''\t\t<element ref="indicator_{name}" name="panel_{name}_open" inputtag="SECMASK" inputmask="0x{mask:02x}">
+\t\t\t{to_bounds((173, 1243 + row * 37, 431, 1280 + row * 37))}
+\t\t</element>'''
+        for row, (name, _, _, _, mask) in enumerate(indicators)
+    )
 
     return f"""<?xml version="1.0"?>
 <!--
@@ -189,38 +217,49 @@ copyright-holders:CoinLine contributors
 \t\t\t<color red="0.42" green="0.84" blue="0.97" alpha="0.00" />
 \t\t</rect>
 \t</element>
-\t<element name="line_btn" defstate="0">
-\t\t<rect state="0">
-\t\t\t<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+\t<element name="handset_button" defstate="0">
+\t\t<rect>
+\t\t\t<color red="0.30" green="0.36" blue="0.41" />
 \t\t</rect>
-\t</element>
-\t<element name="line_lbl_hook" defstate="0">
-\t\t<rect state="0">
-\t\t\t<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+\t\t<rect>
+\t\t\t<bounds x="0.009" y="0.043" width="0.982" height="0.914" />
+\t\t\t<color red="0.08" green="0.11" blue="0.14" />
 \t\t</rect>
-\t\t<text string="HOOK">
-\t\t\t<color red="1.0" green="1.0" blue="1.0" />
-\t\t\t<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
+\t\t<disk state="0">
+\t\t\t<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+\t\t\t<color red="0.36" green="0.86" blue="0.61" />
+\t\t</disk>
+\t\t<disk state="1">
+\t\t\t<bounds x="0.06" y="0.37" width="0.054" height="0.26" />
+\t\t\t<color red="1.00" green="0.68" blue="0.33" />
+\t\t</disk>
+\t\t<text state="0" string="Lift handset" align="1">
+\t\t\t<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+\t\t\t<color red="0.91" green="0.94" blue="0.97" />
+\t\t</text>
+\t\t<text state="1" string="Hang up" align="1">
+\t\t\t<bounds x="0.16" y="0.20" width="0.61" height="0.60" />
+\t\t\t<color red="1.00" green="0.84" blue="0.66" />
+\t\t</text>
+\t\t<rect>
+\t\t\t<bounds x="0.82" y="0.24" width="0.13" height="0.52" />
+\t\t\t<color red="0.19" green="0.24" blue="0.29" />
+\t\t</rect>
+\t\t<text string="H">
+\t\t\t<bounds x="0.82" y="0.29" width="0.13" height="0.42" />
+\t\t\t<color red="0.81" green="0.86" blue="0.91" />
 \t\t</text>
 \t</element>
-\t<element name="line_lbl_ring" defstate="0">
-\t\t<rect state="0">
-\t\t\t<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+\t<element name="indicator_panel">
+\t\t<rect>
+\t\t\t<color red="0.24" green="0.29" blue="0.33" />
 \t\t</rect>
-\t\t<text string="SIM RING">
-\t\t\t<color red="1.0" green="1.0" blue="1.0" />
-\t\t\t<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
-\t\t</text>
-\t</element>
-\t<element name="line_lbl_answer" defstate="0">
-\t\t<rect state="0">
-\t\t\t<color red="0.20" green="0.30" blue="0.42" alpha="1.00" />
+\t\t<rect>
+\t\t\t<bounds x="0.015" y="0.035" width="0.97" height="0.93" />
+\t\t\t<color red="0.04" green="0.06" blue="0.08" />
 \t\t</rect>
-\t\t<text string="SIM ANSWER">
-\t\t\t<color red="1.0" green="1.0" blue="1.0" />
-\t\t\t<bounds xc="0.5" yc="0.5" width="0.95" height="0.75" />
-\t\t</text>
 \t</element>
+{indicator_elements}
 \t<view name="Standard">
 \t\t<element ref="front">
 \t\t\t<bounds left="0" top="0" right="{image_w}" bottom="{image_h}" />
@@ -238,43 +277,32 @@ copyright-holders:CoinLine contributors
 {el("hit_down", "KEYMATRIX", "0x00020000", down_box)}
 {el("hit_up", "KEYMATRIX", "0x00010000", up_box)}
 {el("hit_lang", "KEYMATRIX", "0x00040000", lang_box)}
-{el("hit_newcall", "KEYMATRIX", "0x00080000", newcall_box)}
+{el("hit_newcall", "KEYMATRIX", "0x00001000", newcall_box)}
 
 \t\t<!-- Quick access row -->
 {quick_elements}
 
-\t\t<!-- Simulated line controls -->
-{line_elements}
-\t\t<element ref="line_lbl_hook">
-\t\t\t{to_bounds(line_boxes[0])}
-\t\t</element>
-\t\t<element ref="line_lbl_ring">
-\t\t\t{to_bounds(line_boxes[1])}
-\t\t</element>
-\t\t<element ref="line_lbl_answer">
-\t\t\t{to_bounds(line_boxes[2])}
-\t\t</element>
-
-\t\t<!-- Handset icon / off-hook -->
+\t\t<!-- The receiver photo and the handset button operate the same switch. -->
 {el("hit_misc", "KEYMATRIX", "0x00080000", handset_box)}
+{el("handset_button", "KEYMATRIX", "0x00080000", handset_button_box)}
 
 \t\t<!-- Service toggles -->
 {el("hit_misc", "SECMASK", "0x01", service_lock_box)}
-{el("hit_down", "SECMASK", "0x02", down_box)}
-{el("hit_lang", "SECMASK", "0x04", lang_box)}
-{el("hit_newcall", "SECMASK", "0x08", newcall_box)}
 
-\t\t<!-- CARDUI: magstripe swipe (0x01), smart-card insert (0x02) -->
-{el("hit_misc", "CARDUI", "0x01", card_swipe_box)}
-{el("hit_misc", "CARDUI", "0x02", card_insert_box)}
+\t\t<!-- Card reader: insert, read, and remove the magstripe test card -->
+{el("hit_misc", "CARDUI", "0x01", card_reader_box)}
 
-\t\t<!-- COINUI: coin insert (0x01), coin return (0x02), jam sim (0x04) -->
-{el("hit_coin", "COINUI", "0x01", coin_insert)}
-{el("hit_coin", "COINUI", "0x02", coin_return)}
-{el("hit_coin", "COINUI", "0x04", coin_jam)}
+\t\t<!-- Coin slot -->
+{el("hit_coin", "COINUI", "0x01", coin_slot_box)}
+
+\t\t<element ref="indicator_panel">
+\t\t\t{to_bounds((162, 1232, 442, 1366))}
+\t\t</element>
+{indicator_rows}
 \t</view>
 </mamelayout>
 """
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate millennium layout bounds from color overlay image.")
@@ -317,8 +345,8 @@ def main() -> int:
 
     if len(num_boxes) != 12:
         raise RuntimeError(f"Expected 12 number-key boxes, found {len(num_boxes)}")
-    if len(quick_boxes) < 5:
-        raise RuntimeError(f"Expected at least 5 lavender boxes (quick+coin), found {len(quick_boxes)}")
+    if len(quick_boxes) != 5:
+        raise RuntimeError(f"Expected 5 quick-access buttons, found {len(quick_boxes)}")
     if not up_candidates:
         raise RuntimeError("Expected at least one up-button yellow component")
     up_box = max(up_candidates, key=lambda b: b[0])  # right-most yellow box is UP
@@ -346,8 +374,9 @@ def main() -> int:
     print("Extracted:")
     print(f"  vfd={vfd_box}")
     print(f"  down={down_box} up={up_box} lang={lang_box} newcall={newcall_box}")
-    print(f"  numbers={len(num_boxes)} quick+coin={len(quick_boxes)}")
+    print(f"  numbers={len(num_boxes)} quick={len(quick_boxes)}")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

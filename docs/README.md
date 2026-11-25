@@ -1,6 +1,6 @@
 # `coinline-emu` documentation index
 
-Public-facing documentation for the CoinLine Terminal Emulator. Internal engineering notes with integration file references are in [`internal/`](internal/) and are excluded from any public navigation.
+Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick start](../RUNNING.md), [build and package command](../BUILDING.md), and [current verification](status/ncc-install-firmware-stx-handoff-2026-11-23.md). Dated status reports and planning documents record their original scope.
 
 ## Foundation
 
@@ -8,14 +8,17 @@ Public-facing documentation for the CoinLine Terminal Emulator. Internal enginee
 | -------- | ------- |
 | [architecture.md](architecture.md) | System decomposition, process boundary, device tree. |
 | [engine-selection.md](engine-selection.md) | MAME-based vs clean-room comparison; recommendation. |
+| [license-isolation.md](license-isolation.md) | How GPL/MIT isolation is enforced in practice. |
 | [project-structure.md](project-structure.md) | Source-tree, fixtures, artwork, tools, tests layout. |
 
 ## Status (measured / rollup)
 
 | Document | Purpose |
 | -------- | ------- |
+| [Windows operator guide](../tools/windows/portable/quick-start.txt) | Contents of the Quick Start included in each portable ZIP. |
+| [status/ncc-install-firmware-stx-handoff-2026-11-23.md](status/ncc-install-firmware-stx-handoff-2026-11-23.md) | Current end-to-end INSTALL, battery persistence, outbound SIP, and OEM voice-rate evidence. |
 | [status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md](status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md) | Chip-oriented TP backend: behavioral ROM, hook sequencing, timer note, build paths. |
-| [status/implementation-status-audit.md](status/implementation-status-audit.md) | Broad emulator implementation status table. |
+| [status/implementation-status-audit.md](status/implementation-status-audit.md) | Historical bring-up audit and trace references. |
 
 ## Planning
 
@@ -34,7 +37,7 @@ Public-facing documentation for the CoinLine Terminal Emulator. Internal enginee
 | [host-integration-plan.md](host-integration-plan.md) | Path to a CoinLine Host integration. |
 | [evidence-bundles.md](evidence-bundles.md) | Evidence bundle contents and exporter. |
 | [scenario-runner.md](scenario-runner.md) | Scenario verb set and JSON schema. |
-| [ci-and-release.md](ci-and-release.md) | CI/CD and release artifacts. |
+| [ci-and-release.md](ci-and-release.md) | CI/CD, release artifacts, sanitizer checks. |
 
 ## Platform and CPU
 
@@ -76,10 +79,11 @@ Public-facing documentation for the CoinLine Terminal Emulator. Internal enginee
 | [artwork-and-layout.md](artwork-and-layout.md) | MAME `.lay` plan + clickable regions. |
 | [frontend-control-panel.md](frontend-control-panel.md) | Optional control-panel UI overlay. |
 
-## Telephony co-processor (TP 8048)
+## Internal-only (integration traceability)
 
 | Document | Purpose |
 | -------- | ------- |
-| [tp8048/execution-spec.md](tp8048/execution-spec.md) | Execution and clocking spec for the PCD3349A/8048 backend. |
-| [tp8048/asm-state-machine.md](tp8048/asm-state-machine.md) | State-machine notes matching the in-tree behavioural ASM. |
-| [tp8048/mame-wiring-notes.md](tp8048/mame-wiring-notes.md) | MAME-side integration notes for the TP backend. |
+| [internal/README.md](internal/README.md) | INTERNAL-ONLY banner and index. |
+| [internal/firmware-evidence-inventory.md](internal/firmware-evidence-inventory.md) | Inventory of evidence sources. |
+
+The full internal index is at [`internal/README.md`](internal/README.md). Internal documents are not part of any public site navigation.

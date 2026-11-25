@@ -1,0 +1,128 @@
+CoinLine Terminal Emulator for Windows x64
+=========================================
+
+1. Extract the entire ZIP to a writable folder. Open that folder in Explorer.
+2. Double-click Start OEM.cmd.
+3. Click the emulator window so it receives keys. Esc closes the emulator.
+
+The portable folder includes the CO simulator and its Python runtime. With blank
+SIP settings it answers the lab toll-free call locally. The OEM terminal starts
+blank on its first launch. Close the emulator and copy data/oem/nvram to the same
+location in the new package to keep an installed terminal when upgrading.
+
+Package.txt tells you whether this copy includes local ROM inputs. If it does
+not, supply your authorized images at the following paths.
+
+  firmware/oem/flash.bin (256 KiB)
+  roms/cl_millennium/voice_u16.bin and voice_u26.bin (1 MiB each)
+
+For other firmware, set the flash paths and hardware profile under [hardware]
+in coinline.ini, or pass --firmware, --flash1, --rompath and --hardware on the
+command line. Use --check to verify selection and the mapped flash hash before
+launch. Available profiles include multipay-v1, multipay-v1-dual-flash,
+multipay-v1.1, multipay-v1.3, desk-rel1, desk-rel2, card-only and coin-basic.
+The V1.1 and V1.3 presets route the magnetic reader through DMA channel 1.
+See the project runtime guide for the acceptance gates on these presets.
+
+Keep packages that contain local ROM inputs private. The ZIP includes no saved
+terminal memory, SIP credentials, or site data.
+
+First INSTALL
+-------------
+
+Keep CoinLine Server running while you install. The default NCC listener is
+127.0.0.1 TCP port 4000. Use a lab terminal record whose wire ID matches the
+10-digit line number you enter. Assign the table set for the firmware's terminal
+family. The default MTR 1.9 lab set includes the synthetic magstripe policy and
+the free-call screening entries.
+If you already have the working lab assignment, reuse it. CoinLine configuration
+and service startup are managed separately from this emulator.
+
+1. At Out of service, lift and replace the handset with H if needed. Enter
+   CRASERV on the keypad as 2727378. Enter the craft PIN and press *. Then use
+   K to unlock, C to open the housing, and # to start INSTALL.
+2. At the CO check, let Go offhook sit for about six seconds before pressing H.
+   If you lifted early and the display stays on Go offhook, replace the handset
+   and lift it again. At Completed 00, press *, then replace it when prompted.
+3. Enter the terminal's 10-digit line number, then the 10-digit test serial,
+   then the NCC number. Save each field with *. The decimal number for local
+   NCC at 127.0.0.1 is 2130706433.
+4. Follow the answer supervision prompts. Lift with H, wait for Completed 00,
+   press *, and replace with H when requested. Press * to start the NCC download.
+5. After the download completes, press * and follow the keypad test. Lift the
+   handset and press the requested controls, then replace it. Press P or click
+   the card reader to insert, read, and remove the synthetic test card. Press *
+   to continue after the card passes.
+6. Use V, B, and M for nickel, dime, and quarter as prompted. Press * at Completed.
+   When the terminal says Install is complete, close it with C and lock it with
+   K. Check the lower-left indicators for Housing Closed, Lock Locked, and Coin
+   vault Closed. It should show Please lift receiver. Later boots use the saved
+   installation.
+
+Some later firmware has a separate smart-card test and two calibration coins
+followed by an escrow test. Use [ to insert or remove the smart card. A chip-card
+test may still report failure. Follow the firmware's continuation prompt.
+Allow the refund and collection tests to finish before pressing * again.
+
+Controls
+--------
+
+  H / handset button   lift or replace handset, also clickable on the photo
+  0-9                  keypad digits
+  Shift+8 or numpad *  keypad *
+  Shift+3 or numpad /  keypad #
+  = / -                volume up / down
+  L / N                language / next call
+  Q W E R T            quick-access positions 1 through 5, also clickable on the panel
+  Y G J X Z            positions 6 through 10 on a ten-button profile
+  K / C / A            lock / housing / cash vault, also clickable on the LEDs
+  P or card reader     insert, read, and remove the synthetic magstripe card
+  [                    insert or remove the synthetic smart card
+  V / B / M            insert nickel / dime / quarter
+
+Calls and troubleshooting
+-------------------------
+
+After INSTALL, lift the handset and listen to Voiceware. With the lab free-call
+screen installed, dial 18005551212 for a local test without a rate request.
+
+To use SignalWire, copy coinline.example.ini to coinline.ini, fill in your SIP
+registrar, username and password, then start Start OEM.cmd. The launcher reports
+SIP calling. Use --local for the simulated office or --sip to require SIP settings.
+Use the SIP credential's hostname for registrar and its account name for username.
+This client uses UDP signaling. It supports G.711 over plain RTP and can accept
+incoming G.711 offers that use SDES-SRTP with AES-128. Outbound offers use plain
+RTP. Check central-office.log for REGISTER, INVITE, and media negotiation results.
+On incoming calls, the log shows when the emulator sends 200 OK and when it
+receives the carrier's ACK.
+The log also shows the first decoded RTP packet and the reply to a BYE when
+you replace the handset.
+The handset uses the default Windows recording device. To choose a specific
+microphone or virtual mixer output, add an [audio] section to coinline.ini and
+set input_device to a unique prefix of its name in Windows Sound > Input.
+Restart the emulator after changing the input. The central-office log reports
+when microphone signal first reaches the SIP transmit queue.
+Incoming calls ring for two seconds and pause for four seconds. A remote hangup
+interrupts the simulated line current so the terminal can end the call.
+SIP mode calls the number the terminal outpulses. Dial 10 North American digits
+with an optional leading 1, or 011 followed by the international number. Leave
+local_address blank for automatic selection. The outbound_digits setting is for
+the local office. Use a different local_port if another application owns it.
+The launcher also learns the public RTP address from the SIP registrar when
+available. If your router uses a fixed UDP mapping for media, set rtp_port to
+that port and rtp_public_address to the public IPv4 address.
+
+If a CO check fails with 41, check the latest central-office.log under the profile's
+logs folder. If NCC fails with 24, verify the listener, matching terminal ID, and
+published table set. A card rejected after download usually needs the matching
+lab card policy. The OEM firmware can display cents individually and speaks
+cents in five-cent increments.
+
+Use --check to check package inputs, --record to save handset WAV audio, or
+--headless --seconds 18 for a bounded boot check. The default GDI window starts
+compact and adjusts how often it draws to reduce interrupted playback.
+Each run keeps its emulator log, CO log, and current display under data/<profile>/logs.
+The portable launchers keep the debugger and trace sidecars off.
+
+See docs/Verification.md for the firmware acceptance evidence. License notices
+are in licenses/ and runtime/. SHA256SUMS.txt lists the packaged file hashes.
