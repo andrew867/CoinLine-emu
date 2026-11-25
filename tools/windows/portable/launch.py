@@ -30,9 +30,9 @@ def config_for_run():
     return config
 
 
-def check_files(program, rompath):
+def check_files(program, rompath, display):
     files = [EXECUTABLE, "firmware/tp_pcd3349a_behavioural.rom",
-             "fixtures/board/board-profile-2line-vfd.json", "fixtures/firmware/firmware-hashes.json",
+             f"fixtures/board/board-profile-{display}-vfd.json", "fixtures/firmware/firmware-hashes.json",
              "fixtures/cards/magcard-valid.json", "app/central_office.py",
              "app/sip_media.py"]
     paths = [*(ROOT / name for name in files), *program,
@@ -93,7 +93,10 @@ def prepare_hardware(args, config):
     second = args.flash1 or (settings.get("flash1", "").strip() if args.firmware is None else "")
     program = (flash, ROOT / second) if second else (flash,)
     rompath = ROOT / (args.rompath or settings.get("rompath", "").strip() or "roms")
-    check_files(program, rompath)
+    display_profile = getattr(args, "display", None) or settings.get("display", "2line").strip()
+    if display_profile not in ("2line", "11line"):
+        raise ValueError("Set display to 2line or 11line under [hardware].")
+    check_files(program, rompath, display_profile)
     image = program[0].read_bytes()
     if second and (len(image) != 524288 or program[1].stat().st_size != 524288):
         raise ValueError("Split flash requires two 512 KiB images in boot-chip then expansion-chip order.")
@@ -111,7 +114,12 @@ def prepare_hardware(args, config):
     mapping = PRESETS[preset].motherboard if preset else entry.get("motherboard", "later")
     if entry["version_id"] != "mtr19-universal" or (preset, mapping) != ("multipay-v1", "earlier"):
         state /= f"{preset or mapping}-{digest}"
-    env = {"COINLINE_MOTHERBOARD": mapping}
+    if display_profile == "11line":
+        if mapping != "later":
+            raise ValueError("The graphical expansion requires a later motherboard profile.")
+        state /= "11line"
+    env = {"COINLINE_MOTHERBOARD": mapping,
+           "COINLINE_BOARD": str(ROOT / f"fixtures/board/board-profile-{display_profile}-vfd.json")}
     if preset:
         env["COINLINE_HARDWARE_PRESET"] = preset
         env["COINLINE_CARD_DMA_CHANNEL"] = str(PRESETS[preset].card_dma_channel)
@@ -125,11 +133,12 @@ def prepare_hardware(args, config):
         env.update(COINLINE_FIRMWARE_FLASH0=str(program[0]), COINLINE_FIRMWARE_FLASH1=str(program[1]))
     else:
         env["COINLINE_FIRMWARE"] = str(flash)
-    return state, rompath, env, f"{preset or mapping} ({reason}, {mapping} I/O)"
+    return state, rompath, env, f"{preset or mapping} ({reason}, {mapping} I/O, {display_profile})"
 
 
 def run(args, config, hardware):
     state, rompath, hardware_env, description = hardware
+    graphical = hardware_env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
     port = config["line"].getint("ncc_port", 4000)
     digits = config["line"].get("outbound_digits", "18005551212").strip()
     sip = config["sip"]
@@ -169,10 +178,13 @@ def run(args, config, hardware):
         "COINLINE_NCC_PORT": str(port),
         "COINLINE_CO_MODE": mode,
         "COINLINE_CO_TIMEOUT": "0",
-        "COINLINE_VFD_LIVE": str(run_dir / "display.txt"),
         "COINLINE_DIAGNOSTICS": "0",
         "PYTHONDONTWRITEBYTECODE": "1",
     })
+    if graphical:
+        env["COINLINE_GRAPHIC_VFD_SNAPSHOT"] = str(run_dir / "graphic-vfd.json")
+    else:
+        env["COINLINE_VFD_LIVE"] = str(run_dir / "display.txt")
     if use_sip:
         configure_sip(env, sip)
     else:
@@ -189,6 +201,8 @@ def run(args, config, hardware):
     if args.headless:
         cmd += ["-sound", "none"]
     else:
+        if graphical:
+            cmd += ["-view", "Graphical"]
         cmd += ["-window", "-nomaximize", "-autoframeskip", "-frameskip", "4", "-audio_latency", "6"]
         if args.video == "gdi":
             cmd += ["-resolution", "360x850"]
@@ -227,6 +241,7 @@ def main():
     parser = argparse.ArgumentParser(description="Start the CoinLine Terminal Emulator")
     parser.add_argument("profile", choices=("oem",))
     parser.add_argument("--hardware", choices=("auto", *PRESETS), help="select hardware by program tag or override it")
+    parser.add_argument("--display", choices=("2line", "11line"), help="select the character or graphical display board")
     parser.add_argument("--firmware", type=Path, help="single program image or first half of split flash")
     parser.add_argument("--flash1", type=Path, help="second half of split flash")
     parser.add_argument("--rompath", type=Path, help="directory containing cl_millennium/ Voiceware images")

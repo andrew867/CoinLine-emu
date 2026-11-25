@@ -24,6 +24,9 @@ multipay-v1.1, multipay-v1.3, desk-rel1, desk-rel2, card-only and coin-basic.
 The V1.1 and V1.3 presets route the magnetic reader through DMA channel 1.
   For Coin Basic, --portable-display attached connects the temporary VFD for
   Craft. Exit, then use --portable-display detached for normal operation.
+  For compatible later-board graphical firmware, --display 11line selects
+  the large display and its six side keys and four navigation keys.
+  Graphical firmware acceptance is pending; the default remains 2line.
 See the project runtime guide for the acceptance gates on these presets.
 
 Keep packages that contain local ROM inputs private. The ZIP includes no saved

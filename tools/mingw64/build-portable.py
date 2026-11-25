@@ -146,6 +146,7 @@ def stage_files(bundle, mame, rom_input, windows):
         "artwork/cl_millennium/millennium-terminal-front.png": ROOT / "artwork/millennium-terminal-front.png",
         "firmware/tp_pcd3349a_behavioural.rom": ROOT / "firmware/tp_pcd3349a_behavioural.rom",
         "fixtures/board/board-profile-2line-vfd.json": ROOT / "fixtures/board/board-profile-2line-vfd.json",
+        "fixtures/board/board-profile-11line-vfd.json": ROOT / "fixtures/board/board-profile-11line-vfd.json",
         "fixtures/board/io-port-map.json": ROOT / "fixtures/board/io-port-map.json",
         "fixtures/cards/magcard-valid.json": ROOT / "fixtures/cards/magcard-valid.json",
         "fixtures/cards/smartcard-valid.json": ROOT / "fixtures/cards/smartcard-valid.json",

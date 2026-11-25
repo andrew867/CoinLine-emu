@@ -1,56 +1,99 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "millennium_io.h"
-
 #include "millennium_state.h"
-
-// Port-backed handlers below correlate with `io-trace.jsonl` for audio/call-state proof alongside device traces.
 
 void millennium_configure_io_map(address_map &map, millennium_state &state)
 {
-	// Board peripherals are low-byte decoded on Z180 I/O cycles.
-	// Firmware frequently uses 16-bit port addresses (OUT (C),A style),
-	// so mirror handlers across the upper byte to avoid false unmapped I/O.
-	map.global_mask(0xff);
+	// The graphical expansion decodes the full address. The driver retains
+	// low-byte mirroring for all conventional peripherals.
+	map(0x0000, 0xffff).r(state, FUNC(millennium_state::external_io_r))
+		.w(state, FUNC(millennium_state::external_io_w));
+}
 
-	// Later entries override earlier ones for the same port (MAME I/O map merge).
-	// Catch-all first logs true external unmapped ports; board handlers below replace it.
-	map(0x00, 0xff).r(state, FUNC(millennium_state::catch_all_io_r))
-		.w(state, FUNC(millennium_state::catch_all_io_w));
+u8 millennium_state::external_io_r(offs_t offset)
+{
+	u16 const port = u16(offset);
+	u8 const low = u8(port);
+	if (m_graphic_display) {
+		if (millennium_graphic_vfd::pixel_address(port)) {
+			trace_graphic_vfd(port, 'r', m_unknown_default);
+			return m_unknown_default; // No pixel readback interface.
+		}
+		if (low == 0x80) {
+			u8 const result = m_graphic_vfd.read_status(catch_all_io_r(low), m_maincpu->total_cycles());
+			trace_graphic_vfd(port, 'r', result);
+			return result;
+		}
+		if (low == 0x90) {
+			u16 const pressed = u16(m_terminal21_softkeys_io->read() & 0x0fffU);
+			u8 const result = m_graphic_vfd.read_keys(m_unknown_default, pressed);
+			trace_graphic_vfd(port, 'r', result, pressed);
+			return result;
+		}
+		if (low == 0x60)
+			return m_unknown_default;
+	}
+	switch (low) {
+	case 0x40: return board_status_r();
+	case 0x41: case 0x42: case 0x43: case 0x44: return pio_keypad_r(low - 0x41);
+	case 0x52: return card_status_r();
+	case 0x53: return card_data_r();
+	case 0x54: return coin_status_r();
+	case 0x60: return vfd_status_r();
+	case 0x61: return voiceware_phrase_r();
+	case 0x63: return pio_port_g_r();
+	case 0xc0: case 0xc1: case 0xc2: case 0xc3: return mach_pio_r(low - 0xc0);
+	case 0xe0: case 0xe1: case 0xe2: case 0xe3:
+	case 0xe4: case 0xe5: case 0xe6: case 0xe7: return external_uart_r(low - 0xe0);
+	default: return catch_all_io_r(low);
+	}
+}
 
-	// Board status and security switch inputs.
-	map(0x40, 0x40).r(state, FUNC(millennium_state::board_status_r))
-		.w(state, FUNC(millennium_state::board_status_w));
-	// 82C55-class PIO at 0x41–0x44: modem/VFD/voice-bank/coin/relay images — not the front-panel matrix.
-	// Handset, keypad, hookswitch, and softkeys are modeled on KEYMATRIX / TERMINAL21_SOFTKEYS for TP→CP CSI/O only.
-	map(0x41, 0x44).r(state, FUNC(millennium_state::pio_keypad_r))
-		.w(state, FUNC(millennium_state::pio_keypad_w));
-	// Voice phrase port — millennium_voiceware_device (VOICEWR / 0x61).
-	map(0x61, 0x61).r(state, FUNC(millennium_state::voiceware_phrase_r))
-		.w(state, FUNC(millennium_state::voiceware_phrase_w));
-	// Display command port.
-	map(0x60, 0x60).r(state, FUNC(millennium_state::vfd_status_r))
-		.w(state, FUNC(millennium_state::vfd_display_w));
-	// Magnetic card reader inputs.
-	map(0x52, 0x52).r(state, FUNC(millennium_state::card_status_r))
-		.w(state, FUNC(millennium_state::card_status_w));
-	map(0x53, 0x53).r(state, FUNC(millennium_state::card_data_r))
-		.w(state, FUNC(millennium_state::card_data_w));
-	// Coin validator interfaces.
-	map(0x54, 0x54).r(state, FUNC(millennium_state::coin_status_r));
-	map(0x55, 0x55).w(state, FUNC(millennium_state::coin_control_w));
-	// Alerter audio (tone select @ 0x58; DTMF ascii/duration @ 0x59–0x5a; volume @ 0x5b).
-	map(0x58, 0x58).w(state, FUNC(millennium_state::audio_tone_w));
-	map(0x59, 0x59).w(state, FUNC(millennium_state::audio_dtmf_ascii_w));
-	map(0x5a, 0x5a).w(state, FUNC(millennium_state::audio_dtmf_duration_w));
-	map(0x5b, 0x5b).w(state, FUNC(millennium_state::audio_vol_w));
-	// External 16550-style UART block at 0xE0 (coin/validator path).
-	map(0xe0, 0xe7).r(state, FUNC(millennium_state::external_uart_r))
-		.w(state, FUNC(millennium_state::external_uart_w));
-	// PIO extension @ 0x63 — smart-card socket power/clock enables (board init writes this early).
-	map(0x63, 0x63).r(state, FUNC(millennium_state::pio_port_g_r))
-		.w(state, FUNC(millennium_state::pio_port_g_w));
-	// MACH PIO \c 0xC0–\c 0xC3 — port H latch + cash/status merge; D/E/F card/SAM/EPM glue (\c millennium_mach_async.h bit defs).
-	map(0xc0, 0xc3).r(state, FUNC(millennium_state::mach_pio_r))
-		.w(state, FUNC(millennium_state::mach_pio_w));
+void millennium_state::external_io_w(offs_t offset, u8 data)
+{
+	u16 const port = u16(offset);
+	u8 const low = u8(port);
+	if (m_graphic_display) {
+		if (millennium_graphic_vfd::pixel_address(port)) {
+			m_graphic_vfd.write_pixel(port, data, m_maincpu->total_cycles());
+			trace_graphic_vfd(port, 'w', data);
+			return;
+		}
+		switch (low) {
+		case 0x80:
+			m_graphic_vfd.write_control(data, m_maincpu->total_cycles());
+			trace_graphic_vfd(port, 'w', data);
+			return;
+		case 0x90:
+			m_graphic_vfd.write_keys(data);
+			trace_graphic_vfd(port, 'w', data);
+			return;
+		case 0xf0:
+			if (data == 0)
+				m_graphic_vfd.release_reset();
+			trace_graphic_vfd(port, 'w', data);
+			return;
+		case 0x60:
+			return; // Not a character VFD on this profile.
+		}
+	}
+	switch (low) {
+	case 0x40: board_status_w(data); break;
+	case 0x41: case 0x42: case 0x43: case 0x44: pio_keypad_w(low - 0x41, data); break;
+	case 0x52: card_status_w(data); break;
+	case 0x53: card_data_w(data); break;
+	case 0x55: coin_control_w(data); break;
+	case 0x58: audio_tone_w(data); break;
+	case 0x59: audio_dtmf_ascii_w(data); break;
+	case 0x5a: audio_dtmf_duration_w(data); break;
+	case 0x5b: audio_vol_w(data); break;
+	case 0x60: vfd_display_w(data); break;
+	case 0x61: voiceware_phrase_w(data); break;
+	case 0x63: pio_port_g_w(data); break;
+	case 0xc0: case 0xc1: case 0xc2: case 0xc3: mach_pio_w(low - 0xc0, data); break;
+	case 0xe0: case 0xe1: case 0xe2: case 0xe3:
+	case 0xe4: case 0xe5: case 0xe6: case 0xe7: external_uart_w(low - 0xe0, data); break;
+	default: catch_all_io_w(low, data); break;
+	}
 }

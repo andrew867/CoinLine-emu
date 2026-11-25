@@ -27,6 +27,7 @@
 #include "millennium_supervision.h"
 #include "millennium_telephony.h"
 #include "millennium_vfd.h"
+#include "millennium_graphic_vfd.h"
 #include "millennium_rtos_startup_model.h"
 #include "millennium_terminal_peripherals_model.h"
 #include "millennium_z180_boot_init_model.h"
@@ -62,6 +63,8 @@ public:
 
 	u8 catch_all_io_r(offs_t offset);
 	void catch_all_io_w(offs_t offset, u8 data);
+	u8 external_io_r(offs_t offset);
+	void external_io_w(offs_t offset, u8 data);
 	u8 voiceware_phrase_r();
 	void voiceware_phrase_w(u8 data);
 
@@ -279,6 +282,12 @@ private:
 	std::string m_board_profile_json;
 	millennium_z180_board_config m_z180_board{};
 	millennium_display_profile m_display_profile{};
+	millennium_graphic_vfd m_graphic_vfd;
+	bool m_graphic_display = false;
+	std::filesystem::path m_graphic_vfd_trace;
+	std::filesystem::path m_graphic_vfd_snapshot;
+	void trace_graphic_vfd(u16 port, char direction, u8 value, u16 pressed = 0);
+	uint32_t render_graphic_vfd(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect);
 	millennium_keypad_board_config m_keypad_board{};
 	millennium_security_board_config m_security_board{};
 	millennium_coin_board_config m_coin_board{};

@@ -45,6 +45,7 @@ lst_files=(
   millennium_sha256.cpp
   millennium_vfd.cpp
   millennium_vfd_model.cpp
+  millennium_graphic_vfd.cpp
   millennium_keypad.cpp
   millennium_keypad_model.cpp
   millennium_security.cpp

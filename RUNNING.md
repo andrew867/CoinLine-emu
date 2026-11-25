@@ -23,6 +23,14 @@ firmware inventory, then checks for a recognized program tag when the registry
 entry has no firmware ID. The firmware hash registry supplies the legacy I/O
 map when no preset is identified. Use `--hardware` to override selection.
 
+The optional large graphical display is selected separately from the control
+board revision with `--display 11line`, or `display = 11line` under
+`[hardware]` in the launcher configuration. The default is `2line`.
+Use a compatible later-board program image and its matching hardware preset.
+The launcher selects the graphical artwork and isolates its persistent terminal
+state. Synthetic hardware tests pass; graphical firmware INSTALL and ADSI
+service interoperability still require acceptance with the appropriate firmware.
+
 | Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
 | --- | --- | --- | --- |
 | `multipay-v1` | NBA1F02, NPA1S01, NPA1F01 | Earlier | 0 |

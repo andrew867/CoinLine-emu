@@ -804,6 +804,15 @@ void millennium_state::driver_start()
 	m_display_profile = millennium_display_profile{};
 	if (!millennium_board_parse_display_profile(m_board_profile_json, m_display_profile, derr))
 		throw emu_fatalerror("millennium: display profile: %s", derr.c_str());
+	m_graphic_display = m_display_profile.variant == "11line";
+	if (m_graphic_display) {
+		m_graphic_vfd.configure(m_display_profile.graphic_write_cycles, m_display_profile.graphic_clear_cycles,
+			m_display_profile.graphic_lamp_active_high);
+		if (char const *path = osd_getenv("COINLINE_GRAPHIC_VFD_TRACE"); path && *path)
+			m_graphic_vfd_trace = std::filesystem::path(path);
+		if (char const *path = osd_getenv("COINLINE_GRAPHIC_VFD_SNAPSHOT"); path && *path)
+			m_graphic_vfd_snapshot = std::filesystem::path(path);
+	}
 
 	m_idle_display_fixture_json.clear();
 	{
@@ -1054,6 +1063,13 @@ void millennium_state::machine_start()
 	m_voicew_irq_timer = timer_alloc(FUNC(millennium_state::driver_timer_cb), this);
 	save_item(NAME(m_voicew_prev_upd_idle));
 	save_item(NAME(m_voicew_int0_asserted));
+	save_item(NAME(m_graphic_vfd.m_pages));
+	save_item(NAME(m_graphic_vfd.m_control));
+	save_item(NAME(m_graphic_vfd.m_low_page));
+	save_item(NAME(m_graphic_vfd.m_brightness));
+	save_item(NAME(m_graphic_vfd.m_key_select));
+	save_item(NAME(m_graphic_vfd.m_released));
+	save_item(NAME(m_graphic_vfd.m_busy_until));
 #ifdef _WIN32
 	// init_auxiliary_trace_sinks runs in driver_start(); on some Windows launch chains the Win32
 	// environment block is not yet visible to the same probes the driver uses, leaving JSONL paths
@@ -1192,6 +1208,7 @@ void millennium_state::machine_reset()
 	m_voicew_prev_upd_idle = true;
 	m_voicew_irq_timer->reset();
 	m_vfd_last_drawn_dots.clear();
+	m_graphic_vfd.reset();
 	m_voicew_int0_asserted = false;
 	m_maincpu->set_input_line(Z180_INPUT_LINE_IRQ0, CLEAR_LINE);
 	// External interrupt 2 is level-sensitive and held active. The 10 ms tick is
@@ -1324,7 +1341,7 @@ void millennium_state::machine_reset()
 	}
 	m_last_tp_ui_linectrl_state = m_linectrl_io->read();
 	m_last_tp_ui_softkeys_state =
-		(m_keypad_board.terminal_21_profile == millennium_terminal21_user_io_profile::vfd_11line_softkeys)
+		(!m_graphic_display && m_keypad_board.terminal_21_profile == millennium_terminal21_user_io_profile::vfd_11line_softkeys)
 			? (m_terminal21_softkeys_io->read() & 0x0fffU)
 			: 0U;
 	m_tp_ui_sk_last_raw = m_last_tp_ui_softkeys_state;
@@ -2502,6 +2519,9 @@ void millennium_state::write_user_io_harness_failure_report_if_needed()
 void millennium_state::tp_backend_process_front_panel(std::uint32_t keymatrix, std::uint32_t linectrl,
 	std::uint32_t softkeys_raw, std::uint8_t secmask, std::uint64_t cycle, std::uint16_t pc)
 {
+	// The graphical expansion exposes these switches directly to the CPU.
+	if (m_graphic_display)
+		softkeys_raw = 0;
 	if (m_tp_backend_kind != tp_backend_kind::pcd3349a || !m_tp_pcd3349a) {
 		tp_process_front_panel_events(keymatrix, linectrl, softkeys_raw);
 		update_earpiece_tone_output(cycle, pc);
@@ -6542,9 +6562,9 @@ void millennium_state::write_stop_debug_artifacts()
 	if (!m_vfd_final_state_path.empty()) {
 		std::ofstream fs(m_vfd_final_state_path, std::ios::binary | std::ios::trunc);
 		if (fs)
-			fs << m_vfd->export_snapshot_json();
+			fs << (m_graphic_display ? m_graphic_vfd.snapshot_json() : m_vfd->export_snapshot_json());
 	}
-	if (!m_vfd_final_text_path.empty()) {
+	if (!m_graphic_display && !m_vfd_final_text_path.empty()) {
 		std::ofstream ft(m_vfd_final_text_path, std::ios::binary | std::ios::trunc);
 		if (ft) {
 			std::string const row0 = m_vfd->first_text_row();
@@ -6658,6 +6678,11 @@ void millennium_state::device_stop()
 	if (m_battery_live)
 		flush_battery_image();
 	m_line.close();
+	if (m_graphic_display && !m_graphic_vfd_snapshot.empty()) {
+		std::ofstream snapshot(m_graphic_vfd_snapshot, std::ios::binary | std::ios::trunc);
+		if (snapshot)
+			snapshot << m_graphic_vfd.snapshot_json();
+	}
 #ifdef _WIN32
 	if (m_win_vfd_font_added && !m_win_vfd_font_path.empty()) {
 		RemoveFontResourceExW(m_win_vfd_font_path.c_str(), FR_PRIVATE, nullptr);
@@ -6674,6 +6699,62 @@ void millennium_state::schedule_driver_timer(s32 id, attotime const &delay)
 	machine().scheduler().timer_set(delay, timer_expired_delegate(FUNC(millennium_state::driver_timer_cb), this), id);
 }
 
+void millennium_state::trace_graphic_vfd(u16 port, char direction, u8 value, u16 pressed)
+{
+	if (m_graphic_vfd_trace.empty() || machine().side_effects_disabled())
+		return;
+	std::ofstream out(m_graphic_vfd_trace, std::ios::app);
+	if (out) {
+		out << "{\"cycle\":" << m_maincpu->total_cycles() << ",\"port\":" << unsigned(port)
+			<< ",\"direction\":\"" << direction << "\",\"value\":" << unsigned(value)
+			<< ",\"write_page\":" << m_graphic_vfd.write_page()
+			<< ",\"visible_page\":" << m_graphic_vfd.visible_page()
+			<< ",\"control\":" << unsigned(m_graphic_vfd.control())
+			<< ",\"key_select\":" << unsigned(m_graphic_vfd.key_select())
+			<< ",\"pressed\":" << unsigned(pressed) << "}\n";
+	}
+}
+
+uint32_t millennium_state::render_graphic_vfd(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect)
+{
+	int constexpr width = millennium_graphic_vfd::width;
+	int constexpr height = millennium_graphic_vfd::height;
+	std::vector<u8> dots(width * height);
+	for (int y = 0; y < height; ++y)
+		for (int x = 0; x < width; ++x)
+			dots[y * width + x] = m_graphic_vfd.lit(x, y);
+	u8 const luminance = m_graphic_vfd.brightness();
+	if (cliprect == screen.visible_area()) {
+		if (dots == m_vfd_last_drawn_dots && luminance == m_vfd_last_drawn_luminance)
+			return UPDATE_HAS_NOT_CHANGED;
+		m_vfd_last_drawn_dots = dots;
+		m_vfd_last_drawn_luminance = luminance;
+	} else
+		m_vfd_last_drawn_dots.clear();
+
+	// Candidate optical geometry, with square dots and no text overlay.
+	int const scale = std::max(1, std::min(bitmap.width() / width, bitmap.height() / height));
+	int const left = (bitmap.width() - width * scale) / 2;
+	int const top = (bitmap.height() - height * scale) / 2;
+	float const gain = std::clamp(float(luminance) / 255.f, 0.12f, 1.f);
+	auto const channel = [gain](u8 value) { return static_cast<u8>(std::lround(float(value) * gain)); };
+	rgb_t const phosphor(channel(0x38), channel(0xff), channel(0xb8));
+	bitmap.fill(rgb_t(0x02, 0x06, 0x04), cliprect);
+	int const dot_size = std::max(1, scale - 1);
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			if (!dots[y * width + x])
+				continue;
+			rectangle pixel(left + x * scale, left + x * scale + dot_size - 1,
+				top + y * scale, top + y * scale + dot_size - 1);
+			pixel &= cliprect;
+			if (!pixel.empty())
+				bitmap.fill(phosphor, pixel);
+		}
+	}
+	return 0;
+}
+
 uint32_t millennium_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect)
 {
 	bool const dcd = m_modem->dcd_line();
@@ -6681,6 +6762,8 @@ uint32_t millennium_state::screen_update(screen_device &screen, bitmap_rgb32 &bi
 		m_telephony->notify_modem_dcd(dcd, m_maincpu->total_cycles(), u16(m_maincpu->pc() & 0xffffU));
 		m_last_modem_dcd = dcd;
 	}
+	if (m_graphic_display)
+		return render_graphic_vfd(screen, bitmap, cliprect);
 
 	auto const &display = m_vfd->buffer();
 	auto const &dots = display.dot_plane();

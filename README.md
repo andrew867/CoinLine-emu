@@ -27,6 +27,10 @@ control boards, and Coin Basic. The catalog records successful firmware-driven
 INSTALL and restart outcomes separately from table acknowledgements and
 individual peripheral checks. Coin Basic uses a different display and
 Voiceware port mapping, with a temporary VFD connection selectable at launch.
+The optional 11-line graphical display has a separate four-page pixel
+controller and physical softkey scanner. Its synthetic native hardware
+probe and artwork presentation pass; compatible graphical firmware and
+ADSI application acceptance are pending.
 All three tested Coin Basic images completed detached-display Craft access,
 INSTALL with the temporary display attached, and a locally answered call
 after removing the display and restarting. The Inmate firmware is still

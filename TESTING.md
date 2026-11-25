@@ -20,6 +20,20 @@ The OEM CO check should display `Completed: 00` after one hookswitch transition 
 
 ## Test taxonomy
 
+The graphical display has a native, synthetic Z180 bus test that requires no
+graphical application firmware. Run it with the built emulator and local ROM
+inputs used by the existing bench:
+
+```sh
+python tools/acceptance/graphic_vfd_probe.py --mame <path-to-mamecoinline> --artwork
+```
+
+The probe packs a synthetic raster with the bitmap converter, writes it through
+the CPU's 16-bit I/O instructions, scans all twelve physical key positions and
+compares the four saved pages between headless and artwork runs. It saves the
+bus JSONL, page JSON and screenshots. This tests the hardware path, not an
+OEM graphical application or an ADSI service.
+
 | Tier | Scope | Speed | Run on every push? |
 | ---- | ----- | ----- | ------------------ |
 | Unit | Single device, in isolation, no firmware | Sub-second | Yes |
