@@ -77,6 +77,31 @@ explains that the reader translates command envelopes into memory-card timing
 sequences. Those host-reader interfaces do not establish the exact contact
 timing of the terminal's reference card.
 
+## Requalification after telephony reset correction
+
+The corrected native executable repeated the synchronous restart-persistence
+probe and all four qualified asynchronous variants successfully. Evidence:
+`build/firmware-acceptance/smartcard-pin-probe/20261125T195653.627801Z/` and
+`build/firmware-acceptance/smartcard-async-probe/20261125T195656.108948Z/`.
+
+A separate native PPS spacing sweep at the same nominal 19,200 baud found
+that additional fixture spacing of 0, 100 and 250 microseconds did not pass,
+while 500, 750 and 1,000 microseconds did. These results are for the generic
+test program and do not establish arbitrary 7816 timing or a historical
+application. The original 1,500 microsecond qualification profile remains
+unchanged. Evidence:
+`build/firmware-acceptance/smartcard-async-probe/20261125T195914.337819Z/`,
+`20261125T195952.998121Z/`, `20261125T195957.933889Z/`,
+`20261125T200002.855006Z/`, `20261125T200004.482021Z/` and
+`20261125T200006.099422Z/` under the same directory.
+
+After the separate earlier-board supply and polarity correction, the final
+binary passed all later-board native synthetic checks again:
+`build/firmware-acceptance/smartcard-pin-probe/20261125T201603.944300Z/` and
+`build/firmware-acceptance/smartcard-async-probe/20261125T201607.395721Z/`.
+The earlier real MTR 1.9 runtime contact trace is documented in
+[the contact qualification](smartcard-contact-2026-11-25.md).
+
 ## Windows window size
 
 The native window probe measured the default client at 376x886 pixels,

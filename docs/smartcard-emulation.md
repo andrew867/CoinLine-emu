@@ -5,10 +5,10 @@ This document describes the smart-card / memory-card device. The Millennium-comp
 ## Purpose
 
 Provide an emulated contact card driven by the terminal's real power, reset
-and serial clock signals. The synchronous contact interface is implemented.
-The earlier byte-oriented ATR/APDU test model remains an isolated device
-test abstraction; it is not evidence of an asynchronous card application
-working through the native terminal.
+and serial clock signals. Native synchronous contacts are implemented on the
+earlier and later board mappings. The later-board customer socket also routes
+asynchronous traffic through the actual Z180 ASCI0 pins. The synthetic
+read-only application qualifies transport, not historical payment products.
 
 ## Firmware-facing interface
 
@@ -16,15 +16,15 @@ working through the native terminal.
 | --------- | ----------- |
 | Reset / clock control | Discrete signals controlling card power, reset, and clock. |
 | Data port | Serial line for ATR / APDU / memory-card responses. |
-| Status port | Card-present, ATR-received, response-ready, error flags. |
+| Status inputs | Card presence and contact level; asynchronous receive/error status belongs to the terminal's actual ASCI0. |
 
 The native synchronous interface uses the following board mappings:
 
 | Signal | Earlier control board | Later control board |
 | --- | --- | --- |
-| Power request | PIO A bit 6 | Port E bit 3, latched by rising port F bit 1 |
-| Reset | PIO C bit 7 | Port E bit 2 |
-| Manual clock | PIO C bit 6 | Port D bit 3, enabled with port E bit 0 clear |
+| Power request | PIO A bit 6, supply-enable pulse latched on its rising edge | Port E bit 3, latched by rising port F bit 1 |
+| Reset | PIO C bit 7, active low at latch | Port E bit 2 |
+| Manual clock | PIO C bit 6, active low at latch | Port D bit 3, enabled with port E bit 0 clear |
 | Data input | PIO C bit 2 | Port H bit 1 |
 | Data release | Bidirectional contact pull-up | Port D bit 2 |
 
@@ -33,15 +33,31 @@ edge, then advances one bit on each rising clock with reset inactive. The
 data is read MSB first. Removal clears its power and reset state. No card
 data is returned through a fabricated byte FIFO on the native bus.
 
+For the earlier board, the firmware drives a low/high/low supply-enable
+pulse and subsequently clocks the contact while that pin remains low. The
+model retains supply across the falling edge; a card removal or device reset
+clears the latch. Its reset and clock latch outputs are inverted on the card
+side, so the idle PIO C levels are high. The detailed analogue discharge
+circuit is not qualified.
+
 Optional synthetic memory fixtures may enable bounded one-way bit
 programming. Programming requires an explicit permitted address interval
 and minimum clock-hold duration; an interrupted or out-of-range operation
 does not change the card. Repeated writes cannot restore a cleared bit.
-Reinsertion of the same fixture retains its in-process memory state. The
-default contact fixture is read-only, and the emulator does not write
-changes back to the input file. Application-specific erase/carry rules,
+Reinsertion of the same fixture retains its memory state. The configured
+writable test fixture also persists across emulator restart in a separate
+card NVRAM device file, keyed to its fixture digest. The default contact
+fixture is read-only, and the emulator does not write changes back to the
+input file. Application-specific erase/carry rules,
 credentials and monetary balance validation are not implemented by this
 generic programming model.
+
+The asynchronous socket uses generated card clock, supply latch and reset
+selection. Direct and inverse ATR convention, T=0 procedure bytes, T=1
+LRC blocks and chaining, and bounded PPS negotiation are qualified by native
+synthetic Z180 transactions. The earlier coin-ASCI0 path and later coin UART
+remain separate from customer-card traffic. The lab application is read-only;
+unsupported instructions are rejected.
 
 ## State machine
 
@@ -69,34 +85,42 @@ Per board profile. Default behavior is polled.
   test fixture. Its nonuniform first byte exercises every contact data bit;
   it is not a funded payment card or a valid issuer credential.
 - `fixtures/cards/smartcard-valid.json` is the earlier byte-model test fixture.
-- `fixtures/cards/smartcard-empty.json` — empty / blank card with default ATR.
+- `fixtures/cards/smartcard-async-t0-lab.json` and
+  `fixtures/cards/smartcard-async-t1-lab.json` are native asynchronous
+  read-only transport fixtures, not issuer cards.
 
 Fixture format:
 
-```jsonc
+```json
 {
   "type": "smartcard",
-  "protocol": "memory" | "t0" | "t1",
-  "atr": "0x3B 0x...",
-  "memory": "...",
-  "apdu_responses": [...],
-  "atr_delay_us": 4000
+  "protocol": "async",
+  "application": "lab-readonly",
+  "reset_policy": "external",
+  "atr_hex": "3B 00",
+  "memory_hex": "54455354",
+  "atr_delay_us": 4000,
+  "apdu_response_delay_us": 1000
 }
 ```
 
 ## Tests
 
-- `tests/devices/test_smartcard_atr.cpp` — verifies ATR delivery.
-- `tests/devices/test_smartcard_apdu.cpp` — verifies APDU exchange (when applicable).
-- `tests/devices/test_smartcard_memory_read.cpp` — verifies memory-card read.
 - `tests/devices/test_smartcard_protocol_negotiation.cpp` exercises rising
-  clock edges, reset qualification, later-board power latch, earlier-board
-  direct supply, serial ordering and removal. It also verifies the bounded
+  clock edges, reset qualification, the later-board power latch, earlier-board
+  supply-enable pulse, serial ordering and removal. It also verifies the bounded
   synthetic programming rules, including aborted and undersized pulses.
 - `tools/acceptance/smartcard_pin_probe.py` uses the native board I/O and
   actual card insertion input to verify a synthetic memory bit changes
   only after a timed programming pulse, survives reset and reinsertion,
   and leaves its read-only neighbour unchanged.
+- `tests/devices/test_smartcard_async_transport.cpp` verifies generic ATR,
+  read-only T=0/T=1 behavior, invalid frames, selection/removal and PPS.
+- `tools/acceptance/smartcard_async_probe.py` uses the physical ASCI0
+  serial boundary for those positive synthetic transport cases.
+- `tools/acceptance/smartcard_craft_probe.py` exercises the actual
+  maintenance menu, contact insertion/removal and return to service on
+  a copy of an installed terminal.
 
 On NLA1X08, maintenance item 728 (Check Smart Card) displayed **Smart Card
 Test Okay** twice after real insert/remove input. The eight contact reads
@@ -117,10 +141,11 @@ committed.
 
 - Synchronous reset and contact reads pass the installed firmware's Craft
   test and full INSTALL test independently.
-- Asynchronous ATR and APDU exchange through the native board remain
-  separate qualification gates.
+- Native asynchronous ATR and read-only APDU transport are qualified for
+  the tested generic profiles; historical application validation and all
+  speed/timing combinations remain separate qualification gates.
 - Removing the card triggers the firmware's expected error path.
-- An agreed lab-only funded card application must validate independently,
+- An authorized nonredeemable lab card application must validate independently,
   complete a rated call and demonstrate the corresponding debit or simulated
   host transaction. The generic contact test is not sufficient.
 

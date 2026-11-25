@@ -234,6 +234,7 @@ void millennium_smartcard_model::reset_session()
 	m_fixture = millennium_smart_fixture{};
 	m_selected_protocol = negotiated_protocol::none;
 	m_authorized = false;
+	m_earlier_power_clock = false;
 	clear_sync_session();
 	clear_async_session();
 }
@@ -276,6 +277,7 @@ void millennium_smartcard_model::clear_sync_session()
 	m_sync_reset_clocked = false;
 	m_sync_ready = false;
 	m_sync_bit_address = 0;
+	m_earlier_power_latch = false;
 	m_later_power_latch = false;
 	m_later_power_clock = false;
 	m_sync_program_armed = false;
@@ -373,10 +375,20 @@ void millennium_smartcard_model::update_later_pins(std::uint8_t d, std::uint8_t 
 
 void millennium_smartcard_model::update_earlier_pins(std::uint8_t a, std::uint8_t c, std::uint64_t cycle)
 {
-	bool const power = (a & 0x40U) != 0U;
-	// On the earlier board the bidirectional contact has a pull-up while
-	// the low nibble of port C is configured as input.
-	drive_sync_pins(power, power, (c & 0x80U) != 0U, (c & 0x40U) != 0U, true, cycle);
+	bool const power_clock = (a & 0x40U) != 0U;
+	// The earlier card interface latches supply on the enable pulse. A
+	// falling edge immediately after that pulse leaves the contact powered.
+	// Removal and terminal reset clear the selected contact session.
+	if (!m_card_present)
+		m_earlier_power_latch = false;
+	else if (power_clock && !m_earlier_power_clock)
+		m_earlier_power_latch = true;
+	m_earlier_power_clock = power_clock;
+	// The bidirectional contact has a pull-up while the low nibble of port C
+	// is configured as input. The earlier board inverts the clock and reset
+	// drive lines between the PIO latch and the card contacts.
+	drive_sync_pins(m_earlier_power_latch, m_earlier_power_latch,
+		(c & 0x80U) == 0U, (c & 0x40U) == 0U, true, cycle);
 }
 
 bool millennium_smartcard_model::sync_data_high() const noexcept

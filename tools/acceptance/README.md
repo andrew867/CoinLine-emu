@@ -291,6 +291,24 @@ python tools/acceptance/smartcard_pin_probe.py --mame <path-to-mamecoinline>
 Neither probe recognizes an issued purse, provides a payment authorization,
 or modifies OEM firmware or terminal installation state.
 
+For a genuine installed-firmware contact test, `smartcard_craft_probe.py`
+uses a copy of the terminal battery, an isolated NCC port and the local CO,
+then exercises the Craft menu, card insertion/removal and cabinet closure.
+
+```sh
+python tools/acceptance/smartcard_craft_probe.py --mame <native-binary> --firmware <mapped-flash.bin> --battery <installed-nvram-dir> --settings <local-lab-settings.json> --display 11line
+```
+
+Use `--display 2line` for the standard later-board display or `--package`
+instead of `--firmware` for an extracted earlier OEM package. The default
+menu number is 728 for the later board and 227 for the older card-reader
+check; `--item` overrides it. Review the generated native screenshots and
+pin trace before declaring a firmware contact-test pass.
+`--runtime-contact` instead presents and removes the unfunded contact after
+pickup, without dialing or entering Craft.
+Use `--require-contact` to fail the probe if no physical reads occur or any
+of the read bits differ from the bundled synthetic fixture.
+
 ## Connected keypad and SIP transport
 
 For a focused cold OEM electrical check, `oem_answer_probe.py` runs the actual

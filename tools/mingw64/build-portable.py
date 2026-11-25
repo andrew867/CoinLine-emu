@@ -159,6 +159,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows):
         "fixtures/display/vfd-11line-ad.json": ROOT / "fixtures/display/vfd-11line-ad.json",
         "fixtures/firmware/firmware-hashes.json": ROOT / "fixtures/firmware/firmware-hashes.json",
         "docs/Verification.md": ROOT / "docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md",
+        "docs/smartcard-emulation.md": ROOT / "docs/smartcard-emulation.md",
         "docs/status/smartcard-contact-2026-11-25.md": ROOT / "docs/status/smartcard-contact-2026-11-25.md",
         "docs/status/smartcard-native-transport-2026-11-25.md": ROOT / "docs/status/smartcard-native-transport-2026-11-25.md",
         "docs/status/interactive-audio-milestone-status.md": ROOT / "docs/status/interactive-audio-milestone-status.md",

@@ -13,41 +13,46 @@ int main()
 		if (!m.parse_fixture_json(R"({"protocol":"sync","atr_hex":"00","memory_hex":"FFFF","sync_program_enabled":true,"sync_program_first_bit":1,"sync_program_end_bit":4,"sync_program_us":10})", err))
 			return 30;
 		m.insert_card_at(0, 1000000);
-		m.update_earlier_pins(0x40, 0x00, 1);
-		m.update_earlier_pins(0x40, 0x80, 2);
-		m.update_earlier_pins(0x40, 0xc0, 3);
-		m.update_earlier_pins(0x40, 0x80, 4);
-		m.update_earlier_pins(0x40, 0x00, 5);
+		auto const earlier = [&m](std::uint8_t logical_c, std::uint64_t cycle) {
+			m.update_earlier_pins(0x00, logical_c ^ 0xc0U, cycle);
+		};
+		m.update_earlier_pins(0x00, 0xc0, 0);
+		m.update_earlier_pins(0x40, 0xc0, 1);
+		earlier(0x00, 1);
+		earlier(0x80, 2);
+		earlier(0xc0, 3);
+		earlier(0x80, 4);
+		earlier(0x00, 5);
 		// Bit zero is outside the permitted test range.
-		m.update_earlier_pins(0x40, 0x80, 6);
-		m.update_earlier_pins(0x40, 0x00, 7);
-		m.update_earlier_pins(0x40, 0x40, 8);
-		m.update_earlier_pins(0x40, 0x00, 20);
+		earlier(0x80, 6);
+		earlier(0x00, 7);
+		earlier(0x40, 8);
+		earlier(0x00, 20);
 		if (m.memory()[0] != 0xff || m.sync_bit_address() != 0) return 31;
-		m.update_earlier_pins(0x40, 0x40, 21);
-		m.update_earlier_pins(0x40, 0x00, 22);
+		earlier(0x40, 21);
+		earlier(0x00, 22);
 		// Short programming pulse must not modify memory or advance the address.
-		m.update_earlier_pins(0x40, 0x80, 23);
-		m.update_earlier_pins(0x40, 0x00, 24);
-		m.update_earlier_pins(0x40, 0x40, 25);
-		m.update_earlier_pins(0x40, 0x00, 34);
+		earlier(0x80, 23);
+		earlier(0x00, 24);
+		earlier(0x40, 25);
+		earlier(0x00, 34);
 		if (m.memory()[0] != 0xff || m.sync_bit_address() != 1) return 32;
-		m.update_earlier_pins(0x40, 0x80, 35);
-		m.update_earlier_pins(0x40, 0x00, 36);
-		m.update_earlier_pins(0x40, 0x40, 37);
-		m.update_earlier_pins(0x40, 0x00, 47);
+		earlier(0x80, 35);
+		earlier(0x00, 36);
+		earlier(0x40, 37);
+		earlier(0x00, 47);
 		if (m.memory()[0] != 0xbf || m.sync_data_high() || m.sync_bit_address() != 1) return 33;
 		// Repeating a successful write cannot restore the bit.
-		m.update_earlier_pins(0x40, 0x80, 48);
-		m.update_earlier_pins(0x40, 0x00, 49);
-		m.update_earlier_pins(0x40, 0x40, 50);
-		m.update_earlier_pins(0x40, 0x00, 60);
+		earlier(0x80, 48);
+		earlier(0x00, 49);
+		earlier(0x40, 50);
+		earlier(0x00, 60);
 		if (m.memory()[0] != 0xbf || m.memory()[1] != 0xff) return 34;
-		m.update_earlier_pins(0x40, 0x40, 61);
-		m.update_earlier_pins(0x40, 0x00, 62);
-		m.update_earlier_pins(0x40, 0x80, 63);
-		m.update_earlier_pins(0x40, 0x00, 64);
-		m.update_earlier_pins(0x40, 0x40, 65);
+		earlier(0x40, 61);
+		earlier(0x00, 62);
+		earlier(0x80, 63);
+		earlier(0x00, 64);
+		earlier(0x40, 65);
 		m.remove_card();
 		m.insert_card_at(90, 1000000);
 		if (m.memory()[0] != 0xbf || m.sync_powered()) return 35;
@@ -114,20 +119,26 @@ int main()
 		if (value != 0xa5U) return 29;
 		m.remove_card();
 		m.insert_card_at(0, 12288000);
-		// Earlier-board contact uses direct supply and port C clock/reset.
-		m.update_earlier_pins(0x40, 0x00);
-		m.update_earlier_pins(0x40, 0x80);
+		// Earlier-board contact latches the low/high/low supply pulse and
+		// then uses port C clock/reset with the supply-enable pin low.
+		m.update_earlier_pins(0x00, 0xc0);
+		if (m.sync_powered()) return 27;
 		m.update_earlier_pins(0x40, 0xc0);
-		m.update_earlier_pins(0x40, 0x80);
-		m.update_earlier_pins(0x40, 0x00);
+		m.update_earlier_pins(0x00, 0xc0);
+		if (!m.sync_powered()) return 27;
+		m.update_earlier_pins(0x00, 0x40);
+		m.update_earlier_pins(0x00, 0x00);
+		m.update_earlier_pins(0x00, 0x40);
+		m.update_earlier_pins(0x00, 0xc0);
 		value = 0;
 		for (unsigned i = 0; i < 8; ++i) {
 			value = (value << 1) | unsigned(m.sync_data_high());
-			m.update_earlier_pins(0x40, 0x40);
-			m.update_earlier_pins(0x40, 0x00);
+			m.update_earlier_pins(0x00, 0x80);
+			m.update_earlier_pins(0x00, 0xc0);
 		}
 		if (value != 0xa5U) return 26;
-		m.update_earlier_pins(0x00, 0x00);
+		m.remove_card();
+		m.update_earlier_pins(0x00, 0xc0);
 		if (m.sync_powered() || m.sync_data_selected()) return 27;
 	}
 	{

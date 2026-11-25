@@ -135,3 +135,36 @@ checks with the corrected board-clock build. It passed. Run:
 The subsequent [native serial contact qualification](smartcard-native-transport-2026-11-25.md)
 passed the generic read-only T=0/T=1 application and synchronous restart
 persistence. Historical application recognition remains a separate test.
+
+## Latest native firmware contact check
+
+On the telephony-reset-corrected build, both the graphical NLA1X08 and
+standard two-line NLA1X05 completed Craft item 728 and displayed
+**Smart Card Test Okay**. Each trace showed eight physical contact reads;
+the card was removed, the cabinet closed and the terminal returned to
+**Please lift receiver**. Both emulator processes exited normally.
+Evidence: `build/firmware-acceptance/smartcard-craft/20261125T195842.619849Z/`
+and `build/firmware-acceptance/smartcard-craft/20261125T195936.555983Z/`.
+These are installed firmware contact tests, not a recognized stored-value
+card or a payment acceptance result.
+
+The packaged MTR 1.9 two-line firmware has a different Craft menu. Item 227
+asks for magnetic insertion/removal and reports a stripe-orientation prompt
+when the synthetic chip fixture is presented. It is not the dedicated later
+smart-card test. A separate normal-call contact insertion reached
+**Check orientation of card, then re-insert**, but the trace exposed an
+earlier-board supply pulse followed by contact clocking with the supply-enable
+pin low. Before the latch correction, the model removed supply at that
+falling edge and delivered no contact bits. Baseline evidence:
+`build/firmware-acceptance/smartcard-craft/20261125T200624.523527Z/` and
+`build/firmware-acceptance/smartcard-craft/20261125T200806.346761Z/`.
+
+The earlier-board model now retains supply after the enable pulse and
+resolves the active-low clock and reset latch drives. In the final MTR 1.9
+normal-call contact test, the firmware read 208 bits across 104 distinct
+addresses; every observed bit matched the non-payment fixture, with no
+mismatches. The user-facing rejection remained expected for the unfunded
+fixture. Removal and hangup returned the terminal to service. No digits
+were dialed, no payment was attempted and the original terminal battery
+was not modified. Evidence:
+`build/firmware-acceptance/smartcard-craft/20261125T201524.648611Z/`.
