@@ -52,6 +52,9 @@ public:
 	void note_modem_relay(bool r1_active, double now_sec);
 	/// Earlier-board PIO A modem bitbang (address/clock/RD/WR).
 	char ssi_pio_a_write(std::uint8_t pio_a, bool extended_address = false);
+	char ssi_dtmf_digit() const noexcept {
+		return (m_ssi_tr & 0x10U) && (m_ssi_cr0 & 0x02U) ? "D1234567890*#ABC"[m_ssi_tr & 0x0fU] : 0;
+	}
 	bool relay_active() const noexcept { return m_r1; }
 	bool adsi_receiver_mode() const noexcept {
 		return (m_ssi_cr0 & 0x30U) == 0x20U && (m_ssi_cr2 & 0x04U) != 0 && (m_ssi_tr & 0x10U) == 0;

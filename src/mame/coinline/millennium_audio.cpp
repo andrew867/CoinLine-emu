@@ -42,7 +42,6 @@ millennium_audio_device::millennium_audio_device(machine_config const &mconfig, 
 
 void millennium_audio_device::device_start()
 {
-	m_model.set_cpu_clock_hz(static_cast<double>(m_maincpu->unscaled_clock()));
 	m_stream = stream_alloc(0, 1, 48000);
 	m_model.prepare_high_fast_ringer(48000);
 	save_item(NAME(m_alerter_audible));
@@ -51,9 +50,27 @@ void millennium_audio_device::device_start()
 
 void millennium_audio_device::set_external_ringer(bool on) noexcept
 {
+	if (on == m_external_ringer) return;
+	if (m_stream) m_stream->update();
 	if (on && !m_external_ringer)
 		m_model.reset_high_fast_ringer();
 	m_external_ringer = on;
+}
+
+void millennium_audio_device::set_alerter_audible(bool on) noexcept
+{
+	if (on == m_alerter_audible) return;
+	if (m_stream) m_stream->update();
+	m_alerter_audible = on;
+}
+
+void millennium_audio_device::set_legacy_warning(bool selected) noexcept
+{
+	if (m_model.config().enclosure != millennium_enclosure_profile::desk_oscillator ||
+		m_model.warning_selected() == selected) return;
+	if (m_stream) m_stream->update();
+	m_model.set_legacy_warning(selected);
+	if (!selected && m_external_ringer) m_model.reset_high_fast_ringer();
 }
 
 void millennium_audio_device::set_hybrid_gates(bool tx_muted, bool rx_muted, bool sidetone_suppressed) noexcept
@@ -91,7 +108,7 @@ void millennium_audio_device::close_microphone()
 
 void millennium_audio_device::sound_stream_update(sound_stream &stream)
 {
-	double const t0 = machine().time().as_double();
+	double const t0 = stream.start_time().as_double();
 	double const step = 1.0 / 48000.0;
 	for (int i = 0; i < stream.samples(); ++i) {
 		bool const line_tick = ++m_pcm_div == 6U;
@@ -101,8 +118,9 @@ void millennium_audio_device::sound_stream_update(sound_stream &stream)
 		}
 		float const transmit = m_tx_muted ? 0.f : m_mic_sample;
 		double const t = t0 + step * double(i);
-		float s = m_alerter_audible ? m_model.alerter_speaker_sample(t) : m_model.handset_speaker_sample(t);
-		if (m_alerter_audible && m_external_ringer)
+		float s = m_model.alerter_speaker_sample(t);
+		if (!m_alerter_audible) s += m_model.handset_speaker_sample(t);
+		if (m_alerter_audible && m_external_ringer && !m_model.warning_selected())
 			s += m_model.pull_high_fast_ringer();
 		else if (!m_alerter_audible && !m_sidetone_suppressed)
 			s += 0.12f * transmit;
@@ -113,7 +131,7 @@ void millennium_audio_device::sound_stream_update(sound_stream &stream)
 			if (have && !m_alerter_audible)
 				inject_handset_sample(static_cast<float>(line) / 32767.f);
 		}
-		if (m_alerter_audible && m_cadence_kind != millennium_alerter_cadence_kind::none && (m_cadence_edge_next & 1U) != 0U)
+		if (m_alerter_audible && !m_model.warning_selected() && m_cadence_kind != millennium_alerter_cadence_kind::none && (m_cadence_edge_next & 1U) != 0U)
 			s += 0.35f * static_cast<float>(std::sin(2.0 * 3.14159265 * 1000.0 * t));
 		if (s > 1.f)
 			s = 1.f;
@@ -258,10 +276,16 @@ void millennium_audio_device::write_volume(std::uint8_t data, std::uint64_t cpu_
 	emit_alerter_gpio(0x5b, data, cpu_cycle, pc);
 }
 
-void millennium_audio_device::notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, std::uint64_t cpu_cycle,
-	double cpu_hz)
+void millennium_audio_device::notify_mach_port_f(std::uint8_t prev_data, std::uint8_t next_data, std::uint64_t cpu_cycle)
 {
-	m_model.notify_mach_port_f(prev_data, next_data, cpu_cycle, cpu_hz);
+	bool const selected = m_model.warning_selected();
+	// Render samples up to the physical transition before replacing the latch.
+	// Card-only latch activity when neither side selects the warning is silent.
+	if (m_stream && m_model.config().enclosure == millennium_enclosure_profile::timer_warning &&
+		((prev_data | next_data) & 0x04U) && ((prev_data ^ next_data) & 0x0eU))
+		m_stream->update();
+	m_model.notify_mach_port_f(prev_data, next_data, machine().time().as_double());
+	if (selected && !m_model.warning_selected() && m_external_ringer) m_model.reset_high_fast_ringer();
 	std::uint16_t const pc = static_cast<std::uint16_t>(m_maincpu->pc() & 0xffffU);
 	emit_alerter_gpio(0xc3, next_data, cpu_cycle, pc);
 }

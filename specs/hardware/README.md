@@ -29,6 +29,19 @@ Each umbrella file contains sections **per hardware ID** with:
 | [HW-UPD7759-VOICE-ROM-EXECUTION.spec.md](HW-UPD7759-VOICE-ROM-EXECUTION.spec.md) | **HW-VOIC-003** — uPD7759 core execution, busy/IRQ, ROM forensic integrity |
 | [HW-AUDIO-TEL-SUP-family.spec.md](HW-AUDIO-TEL-SUP-family.spec.md) | HW-AUD-001, HW-TEL-001, HW-SUP-001 |
 | [HW-ARTIFACTS-family.spec.md](HW-ARTIFACTS-family.spec.md) | HW-EV-001, HW-SCN-001, HW-ART-001 |
-| [HW-ADSI-placeholder.spec.md](HW-ADSI-placeholder.spec.md) | HW-ADSI-001 |
+| [HW-ADSI-placeholder.spec.md](HW-ADSI-placeholder.spec.md) | HW-ADSI-001, current qualification and handoff |
+
+## Source-independent peripheral handoffs
+
+Start with the [outstanding hardware reference checklist](hardware-reference-request-checklist.md) when collecting circuit, component and service documentation for the remaining peripheral gaps.
+
+| Handoff | Scope |
+| --- | --- |
+| [ADSI physical interface and first-response timing](adsi-physical-timing-handoff.md) | CAS, FSK, UART, carrier, native timing and menu acceptance |
+| [Contact smart-card hardware](smartcard-contact-black-box-handoff.md) | Sync contact, async ATR/APDU transport, slot routing and synthetic application fixtures |
+| [Forgotten-card alarm](forgotten-card-alarm-black-box-handoff.md) | Timer waveform, cadence gate, enclosure transducer and ring routing |
+| [External data jack](data-jack-black-box-handoff.md) | Monitor, relay profiles, analogue routing and modem-session qualification |
+| [Remaining peripheral qualification](remaining-hardware-qualification.md) | Ring, power, supervision, variant differences and prioritization |
+| [Hardware reference evidence review](hardware-reference-evidence-review.md) | Physical manual and board-reference evidence, remaining checklist gaps |
 
 Cross references: top-level `docs/*.md`, `specs/io-port-map.spec.md`, `fixtures/board/*.json`.

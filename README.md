@@ -11,6 +11,7 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 - [Firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) for the tested terminal families, archive hashes and outstanding gates.
 - [Automated INSTALL runner](tools/acceptance/README.md) for cold installation, hardware selection and restart testing.
 - [Remote firmware downloads](docs/firmware-download-storage.md) for the MTR 2.x bootstrap, flash model and upgrade acceptance plan.
+- [Outstanding hardware reference checklist](specs/hardware/hardware-reference-request-checklist.md) for remaining documentation and physical validation priorities.
 - [Testing](TESTING.md) for the emulator suite and Windows smoke checks.
 
 ## Current status
@@ -50,6 +51,13 @@ the capability A tone, decoded authentic CONNECT frames and emitted D1
 responses, independently confirmed by a wire capture. The first D response
 still misses the service's strict one-second deadline. Welcome display,
 menu navigation and paid service calls are not yet qualified.
+
+The enclosure warning source and gate now follow the later hardware latch,
+with a separate legacy Desk oscillator profile. Native GPIO and recorded
+audio measurements verified the later waveform and silent muted phases.
+The optional later-board data-jack monitor and raw relay combinations also
+passed a native bus probe; external modem audio and data-session acceptance
+are still pending. See [peripheral qualification](docs/status/peripheral-handoff-implementation-2026-11-25.md).
 All three tested Coin Basic images completed detached-display Craft access,
 INSTALL with the temporary display attached, and a locally answered call
 after removing the display and restarting. The Inmate firmware is still

@@ -8,6 +8,7 @@ namespace millennium_mach_port_f {
 
 inline constexpr std::uint8_t k_card_reader_control_bit = 0x01U;
 inline constexpr std::uint8_t k_warning_tone_toggle_bit = 0x02U; ///< Square-wave drive for forgotten-card / payment-warning cadence (ISR toggles).
+inline constexpr std::uint8_t k_warning_source_select_bit = 0x04U; ///< Select warning rather than incoming-ring source.
 inline constexpr std::uint8_t k_alarm_cadence_gate_bit = 0x08U;   ///< Cadence on/off segment when paired with timers.
 
 } // namespace millennium_mach_port_f

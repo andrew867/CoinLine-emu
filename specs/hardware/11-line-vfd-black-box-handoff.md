@@ -19,6 +19,8 @@ This is a source-independent interaction contract. It contains observed register
 
 Select this entire hardware personality through the board profile. Do not infer the profile from a string printed on a screen, or route large-display traffic through the original two-line character decoder. Preserve the standard profile and its existing display, keys and artwork unchanged.
 
+The June 1998 multi-pay replacing-parts guide P0883897 (issue 00.01), p. vi, describes the physical graphical assembly as a 22 by 10 display including the controls beside and below it. Figures 4-7, 4-8 and 4-11/4-12 (pp. 4-7, 4-9 and 4-13) confirm that this assembly connects by a dedicated ribbon cable to the separate ADSI daughterboard. The manufacturer's description of the assembly and the firmware's eleven logical bands are different kinds of evidence; neither establishes the physical optical dot geometry. Retain the native qualified raster until the actual panel identification or a physical measurement resolves that distinction.
+
 ## 2. Large-display bus contract
 
 The large display is driven by direct writes of bitmap column data, not simply by the two-line character-data port. The address of each write carries both the location and one page-selector bit. This requires the full 16-bit external I/O address to remain observable; truncating it to eight bits loses the pixel addresses.

@@ -7,7 +7,9 @@
 #include "rendfont.h"
 #include "screen.h"
 
+#include <deque>
 #include <memory>
+#include <mutex>
 
 #include "millennium_audio.h"
 #include "millennium_board_profile.h"
@@ -84,6 +86,9 @@ public:
 	/// MAME 0.287 uses scheduler timers with \c s32 param (no \c device_timer_id API).
 	void schedule_driver_timer(s32 id, attotime const &delay);
 	TIMER_CALLBACK_MEMBER(driver_timer_cb);
+	TIMER_CALLBACK_MEMBER(adsi_fixture_tick);
+	TIMER_CALLBACK_MEMBER(adsi_fixture_answer_tick);
+	TIMER_CALLBACK_MEMBER(adsi_line_tick);
 
 	virtual tiny_rom_entry const *device_rom_region() const override ATTR_COLD;
 	virtual ioport_constructor device_input_ports() const override ATTR_COLD;
@@ -289,6 +294,23 @@ private:
 	unsigned m_adsi_status_reads = 0;
 	bool m_adsi_carrier_line = false;
 	double m_adsi_carrier_release_at = 0.0;
+	std::vector<std::int16_t> m_adsi_pcm_fixture;
+	emu_timer *m_adsi_fixture_timer = nullptr;
+	emu_timer *m_adsi_fixture_answer_timer = nullptr;
+	emu_timer *m_adsi_line_timer = nullptr;
+	std::deque<std::int16_t> m_adsi_monitor_pcm;
+	std::mutex m_adsi_monitor_mutex;
+	bool m_adsi_live_gap = false;
+	std::size_t m_adsi_fixture_index = 0;
+	std::int16_t m_adsi_fixture_sample = 0;
+	bool m_adsi_fixture_started = false;
+	bool m_adsi_fixture_answer_pending = false;
+	std::string m_adsi_fixture_target;
+	std::string m_adsi_fixture_digits;
+	void adsi_fixture_outpulse(char digit);
+	void adsi_fixture_maybe_answer();
+	void adsi_fixture_start();
+	void receive_adsi_sample(std::int16_t sample);
 	bool m_graphic_display = false;
 	std::filesystem::path m_graphic_vfd_trace;
 	std::filesystem::path m_graphic_vfd_snapshot;
@@ -302,6 +324,8 @@ private:
 	millennium_user_io_board_config m_user_io_board{};
 	/// Optional terminal_09 data-jack relay stepping when `overlay.data_jack_manual_keypad_active` (see `tp_enqueue_ui_event`).
 	coinline::terminal::data_jack_model m_data_jack_model{};
+	coinline::terminal::data_jack_hardware m_data_jack_hw{};
+	bool m_data_jack_trace = false;
 	bool m_m5_logged = false;
 	bool m_m5v_logged = false;
 	bool m_m5a_logged = false;

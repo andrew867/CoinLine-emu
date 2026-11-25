@@ -7,6 +7,7 @@ local security = assert(ports[":SECMASK"])
 local softkeys = assert(ports[":TERMINAL21_SOFTKEYS"])
 local card = assert(ports[":CARDUI"])
 local coins = assert(ports[":COINUI"])
+local offline_line = os.getenv("COINLINE_GRAPHIC_OFFLINE_LINE") == "1" and assert(ports[":LINECTRL"]) or nil
 local screen = assert(machine.screens[":screen"])
 local keys = {}
 for index, key in ipairs({"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#", "N"}) do
@@ -151,6 +152,7 @@ local function execute(line)
 end
 
 log("start")
+if offline_line then offline_line:field(1):set_value(1) end
 if os.getenv("COINLINE_GRAPHIC_OPEN") == "1" then cabinet(true) end
 emu.register_frame_done(function()
     frame = frame + 1

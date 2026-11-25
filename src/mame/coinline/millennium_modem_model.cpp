@@ -566,17 +566,12 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a, bool extended_a
 	if (wr_prev || !wr_now)
 		return 0;
 
-	auto const audible_digit = [this]() -> char {
-		if ((m_ssi_tr & 0x10U) == 0 || (m_ssi_cr0 & 0x02U) == 0)
-			return 0;
-		return "D1234567890*#ABC"[m_ssi_tr & 0x0fU];
-	};
-	char const prior_digit = audible_digit();
+	char const prior_digit = ssi_dtmf_digit();
 	if (m_ssi_write_bits == 8)
 		store_reg(addr, m_ssi_write_shift);
 	m_ssi_write_bits = 0;
 	m_ssi_write_shift = 0;
-	char const digit = audible_digit();
+	char const digit = ssi_dtmf_digit();
 	return m_r1 && digit != prior_digit ? digit : 0;
 }
 

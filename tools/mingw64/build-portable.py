@@ -157,6 +157,7 @@ def stage_files(bundle, mame, rom_input, windows):
         "docs/status/smartcard-contact-2026-11-25.md": ROOT / "docs/status/smartcard-contact-2026-11-25.md",
         "docs/status/adsi-interop-2026-11-25.md": ROOT / "docs/status/adsi-interop-2026-11-25.md",
         "docs/status/graphical-render-performance-2026-11-25.md": ROOT / "docs/status/graphical-render-performance-2026-11-25.md",
+        "docs/status/peripheral-handoff-implementation-2026-11-25.md": ROOT / "docs/status/peripheral-handoff-implementation-2026-11-25.md",
         "docs/Running.md": ROOT / "RUNNING.md",
         "licenses/CoinLine.txt": ROOT / "LICENSE",
         "licenses/MAME.txt": mame / "COPYING",

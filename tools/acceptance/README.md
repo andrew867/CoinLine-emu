@@ -38,6 +38,49 @@ list of physical RAM byte addresses to snapshot. Watch output is restricted
 to off-hook activity and at most 2,000 samples. The option is disabled by
 default and never changes the observed data, CPU state, or installation.
 
+## Independent analogue hardware probes
+
+Generate a single deterministic CAS/CONNECT line stimulus and run the installed
+graphical terminal without a SIP or TCP audio sidecar:
+
+```sh
+python tools/acceptance/adsi_pcm_fixture.py build/firmware-acceptance/offline-adsi.pcm
+python tools/acceptance/graphic_session.py --mame build/bin/coinline-mame.exe \
+  --firmware <mapped-image> --battery <saved-battery-directory> --settings <lab-settings> \
+  --adsi-offline-pcm build/firmware-acceptance/offline-adsi.pcm --quiet --sound
+```
+
+Keep a matching isolated NCC listener available for ordinary maintenance.
+After the terminal returns to service, dial the configured local `free_call`.
+The offline office answers only the actual matching outpulse and supplies
+physical line polarity phases. A dedicated 8 kHz emulated timer then feeds
+the analogue detector. No network response, decoded byte, terminal flag,
+retry or fabricated ACK is injected. Compare the resulting native carrier,
+UART and DTMF events to the live wire measurements; this is not itself SIP
+menu qualification. Optional `--connect-pcm` to the fixture generator retains
+the exact supplied local CONNECT waveform, including its captured silence.
+For comparison, `--offline-co` retains the normal local CO control socket
+but still supplies the receiver with deterministic PCM instead of network
+audio. The service answer path and the sample-clock path can thereby be
+measured independently.
+
+The following synthetic CPU/bus probes require no installed payment or call
+state and save their local evidence below the ignored acceptance output:
+
+```sh
+python tools/acceptance/enclosure_alarm_probe.py --mame build/bin/coinline-mame.exe
+python tools/acceptance/data_jack_pin_probe.py --mame build/bin/coinline-mame.exe
+python tools/acceptance/line_jack_probe.py --mame build/bin/coinline-mame.exe
+```
+
+The enclosure probe records actual emitted audio and verifies the warning
+frequency against the GPIO edges. The data-jack probe checks only the later
+equipment monitor and documented relay output combinations, not analogue
+connection or a modem handshake. The line-jack probe checks initial native
+loopback control signaling independently of the CO service.
+
+## Batch execution
+
 From `coinline-emu`, use Python 3.11 or newer in MSYS2 MINGW64 on Windows. On Linux or macOS, use the native Python and MAME build.
 
 ```sh

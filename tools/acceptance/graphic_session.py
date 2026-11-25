@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Run a real later-board firmware image with a local, physical-input command file."""
 import argparse
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -36,11 +37,17 @@ def main():
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
     parser.add_argument("--adsi", action="store_true", help="enable the local-only InfoLine SIP route")
+    parser.add_argument("--adsi-offline-pcm", type=Path, help="deterministic signed 8 kHz line stimulus, triggered by actual configured local outpulse")
+    parser.add_argument("--offline-co", action="store_true", help="retain local CO control signaling but use deterministic offline PCM")
     parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
     parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
     parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     args = parser.parse_args()
+    if args.adsi_offline_pcm and (args.adsi or args.display != "11line" or not args.adsi_offline_pcm.is_file()):
+        parser.error("--adsi-offline-pcm requires an existing fixture, 11line display and no SIP route")
+    if args.offline_co and not args.adsi_offline_pcm:
+        parser.error("--offline-co requires --adsi-offline-pcm")
     image = args.firmware.read_bytes()
     if len(image) != 1048576:
         raise ValueError("Graphical session requires a mapped 1 MiB flash image")
@@ -51,6 +58,8 @@ def main():
         raise ValueError("Select a compatible later motherboard using --hardware")
     settings = json.loads(args.settings.read_text()) if args.settings else {}
     settings = {**settings, **settings.get("firmware_overrides", {}).get(firmware_id, {})}
+    if args.adsi_offline_pcm and not str(settings.get("free_call", "")).isdigit():
+        parser.error("--adsi-offline-pcm requires a numeric local free_call in the lab settings")
     if "line" not in settings and "wireId" in settings:
         settings["line"] = settings["wireId"]
     if "ncc_port" not in settings and "nccPort" in settings:
@@ -105,6 +114,14 @@ def main():
         env["COINLINE_LOCAL_VOICE_ROUTE"] = json.dumps(settings.get("adsi_route", {
             "digits": ["2374", "7095550174", "17095550174"], "target": "2374", "port": 5069}))
         env["COINLINE_ADSI_TRACE"] = "1"
+    if args.adsi_offline_pcm:
+        env.update(COINLINE_ADSI_PCM_FIXTURE=str(args.adsi_offline_pcm.resolve()), COINLINE_ADSI_TRACE="1")
+        if not args.offline_co:
+            env.update(COINLINE_LINE_PORT="0", COINLINE_GRAPHIC_OFFLINE_LINE="1")
+        report_path = out / "offline-pcm.json"
+        raw = args.adsi_offline_pcm.read_bytes()
+        report_path.write_text(json.dumps({"sha256": hashlib.sha256(raw).hexdigest(), "sample_rate": 8000,
+                                           "samples": len(raw) // 2}, indent=2))
     if args.trace and args.display == "11line":
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
@@ -135,7 +152,8 @@ def main():
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
     if args.realtime_priority and os.name == "nt":
         cmd.extend(["-priority", "1"])
-    with (out / "mame.log").open("wb") as log, central_office(out, env, Path(sys.executable)):
+    office = nullcontext() if args.adsi_offline_pcm and not args.offline_co else central_office(out, env, Path(sys.executable))
+    with (out / "mame.log").open("wb") as log, office:
         result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)
     print(f"Emulator exited with {result.returncode}", flush=True)
     return result.returncode

@@ -83,6 +83,10 @@ INPUT_PORTS_START(millennium)
 	PORT_BIT(0x04, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Line reversal 1 (LINE_REVERSAL_1)") PORT_CODE(KEYCODE_O)
 	PORT_BIT(0x08, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Suppress line reversals (relay/switching gate)") PORT_CODE(KEYCODE_COMMA)
 
+	PORT_START("DATAJACKUI")
+	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Data jack external equipment plugged")
+	PORT_BIT(0x02, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Data jack external loop seized")
+
 	// MAME's digit codes identify physical keys. Shift selects * or # on a US keyboard.
 	auto &keypad = *portlist.at(owner.subtag("KEYMATRIX"));
 	keypad.field(0x004U)->set_defseq(input_seq(KEYCODE_3, input_seq::not_code, KEYCODE_LSHIFT,
