@@ -45,6 +45,16 @@ capacity and contents are synthetic, not a claimed GPM103 or GPM416 device
 geometry. No family-specific carry, erase or protected-area programming is
 inferred from the generic contact test.
 
+Historical reader compatibility references distinguish the GPM103 counter
+memory family from the GPM416 intelligent EEPROM family; neither establishes
+the original chip's capacity or protected geometry. The terminal's nominal
+programming wait is one 10 ms executive tick, and the GPM416 software can
+round its configurable wait up to whole ticks. These software delays do
+not establish the physical card's minimum programming pulse. The independent
+synthetic programming probe accepts `--program-us 10000` to test bounded
+non-payment memory switching on that time scale without identifying the
+fixture as either historical card family.
+
 For the earlier board, the firmware drives a low/high/low supply-enable
 pulse and subsequently clocks the contact while that pin remains low. The
 model retains supply across the falling edge; a card removal or device reset

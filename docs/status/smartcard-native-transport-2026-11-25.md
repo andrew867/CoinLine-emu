@@ -64,6 +64,14 @@ The pattern is an arbitrary four-byte contact test, not a payment-card
 layout or capacity. Family-specific write/carry/erase sequences and protected
 application interoperability remain unqualified without a suitable reference.
 
+The nominal 10 ms software programming wait from the later reference was
+also exercised as an explicitly synthetic `--program-us 10000` test-region
+fixture. The native short-pulse rejection, timed one-way mutation,
+removal/reinsertion and warm persistence checks passed in
+`build/firmware-acceptance/smartcard-pin-probe/20261125T231242.808788Z/`.
+This does not establish an original GPM103 or GPM416 physical programming
+threshold or support for either family's protected application operations.
+
 ## Native synthetic CPU verification
 
 | Probe | Observed |
