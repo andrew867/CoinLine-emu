@@ -66,8 +66,10 @@ and service startup are managed separately from this emulator.
    installation.
 
 Some later firmware has a separate smart-card test and two calibration coins
-followed by an escrow test. Use [ to insert or remove the smart card. A chip-card
-test may still report failure. Follow the firmware's continuation prompt.
+followed by an escrow test. Use [ to insert or remove the synthetic contact
+card. The synchronous contact test passed on the later reference terminal;
+the default card is nonfunded and does not qualify chip payment. Other
+firmware may still report a failure. Follow the firmware's continuation prompt.
 Allow the refund and collection tests to finish before pressing * again.
 
 Controls
@@ -118,6 +120,13 @@ The launcher also learns the public RTP address from the SIP registrar when
 available. If your router uses a fixed UDP mapping for media, set rtp_port to
 that port and rtp_public_address to the public IPv4 address.
 
+For the graphical InfoLine bench, configure [adsi] with the local aliases,
+target and UDP port from the running voice-service instance. Enable it or pass
+--adsi. The terminal's installed screening tables must allow the aliases.
+This is an exact loopback-only route with no PSTN fallback. Real firmware
+CAS, A, CONNECT and D1 signaling have been observed; initial D1 timing still
+blocks the welcome/menu exchange. See docs/status/adsi-interop-2026-11-25.md.
+
 If a CO check fails with 41, check the latest central-office.log under the profile's
 logs folder. If NCC fails with 24, verify the listener, matching terminal ID, and
 published table set. A card rejected after download usually needs the matching
@@ -130,5 +139,5 @@ compact and adjusts how often it draws to reduce interrupted playback.
 Each run keeps its emulator log, CO log, and current display under data/<profile>/logs.
 The portable launchers keep the debugger and trace sidecars off.
 
-See docs/Verification.md for the firmware acceptance evidence. License notices
+See docs/Verification.md and docs/status/ for firmware acceptance evidence. License notices
 are in licenses/ and runtime/. SHA256SUMS.txt lists the packaged file hashes.

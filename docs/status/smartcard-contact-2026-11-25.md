@@ -74,3 +74,27 @@
   The virtual balance is unchanged. This qualifies authorization and a
   locally connected call, not payment settlement.
   Run: `build/firmware-acceptance/graphic-firmware/20261125T065959.364003Z/`.
+- The same post-call battery was later started with corrected V1.3 clock
+  timing and an observation-only NCC listener. It returned to service.
+  Closed-cabinet Craft access, a handset cycle, and an unlocked/open cabinet
+  did not reach the Craft menu; the terminal displayed the cover-open alarm.
+  Normal closure restored **Please lift receiver** and the program exited
+  normally. The listener observed no quote, call detail, upload, debit or
+  settlement. The prior authorization had expired, and this listener did
+  not register a payment provider. No forced record or memory edit was used.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T083716.597527Z/`.
+
+- The host-side synthetic provisioner had encoded a malformed seven-digit
+  Craft access field in MT31, separately from the valid five-digit lab PIN.
+  The normal closed-cover mnemonic therefore could not match. On a new warm
+  restart, direct physical cover-open followed by the legitimate lab PIN
+  entered Craft successfully. Selecting item 732 and pressing `1` displayed
+  **No call records / To continue, press \***. This is a negative result
+  from the terminal itself: there was no queued CDR to upload from the
+  previously connected call. It is not evidence of a failed CDR transport.
+  The host provider remains absent in the observation-only listener.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T084537.346262Z/`.
+
+The final native contact probe repeated the timed memory and two-selector
+checks with the corrected board-clock build. It passed. Run:
+`build/firmware-acceptance/smartcard-pin-probe/20261125T084348.990167Z/`.

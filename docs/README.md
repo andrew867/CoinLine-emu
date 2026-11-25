@@ -20,6 +20,9 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | [Batch acceptance runner](../tools/acceptance/README.md) | Verified input library, hardware selection and scripted terminal inputs. |
 | [Remote firmware downloads](firmware-download-storage.md) | Programmable NOR, bootstrap, CPU-bus test and outstanding code-server gates. |
 | [status/ncc-install-firmware-stx-handoff-2026-11-23.md](status/ncc-install-firmware-stx-handoff-2026-11-23.md) | Current end-to-end INSTALL, battery persistence, outbound SIP, and OEM voice-rate evidence. |
+| [Smart-card and payment qualification](status/smartcard-contact-2026-11-25.md) | Native contact checks, approved simulated magnetic-card call, and outstanding settlement gates. |
+| [ADSI interoperation](status/adsi-interop-2026-11-25.md) | Actual SIP/RTP, CAS, CONNECT and D1 evidence, with the first-response timing gate. |
+| [Graphical render performance](status/graphical-render-performance-2026-11-25.md) | Release tracing, display caching, board clock and measured live emulation speed. |
 | [status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md](status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md) | Chip-oriented TP backend: behavioral ROM, hook sequencing, timer note, build paths. |
 | [status/implementation-status-audit.md](status/implementation-status-audit.md) | Historical bring-up audit and trace references. |
 

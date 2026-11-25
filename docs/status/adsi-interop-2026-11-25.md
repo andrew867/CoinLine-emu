@@ -140,3 +140,7 @@ are not yet acceptance passes.
 Runs: `build/firmware-acceptance/graphic-firmware/20261125T081858.656976Z/`,
 `20261125T082455.589093Z/`, `20261125T082914.953557Z/`, and
 `20261125T083328.353649Z/`. The first run includes attempts 7 and 8.
+
+The final native CTest run passed 64 tests, with two ROM-dependent tests
+skipped and no failures. All 18 central-office Python tests passed. These
+component results do not supersede the live first-response gate.

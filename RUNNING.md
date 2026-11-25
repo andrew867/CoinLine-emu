@@ -37,8 +37,9 @@ This MTR 2.12-based graphical/ADSI terminal (type 40, DLA 1.3) completed
 cold INSTALL, a separate in-service restart, and rendered downloaded
 bitmap advertisements. Its original INSTALL chip-card check failed, but a
 later native pin-level reader passed Craft item 728 twice and the standard
-NLA1X05 complete INSTALL. Funded-card transactions, graphical menus and
-ADSI service interoperability remain separate acceptance gates.
+NLA1X05 complete INSTALL. A magnetic swipe obtained an approved simulated
+authorization and connected a local call; no CDR or debit was observed.
+Funded chip applications and graphical menu navigation remain separate gates.
 
 For a local card bench, choose synthetic card fixtures with `--mag-card`
 and `--smart-card` or set `mag_fixture` and `smart_fixture` under
@@ -66,15 +67,17 @@ visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
 passed on the later Multi-pay board; funded chip-card applications and
 several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
-and [firmware results catalog](../docs/uat/firmware-acceptance-catalog.md).
+and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
 
 An optional graphical voice-service route is available with `--adsi`. Set
 the exact local aliases, target and UDP port under `[adsi]` in `coinline.ini`.
 The corresponding terminal tables must permit the aliases. This route is
 loopback only and has no external SIP fallback. See the
 [CO bridge instructions](tools/line-jack/README.md#local-adsi-service).
-Live firmware menu acceptance is tracked separately from the audio decoder
-and SIP transport tests.
+Live firmware sent real A and D1 tones and decoded the service's real FSK
+CONNECT frame. The initial D1 remains too late for the service's strict
+response window, so the graphical menu is not yet qualified. See
+[ADSI qualification](docs/status/adsi-interop-2026-11-25.md).
 
 Coin Basic uses the earlier I/O map with display and Voiceware ports exchanged.
 Use `--portable-display attached` during Craft setup, then exit and start the
