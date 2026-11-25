@@ -95,6 +95,13 @@
   The host provider remains absent in the observation-only listener.
   Run: `build/firmware-acceptance/graphic-firmware/20261125T084537.346262Z/`.
 
+The synthetic acceptance provisioner now uses an independently configured
+seven-digit Craft access code with the required packed terminator, instead
+of deriving it from the PIN. A fixture regression verifies the field across
+legacy, universal and expanded layouts and confirms no unrelated records
+change when that access code changes. The correction affects future
+provisioning, not the retained terminal battery or the shared deployment.
+
 The final native contact probe repeated the timed memory and two-selector
 checks with the corrected board-clock build. It passed. Run:
 `build/firmware-acceptance/smartcard-pin-probe/20261125T084348.990167Z/`.
