@@ -27,6 +27,7 @@ public:
 
 	/// Telephony-processor hybrid gates from the control processor's routing commands.
 	void set_hybrid_gates(bool tx_muted, bool rx_muted, bool sidetone_suppressed) noexcept;
+	void set_local_dial_tone(bool enabled) noexcept;
 	void set_handset_gain(float gain);
 
 	void apply_config(millennium_alerter_board_config const &cfg);

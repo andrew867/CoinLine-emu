@@ -43,6 +43,8 @@ public:
 	void set_handset_loopback(bool enable) noexcept { m_handset_loopback = enable; }
 	void inject_handset_sample(float sample) noexcept { m_handset = sample; }
 	void set_receive_muted(bool muted) noexcept { m_rx_muted = muted; }
+	void set_local_dial_tone(bool enabled) noexcept { m_local_dial_tone = enabled; }
+	bool local_dial_tone() const noexcept { return m_local_dial_tone; }
 	void set_receive_gain(float gain) noexcept { m_rx_gain = gain; }
 
 	/// High-fast alerter. Two half-duty pulses, 2000/3 Hz then 500 Hz, 50 ms each.
@@ -76,6 +78,7 @@ private:
 	std::uint8_t m_volume = 255;
 	bool m_handset_loopback = false;
 	bool m_rx_muted = false;
+	bool m_local_dial_tone = false;
 	float m_rx_gain = 1.f;
 	float m_handset = 0.f;
 

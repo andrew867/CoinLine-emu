@@ -70,6 +70,11 @@ bool co_loop_seized(bool handset_relay_seized, std::uint8_t relay_latch) noexcep
 	return handset_co_loop(handset_relay_seized, relay_latch) || modem_co_loop(relay_latch);
 }
 
+bool local_dial_tone_enabled(bool hook_off, bool requested, bool co_loop, bool co_dial_tone, bool co_rx_open) noexcept
+{
+	return hook_off && requested && !(co_loop && co_dial_tone && co_rx_open);
+}
+
 bool lookup_command(std::uint8_t b, char const *&out_label, char const *&out_effect)
 {
 	for (cmd_entry const &e : k_commands) {

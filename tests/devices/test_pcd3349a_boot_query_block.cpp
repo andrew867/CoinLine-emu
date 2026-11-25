@@ -88,6 +88,18 @@ bool boot_ack_on_tx(bool on_hook, std::uint8_t expect, std::vector<std::uint8_t>
 		std::cerr << "boot ACK was classified as a UI event\n";
 		return false;
 	}
+	// A controller reset during a running CP session starts a fresh local
+	// clock epoch; it must not replay all the CP cycles since machine boot.
+	std::uint64_t const origin = 900000000ULL;
+	tp.rebase_cp_clock(origin);
+	std::uint64_t const start = core.cycles();
+	tp.run_until_cp_cycle(origin, 12288000U);
+	if (core.cycles() != start)
+		return false;
+	tp.run_until_cp_cycle(origin + 122880ULL, 12288000U);
+	std::uint64_t const advanced = core.cycles() - start;
+	if (advanced < 35000ULL || advanced > 36000ULL)
+		return false;
 	return true;
 }
 

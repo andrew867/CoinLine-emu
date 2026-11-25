@@ -132,6 +132,7 @@ void millennium_audio_model::reset()
 	m_volume = 255;
 	m_handset_loopback = false;
 	m_rx_muted = false;
+	m_local_dial_tone = false;
 	m_rx_gain = 1.f;
 	m_handset = 0.f;
 	m_dtmf_end_t = -1.0;
@@ -346,6 +347,10 @@ float millennium_audio_model::handset_speaker_sample(double t_sec) const
 	float y = 0.f;
 	if (dtmf)
 		y = dtmf_sample(t_sec - m_dtmf_start_t);
+	else if (m_local_dial_tone)
+		// The local source follows the receive amplifier, not the enclosure
+		// tone-volume latch or the external CO loop relay.
+		return clampf(0.069f * m_rx_gain * (sin_hz(t_sec, 350.0) + sin_hz(t_sec, 440.0)), -1.f, 1.f);
 	else if (!m_rx_muted)
 		y = progress_tone_sample(t_sec);
 	float const g = float(m_volume) / 255.f;

@@ -331,3 +331,17 @@ physical New Call key with an isolated loopback peer. It requires a first
 answered dialog, a BYE after New Call, and a second answered dialog without
 moving the hook switch. NCC is isolated; the original battery is not edited.
 The run includes keypad and relay traces and before/after display snapshots.
+
+`dialtone_native_probe.py` copies a completed installation into an isolated
+run, captures the genuine early controller handshake and records native
+handset audio before and after a physical first digit. It analyzes both
+recorded channels for the nominal 350/440 Hz pair. The original battery is
+never edited; the CO is local and the NCC port is isolated.
+
+```sh
+python tools/acceptance/dialtone_native_probe.py --package <extracted-package> --profile graphical --battery <installed-nvram-dir> --startup-frames 1200 --require-dialtone
+```
+
+Choose `--profile oem` for the standard two-line package, `--mame` to override
+the packaged binary, and `--csio-trace` for startup serial diagnostics. The
+WAV and screenshots stay in the ignored run folder.

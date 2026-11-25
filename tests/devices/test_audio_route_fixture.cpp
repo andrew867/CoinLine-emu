@@ -80,6 +80,13 @@ int main()
 			coinline::audio_route::co_loop_seized(true, latch) != (modem || !(latch & 2U)))
 			return 1;
 	}
+	using coinline::audio_route::local_dial_tone_enabled;
+	if (!local_dial_tone_enabled(true, true, false, false, false) ||
+		!local_dial_tone_enabled(true, true, true, true, false) ||
+		local_dial_tone_enabled(true, true, true, true, true) ||
+		local_dial_tone_enabled(false, true, false, false, false) ||
+		local_dial_tone_enabled(true, false, false, false, false))
+		return 1;
 	if (!coinline::audio_route::lookup_command(0x2eU, lb, ef) || !coinline::audio_route::apply_effect(st, ef, nullptr) ||
 		!dialpad_line_tone_enabled(st, true, true, false) || dialpad_line_tone_enabled(st, false, true, false) ||
 		dialpad_line_tone_enabled(st, true, false, false) || dialpad_line_tone_enabled(st, true, true, true))

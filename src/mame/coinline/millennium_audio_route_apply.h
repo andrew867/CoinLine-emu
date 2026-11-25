@@ -55,6 +55,7 @@ bool dialpad_line_tone_enabled(composite_state const &s, bool hook_off, bool voi
 bool handset_co_loop(bool handset_relay_seized, std::uint8_t relay_latch) noexcept;
 bool modem_co_loop(std::uint8_t relay_latch) noexcept;
 bool co_loop_seized(bool handset_relay_seized, std::uint8_t relay_latch) noexcept;
+bool local_dial_tone_enabled(bool hook_off, bool requested, bool co_loop, bool co_dial_tone, bool co_rx_open) noexcept;
 
 /// Integration label for optional `call_state_if_known` trace field (`audio-call-state-integration.spec.md`).
 /// Empty string when not confidently derivable from composite hardware state alone.

@@ -36,6 +36,14 @@ def read_log(path):
         return ""
 
 
+def connected_digits(log):
+    # MAME's end-of-run speed banner can be written in the middle of a
+    # buffered stderr diagnostic because the launcher merges both streams.
+    # Remove only that complete banner, retaining every hardware gate field.
+    log = re.sub(r"Average speed: [^\r\n]*\r?\n", "", log)
+    return re.findall(r"^DTMF pad make [0-9.]+ ([0-9*#]) enabled=1 .* line=1$", log, re.M)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mame", required=True, type=Path)
@@ -152,7 +160,7 @@ def main():
                 result["passed"] = result["passed"] and native.returncode == 0
             if run is not None:
                 log = read_log(run / "mame.log")
-                native_digits = re.findall(r"^DTMF pad make [0-9.]+ ([0-9*#]) enabled=1 .* line=1$", log, re.M)
+                native_digits = connected_digits(log)
                 result["native_connected_digits"] = native_digits
                 if result["passed"] and native_digits[-4:] != list("25*#"):
                     result["error"] = "Native hardware trace did not qualify the four transmitted digits"

@@ -52,6 +52,7 @@ public:
 	void set_input_snapshot(tp_input_snapshot const &input);
 	void receive_cp_byte(std::uint8_t byte);
 	void run_until_cp_cycle(std::uint64_t cp_cycle, std::uint32_t cp_hz);
+	void rebase_cp_clock(std::uint64_t cycle) noexcept { m_last_step_cp_cycle = cycle; }
 	/** Advance TP core only (does not move CP-cycle coupling baseline). Boot-time primer. */
 	void step_tp_cycles_raw(std::uint64_t tp_cycles);
 	/** Run MAIN_LOOP until SERVICE_TX has emptied the ROM TX ring (one OUTL BUS per pass). */
