@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Run a real graphical firmware image with a local, physical-input command file."""
+"""Run a real later-board firmware image with a local, physical-input command file."""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -20,15 +20,20 @@ def main():
     parser.add_argument("--mame", type=Path, required=True)
     parser.add_argument("--firmware", type=Path, required=True)
     parser.add_argument("--hardware", choices=("auto", *PRESETS), default="auto")
+    parser.add_argument("--display", choices=("11line", "2line"), default="11line")
     parser.add_argument("--settings", type=Path, help="local lab settings, kept out of reports")
     parser.add_argument("--battery", type=Path, help="previous run's complete nvram directory")
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
+    parser.add_argument("--mag-card", type=Path, default=ROOT / "fixtures/cards/magcard-valid.json")
+    parser.add_argument("--smart-card", type=Path, default=ROOT / "fixtures/cards/smartcard-sync-test.json")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/graphic-firmware")
     parser.add_argument("--seconds", type=int, default=1800)
     parser.add_argument("--open", action="store_true", help="start with the cabinet unlocked and open")
     parser.add_argument("--trace", action="store_true", help="capture the graphical I/O stream")
     parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
+    parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
+    parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     args = parser.parse_args()
     image = args.firmware.read_bytes()
@@ -56,7 +61,10 @@ def main():
              "size_bytes": len(image), "motherboard": "later"}
     (out / "fixtures/firmware/firmware-hashes.json").write_text(json.dumps({"entries": [entry]}))
     (out / "input.json").write_text(json.dumps({"sha256": digest, "size": len(image),
-                                                "firmware_id": firmware_id, "program_tag_version": tag_version}, indent=2))
+        "firmware_id": firmware_id, "program_tag_version": tag_version,
+        "display": args.display, "hardware": preset,
+        "mag_card_sha256": hashlib.sha256(args.mag_card.read_bytes()).hexdigest(),
+        "smart_card_sha256": hashlib.sha256(args.smart_card.read_bytes()).hexdigest()}, indent=2))
     if args.battery:
         shutil.copytree(args.battery, out / "nvram")
     art = out / "artwork/cl_millennium"
@@ -68,35 +76,42 @@ def main():
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("COINLINE_")}
     env.update(COINLINE_EMU_ROOT=str(out), COINLINE_MOTHERBOARD="later",
                COINLINE_HARDWARE_PRESET=preset, COINLINE_CARD_DMA_CHANNEL=str(PRESETS[preset].card_dma_channel),
-               COINLINE_BOARD=str(ROOT / "fixtures/board/board-profile-11line-vfd.json"),
+               COINLINE_BOARD=str(ROOT / f"fixtures/board/board-profile-{args.display}-vfd.json"),
                COINLINE_FIRMWARE=str(seed), COINLINE_TP_BACKEND="pcd3349a",
                COINLINE_TP8048_ROM=str(args.controller.resolve()),
-               COINLINE_MAG_CARD=str(ROOT / "fixtures/cards/magcard-valid.json"),
-               COINLINE_SMART_CARD=str(ROOT / "fixtures/cards/smartcard-valid.json"),
+               COINLINE_MAG_CARD=str(args.mag_card.resolve()),
+               COINLINE_SMART_CARD=str(args.smart_card.resolve()),
                COINLINE_LINE_PORT=port(), COINLINE_CO_MODE="local", COINLINE_CO_TIMEOUT="0",
                COINLINE_NCC_PORT=str(settings.get("ncc_port", 4000)), COINLINE_DIAGNOSTICS="0",
-               COINLINE_MODEM_TRACE="1", COINLINE_BOOT_TRACE=str(out / "boot.jsonl"),
                COINLINE_GRAPHIC_COMMANDS=str(commands), COINLINE_GRAPHIC_EVENTS=str(out / "events.tsv"),
-               COINLINE_GRAPHIC_OPEN="1" if args.open else "0",
-               COINLINE_GRAPHIC_VFD_SNAPSHOT=str(out / "pages.json"))
+               COINLINE_GRAPHIC_OPEN="1" if args.open else "0")
+    if args.display == "11line":
+        env["COINLINE_GRAPHIC_VFD_SNAPSHOT"] = str(out / "pages.json")
+    else:
+        env["COINLINE_VFD_LIVE"] = str(out / "display.txt")
+    if not args.quiet:
+        env.update(COINLINE_MODEM_TRACE="1", COINLINE_BOOT_TRACE=str(out / "boot.jsonl"))
     for key in ("line", "serial", "pin"):
         if key in settings:
             env["COINLINE_ACCEPTANCE_" + key.upper()] = str(settings[key])
     if settings.get("free_call"):
         env["COINLINE_OUTBOUND"] = str(settings["free_call"])
-    if args.trace:
+    if args.trace and args.display == "11line":
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
+    if args.card_trace:
+        env["COINLINE_SMART_CARD_TRACE"] = "1"
     if args.telephony_trace:
         env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(out / "telephony.jsonl"),
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
+    view = "Graphical" if args.display == "11line" else "Standard"
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
            "-nolog", "-video", "gdi" if args.artwork and os.name == "nt" else "none", "-sound", "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),
            "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
-           "-snapshot_directory", str(out), "-snapview", "Graphical" if args.artwork else "native",
-           "-view", "Graphical", "-window", "-nomaximize", "-seconds_to_run", str(args.seconds),
+           "-snapshot_directory", str(out), "-snapview", view if args.artwork else "native",
+           "-view", view, "-window", "-nomaximize", "-seconds_to_run", str(args.seconds),
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
     with (out / "mame.log").open("wb") as log, central_office(out, env, Path(sys.executable)):
         result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)

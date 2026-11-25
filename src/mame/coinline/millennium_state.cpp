@@ -1857,6 +1857,10 @@ void millennium_state::trace_tp_cp_keypad_delivered(std::uint64_t cycle, std::ui
 void millennium_state::trace_craft_gate_line(std::string const &json_fields)
 {
 	if (m_craft_entry_gate_trace_path.empty()) {
+		// Do not create a trace merely because the firmware entered Craft.
+		// A package run without a requested diagnostic sink stays silent.
+		if (m_tp_cp_keypad_protocol_trace_path.empty() && m_boot_trace_path.empty())
+			return;
 		if (m_tp_cp_keypad_protocol_trace_path.has_parent_path())
 			m_craft_entry_gate_trace_path =
 				m_tp_cp_keypad_protocol_trace_path.parent_path() / "craft-entry-gate-trace.jsonl";
@@ -3565,6 +3569,7 @@ void millennium_state::board_status_w(u8 data)
 {
 	if (m_earlier_motherboard) {
 		m_pio_8255_shadow[0] = data;
+		m_smartcard->earlier_pins(data, m_pio_8255_shadow[2], m_maincpu->total_cycles());
 		emit_io_trace_line("pio_port_a", 0x40, 'w', data);
 		write_modem_pio(data);
 		return;
@@ -4613,7 +4618,9 @@ u8 millennium_state::pio_keypad_r(offs_t offset)
 			emit_io_trace_line("pio_unmapped", u16(0x41U + off), 'r', 0xffU);
 			return 0xffU;
 		}
-		u8 const r = m_pio_8255_shadow[off + 1U];
+		u8 r = m_pio_8255_shadow[off + 1U];
+		if (off == 1U)
+			r = m_smartcard->merge_data_pin(r, 0x04U, m_maincpu->total_cycles());
 		char const *const tags[] = { "pio_port_b", "pio_port_c", "pio_command" };
 		emit_io_trace_line(tags[off], u16(0x41U + off), 'r', r);
 		return r;
@@ -4724,6 +4731,8 @@ void millennium_state::pio_keypad_w(offs_t offset, u8 data)
 		std::size_t const idx = std::size_t(off + 1U);
 		u8 const prev = m_pio_8255_shadow[idx];
 		m_pio_8255_shadow[idx] = data;
+		if (idx == 2U)
+			m_smartcard->earlier_pins(m_pio_8255_shadow[0], data, m_maincpu->total_cycles());
 		char const *const tags[] = { "pio_port_b", "pio_port_c", "pio_command" };
 		emit_io_trace_line(tags[off], u16(0x41U + off), 'w', data);
 		if (idx == 1U) {
@@ -5657,12 +5666,9 @@ u8 millennium_state::mach_pio_r(offs_t offset)
 	u8 r;
 	if (offset == 0) {
 		// Port 0xC0: latch + cash-box status bits.
-		r = millennium_mach_pio_combine_port_h_read(base, m_smartcard->status_lines() & 0x03U);
+		r = millennium_mach_pio_combine_port_h_read(base, 0);
+		r = m_smartcard->merge_data_pin(r, 0x02U, cy);
 		emit_io_trace_line("mach_pio_port_h", u16(0xc0), 'r', r);
-	}
-	else if (offset == 2) {
-		r = m_smartcard->read_fifo(cy);
-		emit_io_trace_line("mach_pio", u16(0xc0U + static_cast<std::uint16_t>(offset)), 'r', r);
 	}
 	else {
 		r = base;
@@ -5696,12 +5702,12 @@ void millennium_state::mach_pio_w(offs_t offset, u8 data)
 		m_audio->notify_mach_port_f(prev, data, cy, cpu_hz);
 	}
 	m_mach_pio_shadow.at(std::size_t(offset)) = data;
-	// Port \c D (\c 0xC1): bits 0–1 route coin / mag reader / SAM / lock (see \c millennium_mach_async.h).
+	// Port D (0xC1): bits 0–1 select three expansion sockets or the user's card.
 	// Port \c H (\c 0xC0): bit 3 gate — clear selects async-side peripherals toward ASCI/UART.
-	// Port \c E (\c 0xC2): SAM clock/rst/power — full byte feeds the smart-card model; EPM clocks use port \c G.
+	// Port E (0xC2): card clock selection, reset and supply request; port F clocks the supply latch.
 	// Port \c F (\c 0xC3): card-reader control + forgotten-card warning / cadence bits (\c millennium_mach_port_f); handset alerter remains \c 0x58–\c 0x5b.
-	if (offset == 2)
-		m_smartcard->write_command(data, cy);
+	if (offset >= 1 && offset <= 3)
+		m_smartcard->later_pins(m_mach_pio_shadow[1], m_mach_pio_shadow[2], m_mach_pio_shadow[3], cy);
 }
 
 u8 millennium_state::card_reader_signals() const
@@ -5746,7 +5752,7 @@ void millennium_state::poll_card_ui()
 		std::string const p = resolve_relative_path(
 			(osd_getenv("COINLINE_SMART_CARD") && *osd_getenv("COINLINE_SMART_CARD"))
 				? std::string(osd_getenv("COINLINE_SMART_CARD"))
-				: std::string("fixtures/cards/smartcard-valid.json"));
+				: std::string("fixtures/cards/smartcard-sync-test.json"));
 		if (m_smartcard->reload_fixture_from_path(p, err))
 			m_smartcard->insert_card(cy, hz);
 		else
@@ -6719,15 +6725,17 @@ uint32_t millennium_state::render_graphic_vfd(screen_device &screen, bitmap_rgb3
 {
 	int constexpr width = millennium_graphic_vfd::width;
 	int constexpr height = millennium_graphic_vfd::height;
-	std::vector<u8> dots(width * height);
-	for (int y = 0; y < height; ++y)
-		for (int x = 0; x < width; ++x)
-			dots[y * width + x] = m_graphic_vfd.lit(x, y);
+	auto const page = m_graphic_vfd.visible_page_data();
+	auto constexpr bytes = millennium_graphic_vfd::page_size;
+	u8 const optical = m_graphic_vfd.optical_state();
 	u8 const luminance = m_graphic_vfd.brightness();
 	if (cliprect == screen.visible_area()) {
-		if (dots == m_vfd_last_drawn_dots && luminance == m_vfd_last_drawn_luminance)
+		if (m_vfd_last_drawn_dots.size() == bytes + 1 &&
+			m_vfd_last_drawn_dots.back() == optical && luminance == m_vfd_last_drawn_luminance &&
+			(optical != 1 || std::equal(page, page + bytes, m_vfd_last_drawn_dots.begin())))
 			return UPDATE_HAS_NOT_CHANGED;
-		m_vfd_last_drawn_dots = dots;
+		m_vfd_last_drawn_dots.assign(page, page + bytes);
+		m_vfd_last_drawn_dots.push_back(optical);
 		m_vfd_last_drawn_luminance = luminance;
 	} else
 		m_vfd_last_drawn_dots.clear();
@@ -6742,9 +6750,11 @@ uint32_t millennium_state::render_graphic_vfd(screen_device &screen, bitmap_rgb3
 	rgb_t const phosphor(channel(0x38), channel(0xff), channel(0xb8));
 	bitmap.fill(rgb_t(0x02, 0x06, 0x04), cliprect);
 	int const dot_size = std::max(1, scale - 1);
+	if (optical == 0)
+		return 0;
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {
-			if (!dots[y * width + x])
+			if (optical == 1 && !m_graphic_vfd.lit(x, y))
 				continue;
 			rectangle pixel(left + x * scale, left + x * scale + dot_size - 1,
 				top + y * scale, top + y * scale + dot_size - 1);

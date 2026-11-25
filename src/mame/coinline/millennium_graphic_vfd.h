@@ -32,6 +32,9 @@ public:
 	std::uint8_t brightness() const noexcept { return m_brightness; }
 	std::uint8_t key_select() const noexcept { return m_key_select; }
 	bool enabled() const noexcept { return m_released && (m_control & 0x10); }
+	// Packed visible page and optical state form a cheap frame-cache key.
+	std::uint8_t const *visible_page_data() const noexcept { return m_pages.data() + visible_page() * page_size; }
+	std::uint8_t optical_state() const noexcept { return !enabled() ? 0 : bool(m_control & 0x20) == m_lamp_active_high ? 2 : 1; }
 	std::string snapshot_json() const;
 
 private:

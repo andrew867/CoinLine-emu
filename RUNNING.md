@@ -32,9 +32,16 @@ The launcher selects the graphical artwork and isolates its persistent terminal
 state. The registered NLA1X08 image automatically selects its graphical profile.
 This MTR 2.12-based graphical/ADSI terminal (type 40, DLA 1.3) completed
 cold INSTALL, a separate in-service restart, and rendered downloaded
-bitmap advertisements. Its chip-card
-self-test failed; graphical menus and ADSI service interoperability remain
-separate acceptance gates.
+bitmap advertisements. Its original INSTALL chip-card check failed, but a
+later native pin-level reader passed Craft item 728 twice and the standard
+NLA1X05 complete INSTALL. Funded-card transactions, graphical menus and
+ADSI service interoperability remain separate acceptance gates.
+
+For a local card bench, choose synthetic card fixtures with `--mag-card`
+and `--smart-card` or set `mag_fixture` and `smart_fixture` under
+`[cards]` in `coinline.ini`. Paths are relative to the extracted package
+or absolute. The default chip-card fixture exercises the physical contacts;
+it is not a funded payment card. Use `--local` for simulated calls.
 
 | Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
 | --- | --- | --- | --- |

@@ -238,8 +238,10 @@ def run_phase(args, settings, attempt, name, base_env):
                    COINLINE_TP_CSIO_RAW_TRACE=str(run / "acceptance-trace-csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(run / "acceptance-trace-csio.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(run / "acceptance-trace-telephony.jsonl"))
-    if args.voice_trace or (args.test_call and name == "warm"):
+    if args.voice_trace or ((args.test_call or args.test_mag_call) and name == "warm"):
         env["COINLINE_VOICEWARE_TRACE"] = str(run / "acceptance-trace-voiceware.jsonl")
+    if args.card_trace:
+        env["COINLINE_SMART_CARD_TRACE"] = "1"
     command = [str(args.mame), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
                "-video", "none", "-sound", "none", "-rompath", str(attempt / "roms"),
                "-artpath", str(attempt / "artwork"),
@@ -352,14 +354,15 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
                COINLINE_ACCEPTANCE_COIN_BASIC="1" if hardware == "coin-basic" else "0",
                COINLINE_BOARD=str(args.profile),
                COINLINE_TP_BACKEND="pcd3349a", COINLINE_TP8048_ROM=str(args.controller),
-               COINLINE_MAG_CARD=str(ROOT / "fixtures/cards/magcard-valid.json"),
-               COINLINE_SMART_CARD=str(ROOT / "fixtures/cards/smartcard-valid.json"),
+               COINLINE_MAG_CARD=str(args.mag_card.resolve()),
+               COINLINE_SMART_CARD=str(args.smart_card.resolve()),
                COINLINE_NCC_PORT=str(settings["ncc_port"]), COINLINE_CO_MODE="local", COINLINE_CO_TIMEOUT="0",
                COINLINE_MODEM_TRACE="1", COINLINE_OUTBOUND=settings.get("free_call", ""),
                COINLINE_ACCEPTANCE_LINE=settings["line"], COINLINE_ACCEPTANCE_SERIAL=settings["serial"],
                COINLINE_ACCEPTANCE_PIN=settings["pin"],
                COINLINE_ACCEPTANCE_KEYS="+-LN1234567890*#" + "abcdefghij"[:len(profile["keypad"]["quick_access_keys"])],
-               COINLINE_ACCEPTANCE_DIAL=settings["free_call"] if args.test_call else "")
+               COINLINE_ACCEPTANCE_DIAL=settings["free_call"] if (args.test_call or args.test_mag_call) else "",
+               COINLINE_ACCEPTANCE_MAG_CALL="1" if args.test_mag_call else "0")
     if settings.get("code_server_number"):
         env.update(COINLINE_CODE_SERVER_NUMBER=settings["code_server_number"],
                    COINLINE_CODE_SERVER_PORT=str(settings["code_server_port"]))
@@ -373,7 +376,8 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
               "hardware_preset": hardware, "firmware_hardware_tag": tag, "card_dma_channel": card_dma,
               "effective_program_sha256": effective_hash,
               "program": [{"path": f["path"], "sha256": f["sha256"]} for f in program],
-              "voiceware_source": voice_source, "voiceware": voice_records, "desk_key_card_supplied": "desk_key_card" in settings}
+              "voiceware_source": voice_source, "voiceware": voice_records, "desk_key_card_supplied": "desk_key_card" in settings,
+              "mag_card_sha256": sha256(args.mag_card), "smart_card_sha256": sha256(args.smart_card)}
     battery = attempt / "nvram/cl_millennium/battery"
     persisted_flash = attempt / "nvram/cl_millennium/program_flash"
     if hardware == "coin-basic" and not args.boot_only:
@@ -450,7 +454,7 @@ def validate_settings(args, selected):
                  *(args.reference / "roms/cl_millennium" / name for name in ("voice_u16.bin", "voice_u26.bin"))):
         if not path.is_file():
             raise ValueError(f"Missing run input: {path}")
-    terminals = {code: validate_terminal({**settings, **overrides.get(code, {})}, args.test_call) for code in selected}
+    terminals = {code: validate_terminal({**settings, **overrides.get(code, {})}, args.test_call or args.test_mag_call) for code in selected}
     return terminals, hashlib.sha256(contents).hexdigest()
 
 
@@ -517,6 +521,8 @@ def main():
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--reference", type=Path, default=ROOT / "build/package-inputs/local")
     parser.add_argument("--profile", type=Path, default=ROOT / "fixtures/board/board-profile-2line-vfd.json")
+    parser.add_argument("--mag-card", type=Path, default=ROOT / "fixtures/cards/magcard-valid.json")
+    parser.add_argument("--smart-card", type=Path, default=ROOT / "fixtures/cards/smartcard-sync-test.json")
     parser.add_argument("--python", type=Path, default=Path(sys.executable), help="Python for the local CO sidecar")
     parser.add_argument("--only", action="append", help="firmware ID to run, repeatable")
     parser.add_argument("--skip", action="append", default=[], help="skip an ID covered by a separate batch")
@@ -530,10 +536,12 @@ def main():
     parser.add_argument("--eeprom-trace", action="store_true", help="capture Microwire command and data transactions")
     parser.add_argument("--read-watch", type=Path, help="read-only physical memory watch list: label and hexadecimal address per line")
     parser.add_argument("--voice-trace", action="store_true", help="capture Voiceware commands and playback events")
+    parser.add_argument("--card-trace", action="store_true", help="capture synchronous contact card pins")
     parser.add_argument("--telephony-trace", action="store_true", help="capture telephony controller messages and qualified CSIO")
     parser.add_argument("--inventory-only", action="store_true", help="verify hashes and report candidate plans without launching MAME")
     parser.add_argument("--boot-only", action="store_true", help="stop at the first stable startup prompt, without entering INSTALL")
     parser.add_argument("--test-call", action="store_true", help="after restart, dial the configured destination on the local CO")
+    parser.add_argument("--test-mag-call", action="store_true", help="after restart, present a synthetic magstripe and dial the configured local-only test destination")
     args = parser.parse_args()
     if args.timeout <= 0 or args.startup_timeout <= 0:
         parser.error("Timeouts must be positive")
@@ -541,10 +549,14 @@ def main():
         parser.error("Read-watch file does not exist")
     if args.board == "both" and not args.boot_only:
         parser.error("--board both requires --boot-only")
-    if args.test_call and (args.boot_only or args.inventory_only):
-        parser.error("--test-call requires an INSTALL run")
-    for key in ("library", "output", "mame", "controller", "reference", "python", "profile"):
+    if args.test_call and args.test_mag_call:
+        parser.error("Select either --test-call or --test-mag-call")
+    if (args.test_call or args.test_mag_call) and (args.boot_only or args.inventory_only):
+        parser.error("Local call testing requires an INSTALL run")
+    for key in ("library", "output", "mame", "controller", "reference", "python", "profile", "mag_card", "smart_card"):
         setattr(args, key, getattr(args, key).resolve())
+    if not args.inventory_only and (not args.mag_card.is_file() or not args.smart_card.is_file()):
+        parser.error("Selected card fixture file does not exist")
     inventory_path = args.library / "inventory.json"
     if not inventory_path.is_file():
         inventory_path = Path(__file__).with_name("inventory.json")
@@ -579,7 +591,8 @@ def main():
              "controller_sha256": None if args.inventory_only else sha256(args.controller),
              "board_profile_sha256": None if args.inventory_only else sha256(args.profile),
              "settings_sha256": settings_hash,
-             "panel_driver_sha256": sha256(args.driver), "local_call_test": args.test_call,
+             "panel_driver_sha256": sha256(args.driver), "local_call_test": args.test_call or args.test_mag_call,
+             "magstripe_call_test": args.test_mag_call,
              "read_watch_sha256": sha256(args.read_watch) if args.read_watch else None,
              "selected": selected, "results": []}
     print(f"Results: {out}", flush=True)

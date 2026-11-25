@@ -1,0 +1,8 @@
+{
+  "type": "smartcard",
+  "protocol": "sync",
+  "atr_hex": "00",
+  "memory_hex": "A55A0102030405060708090A0B0C0D0E",
+  "atr_delay_us": 4000,
+  "requires_authorization": false
+}

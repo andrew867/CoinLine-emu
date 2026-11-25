@@ -12,7 +12,10 @@ V1.3 and both V1.1 split-flash images, both Desk hardware revisions, earlier
 Multi-Pay and Card-only cases, all three staged Coin Basic images, and the
 local FreeTel demo. The Coin Basic cases also passed the detached portable
 display preparation, attached-display INSTALL and restart, and detached-display
-local call and hangup sequence. The V1.1 and V1.3 chip-card tests remain failed.
+local call and hangup sequence. The original V1.1 and V1.3 chip-card tests
+failed. A subsequent pin-level synchronous card model passed NLA1X05's
+complete cold INSTALL and in-service restart. The other card tests still
+require independent reruns on this new model.
 MTR 2.0 `NCA1X03` remains blocked during required table updates. The other
 102 catalogue IDs have missing dumps or unresolved program
 layout.
@@ -31,6 +34,10 @@ local candidate, 24 of 25 runnable IDs have verified cold INSTALL and
 in-service restart, with the chip-card limitation noted. Graphical menus
 and ADSI service operation remain independent qualification gates.
 [Graphical hardware evidence](../status/graphic-vfd-hardware-2026-11-25.md)
+
+The updated synchronous reader also passed NLA1X08's standalone Craft
+contact test twice. It did not establish a funded payment application.
+[Card contact evidence](../status/smartcard-contact-2026-11-25.md)
 
 ## Local firmware library
 
@@ -434,7 +441,7 @@ The numeric type is the wiki's terminal-type code. A dash indicates a field abse
 | `NKA1X02` | 2.11 | 51 | Multipay Multicard Downloadable | 2.11 | MP/MC, English / Spanish, Working | Staged (4) | Cold INSTALL + restart, chip-card failure |
 | `NKA1X03` | 2.11 | 51 | Multipay Multicard Downloadable | - | - | No dump located | Input missing |
 | `NKD1X04` | 2.11 | 56 | Coin Only Display | - | - | No dump located | Input missing |
-| `NLA1X05` | 2.12 | - | Multipay Multicard | 2.12 | Unconfirmed | Staged (2) | Cold INSTALL + restart, chip-card failure |
+| `NLA1X05` | 2.12 | - | Multipay Multicard | 2.12 | Unconfirmed | Staged (2) | Cold INSTALL + restart, chip-card contact passed |
 | `NLA1X06` | 2.12 | - | Multipay Multicard Demo | - | - | Private listing | Input missing |
 | `NOA1X04` | 2.12 | - | Multipay Multicard Dialpad-TTY | - | - | Staged (4) | Cold INSTALL + restart, chip-card failure |
 | `NQA1X01` | 2.12 | - | MP/MC | 2.20 | MP/MC, English / Spanish, Working | Staged (4) | Cold INSTALL + restart, chip-card failure |

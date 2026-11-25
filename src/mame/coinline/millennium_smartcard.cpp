@@ -15,10 +15,12 @@ millennium_smartcard_device::millennium_smartcard_device(machine_config const &m
 
 void millennium_smartcard_device::device_start()
 {
+	char const *trace = osd_getenv("COINLINE_SMART_CARD_TRACE");
+	m_pin_trace = trace && *trace == '1';
 	std::string err;
 	char const *p = osd_getenv("COINLINE_SMART_CARD");
 	std::string const rel =
-		(p && *p) ? std::string(p) : std::string("fixtures/cards/smartcard-valid.json");
+		(p && *p) ? std::string(p) : std::string("fixtures/cards/smartcard-sync-test.json");
 	std::vector<std::uint8_t> raw;
 	std::string path = rel;
 	if (!millennium_read_file(path, raw, err)) {
@@ -36,6 +38,10 @@ void millennium_smartcard_device::device_start()
 		std::string const txt(reinterpret_cast<char const *>(raw.data()), raw.size());
 		if (!m_model.parse_fixture_json(txt, err))
 			osd_printf_warning("millennium_smartcard: fixture parse failed: %s\n", err.c_str());
+		else {
+			m_fixture_path = path;
+			m_fixture_bytes = std::move(raw);
+		}
 	}
 }
 
@@ -50,8 +56,18 @@ bool millennium_smartcard_device::reload_fixture_from_path(std::string const &pa
 	std::vector<std::uint8_t> raw;
 	if (!millennium_read_file(path, raw, error_out))
 		return false;
+	// Reinserting the same virtual card must not replenish its test memory.
+	// Loading a different fixture creates a distinct, explicitly selected card.
+	if (path == m_fixture_path && raw == m_fixture_bytes)
+		return true;
 	std::string const txt(reinterpret_cast<char const *>(raw.data()), raw.size());
-	return m_model.parse_fixture_json(txt, error_out);
+	millennium_smartcard_model candidate;
+	if (!candidate.parse_fixture_json(txt, error_out))
+		return false;
+	m_model = std::move(candidate);
+	m_fixture_path = path;
+	m_fixture_bytes = std::move(raw);
+	return true;
 }
 
 void millennium_smartcard_device::insert_card(u64 cycle, u64 cpu_hz)
@@ -82,4 +98,33 @@ std::uint8_t millennium_smartcard_device::status_lines() const
 void millennium_smartcard_device::notify_reset(u64 cycle)
 {
 	m_model.notify_reset(cycle);
+}
+
+void millennium_smartcard_device::later_pins(u8 d, u8 e, u8 f, u64 cycle)
+{
+	m_model.update_later_pins(d, e, f, cycle);
+	if (m_pin_trace && (m_model.status_lines() & 1U))
+		osd_printf_info("smart-card pins %llu D=%02X E=%02X F=%02X power=%u bit=%zu\n",
+			static_cast<unsigned long long>(cycle), unsigned(d), unsigned(e), unsigned(f),
+			unsigned(m_model.sync_powered()), m_model.sync_bit_address());
+}
+
+void millennium_smartcard_device::earlier_pins(u8 a, u8 c, u64 cycle)
+{
+	m_model.update_earlier_pins(a, c, cycle);
+	if (m_pin_trace && (m_model.status_lines() & 1U))
+		osd_printf_info("smart-card pins %llu A=%02X C=%02X power=%u bit=%zu\n",
+			static_cast<unsigned long long>(cycle), unsigned(a), unsigned(c),
+			unsigned(m_model.sync_powered()), m_model.sync_bit_address());
+}
+
+u8 millennium_smartcard_device::merge_data_pin(u8 value, u8 mask, u64 cycle) const
+{
+	if (!m_model.sync_data_selected())
+		return value;
+	bool const high = m_model.sync_data_high();
+	if (m_pin_trace && (m_model.status_lines() & 1U))
+		osd_printf_info("smart-card read %llu bit=%zu value=%u\n",
+			static_cast<unsigned long long>(cycle), m_model.sync_bit_address(), unsigned(high));
+	return u8((value & ~mask) | (high ? mask : 0U));
 }

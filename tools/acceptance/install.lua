@@ -32,6 +32,7 @@ local serial = assert(os.getenv("COINLINE_ACCEPTANCE_SERIAL"))
 local pin = assert(os.getenv("COINLINE_ACCEPTANCE_PIN"))
 local keypad_test = assert(os.getenv("COINLINE_ACCEPTANCE_KEYS"))
 local dial = os.getenv("COINLINE_ACCEPTANCE_DIAL") or ""
+local mag_call = os.getenv("COINLINE_ACCEPTANCE_MAG_CALL") == "1"
 local co_log = assert(os.getenv("COINLINE_ACCEPTANCE_CO_LOG"))
 local frame, delay, since, entered, coin_index = 0, 0, 0, 0, 1
 local prompt = ""
@@ -188,6 +189,8 @@ emu.register_frame_done(function()
     end
     local download_limit = later_board and 36000 or 10800
     local limit = phase == "downloading" and download_limit or phase == "warm settle" and 3600
+        or phase == "warm boot" and mag_call and 18000
+        or phase == "call answer" and mag_call and 10800
         or phase == "warm boot" and later_board and 7200
         or phase == "peripherals" and coin_index > 1 and 4800 or 2400
     if frame - entered > limit then return finish("timeout", "waiting for next terminal prompt") end
@@ -247,8 +250,20 @@ emu.register_frame_done(function()
         delay = frame + 150
         change("dial")
     elseif phase == "dial" and (has("dial") or has("insert card")) then
-        press(dial, "dial local destination")
+        if mag_call then
+            pulse(card)
+            log("input", "present synthetic magnetic card for local call")
+            change("call card")
+        else
+            press(dial, "dial local destination")
+            change("call answer")
+        end
+    elseif phase == "call card" and has("thank you") and has("dial") then
+        log("observed", "magnetic card accepted by terminal")
+        press(dial, "dial configured local card-test destination")
         change("call answer")
+    elseif phase == "call card" and (has("not an accepted card") or has("card rejected") or has("cannot read card")) then
+        return finish("failed", "firmware rejected synthetic magnetic card")
     elseif phase == "dial" and idle and frame - entered >= 600 and not dial_retry then
         dial_retry = true
         set_hook(false)
@@ -256,10 +271,28 @@ emu.register_frame_done(function()
         change("dial retry")
     elseif phase == "call answer" and co_log_contains("answered outbound") then
         log("observed", "local CO answered")
+        if mag_call then
+            delay = frame + 600
+            change("card call connected")
+        else
+            set_hook(false)
+            change("call hangup")
+        end
+    elseif phase == "call answer" and mag_call and (has("no access") or has("not authorized") or has("card rejected")) then
+        return finish("failed", "firmware declined the configured synthetic call")
+    elseif phase == "card call connected" then
         set_hook(false)
         change("call hangup")
     elseif phase == "call hangup" and idle then
-        return finish("passed", "returned to service after call")
+        if mag_call then
+            log("observed", "returned to service after magnetic-card call")
+            delay = frame + 1800
+            change("card maintenance wait")
+        else
+            return finish("passed", "returned to service after call")
+        end
+    elseif phase == "card maintenance wait" and idle then
+        return finish("passed", "local card call returned to service; host transaction evidence separate")
     elseif phase == "boot" and frame >= cold_ready_frame and has("use # to install") then
         if not co_log_contains("jack H0") then return end
         log("observed", "cold boot display")

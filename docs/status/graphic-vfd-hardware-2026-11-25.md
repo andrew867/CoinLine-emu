@@ -19,6 +19,6 @@ The standard character display and its artwork view remain available.
 
 ## Remaining gates
 
-- The later-board smart-card self-test still fails. The startup telephony alarm recovered during normal maintenance in this run; its cause is not qualified. Graphical menu navigation and ADSI service interoperability require their own evidence.
+- The original cold-run smart-card self-test failed. A subsequent pin-level model passed Craft item 728 twice on the installed NLA1X08, and passed a complete standard NLA1X05 INSTALL and restart. See [card contact qualification](smartcard-contact-2026-11-25.md). A fresh NLA1X08 INSTALL and funded-card transactions still require separate evidence. The startup telephony alarm recovered during normal maintenance in this run; its cause is not qualified. Graphical menu navigation and ADSI service interoperability require their own evidence.
 - The new artwork input regions use the existing MAME input mechanism. The twelve raw inputs have been exercised through the scanner; actual pointer clicks and resize behavior still require interactive qualification.
 - Display-ready timing, brightness transfer function and exact optical geometry still require physical calibration. The independent expansion DSP, FSK and call-alert functions are outside this display model and require their own qualification.
