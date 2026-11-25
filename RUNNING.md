@@ -23,6 +23,19 @@ firmware inventory, then checks for a recognized program tag when the registry
 entry has no firmware ID. The firmware hash registry supplies the legacy I/O
 map when no preset is identified. Use `--hardware` to override selection.
 
+The optional large graphical display is selected separately from the control
+board revision with `--display 11line`, or `display = 11line` under
+`[hardware]` in the launcher configuration. The default is `auto`, which
+uses the verified firmware registry and otherwise selects `2line`.
+Use a compatible later-board program image and its matching hardware preset.
+The launcher selects the graphical artwork and isolates its persistent terminal
+state. The registered NLA1X08 image automatically selects its graphical profile.
+This MTR 2.12-based graphical/ADSI terminal (type 40, DLA 1.3) completed
+cold INSTALL, a separate in-service restart, and rendered downloaded
+bitmap advertisements. Its chip-card
+self-test failed; graphical menus and ADSI service interoperability remain
+separate acceptance gates.
+
 | Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
 | --- | --- | --- | --- |
 | `multipay-v1` | NBA1F02, NPA1S01, NPA1F01 | Earlier | 0 |

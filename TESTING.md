@@ -20,6 +20,53 @@ The OEM CO check should display `Completed: 00` after one hookswitch transition 
 
 ## Test taxonomy
 
+The graphical display has a native, synthetic Z180 bus test that requires no
+graphical application firmware. Run it with the built emulator and local ROM
+inputs used by the existing bench:
+
+```sh
+python tools/acceptance/graphic_vfd_probe.py --mame <path-to-mamecoinline> --artwork
+```
+
+The probe packs a synthetic raster with the bitmap converter, writes it through
+the CPU's 16-bit I/O instructions, scans all twelve physical key positions and
+compares the four saved pages between headless and artwork runs. It saves the
+bus JSONL, page JSON and screenshots. This tests the hardware path, not an
+OEM graphical application or an ADSI service.
+
+For real graphical firmware, start a separate local session using an authorized
+mapped image and a provisioned lab terminal:
+
+```sh
+python tools/acceptance/graphic_session.py --mame <path-to-mamecoinline> \
+  --firmware <mapped-flash.bin> --settings <local-settings.json> --open --trace
+```
+
+The session writes `live.png`, optional graphical bus traces and a
+`commands.txt` file. Append one command per line to actuate physical inputs,
+for example `keyseq #`, `hook off`, `wait 180`, `snapshot co-check`,
+`line`, `serial`, `ncc`, `soft 1`, `mag`, `smart`,
+`coin nickel`, and `cabinet close`. The local settings supply the
+configured lab identifiers. `exit` saves terminal memory normally.
+Use `--battery <prior-run/nvram>` for an independent restart with a copy
+of the firmware-written state. The session does not alter terminal RAM
+or configuration flags.
+
+To verify downloaded bitmap advertising, capture named native snapshots
+while the installed terminal is on-hook. With Pillow installed in the Python
+environment, compare those captures to the local MT131, MT132 and MT133
+record files:
+
+```sh
+python tools/acceptance/verify_graphical_snapshots.py --tables <local-table-directory> \
+  --output <run>/graphic-match.json <run>/ad-*.png
+```
+
+The report identifies exact 112 by 72 pixel matches within the native 126
+by 88 display grid, including the record, slot, payload digest and placement.
+An acknowledgement is not a display match, and a bitmap match is not
+evidence of menu navigation or ADSI service operation.
+
 | Tier | Scope | Speed | Run on every push? |
 | ---- | ----- | ----- | ------------------ |
 | Unit | Single device, in isolation, no firmware | Sub-second | Yes |

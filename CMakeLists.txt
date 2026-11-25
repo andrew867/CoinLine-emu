@@ -37,6 +37,7 @@ add_library(coinline_support STATIC
 	src/mame/coinline/millennium_supervision_fsm.cpp
 	src/mame/coinline/millennium_vfd_profile_model.cpp
 	src/mame/coinline/millennium_vfd_model.cpp
+	src/mame/coinline/millennium_graphic_vfd.cpp
 	src/mame/coinline/millennium_am8048_core.cpp
 	src/mame/coinline/millennium_pcd3349a_contract.cpp
 	src/mame/coinline/millennium_audio_model.cpp
@@ -54,6 +55,8 @@ function(coinline_add_test exe_name label)
 	add_test(NAME ${exe_name} COMMAND ${exe_name})
 	set_tests_properties(${exe_name} PROPERTIES LABELS "${label}")
 endfunction()
+
+coinline_add_test(test_graphic_vfd vfd tests/devices/test_graphic_vfd.cpp)
 
 coinline_add_test(test_firmware_load boot tests/boot/test_firmware_load.cpp)
 set_tests_properties(test_firmware_load PROPERTIES SKIP_RETURN_CODE 77)

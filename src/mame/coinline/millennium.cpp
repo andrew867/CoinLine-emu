@@ -39,7 +39,8 @@ INPUT_PORTS_START(millennium)
 	// DTMF A (TP→CP 0x20); row0/col3 on TP-fed KEYMATRIX — not visible on CP 8255 reads.
 	PORT_BIT(0x40000000, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Dial pad A (DTMF)") PORT_CODE(KEYCODE_PLUS_PAD)
 
-	// 11-line VFD soft keys / direction keys (TP→CP 0x90…0x9B). Separate port so KEYMATRIX stays within 32 bits.
+	// Large-display physical switch positions, logical IDs 0x90 through 0x9B.
+	// The native expansion board scans these directly.
 	PORT_START("TERMINAL21_SOFTKEYS")
 	PORT_BIT(0x001, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("SK top left") PORT_CODE(KEYCODE_HOME)
 	PORT_BIT(0x002, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("SK mid left") PORT_CODE(KEYCODE_END)

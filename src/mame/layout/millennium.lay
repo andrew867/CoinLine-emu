@@ -160,6 +160,39 @@ copyright-holders:CoinLine contributors
 			<color red="1.00" green="0.78" blue="0.46" />
 		</text>
 	</element>
+	<element name="graphic_bezel">
+		<rect><color red="0.11" green="0.14" blue="0.15" /></rect>
+		<rect><bounds x="0.012" y="0.018" width="0.976" height="0.964" /><color red="0.018" green="0.035" blue="0.037" /></rect>
+	</element>
+	<element name="graphic_key" defstate="0">
+		<rect><color red="0.29" green="0.34" blue="0.34" /></rect>
+		<rect state="0"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.12" green="0.16" blue="0.17" /></rect>
+		<rect state="1"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.28" green="0.48" blue="0.44" /></rect>
+	</element>
+	<element name="graphic_left" defstate="0">
+		<rect><color red="0.29" green="0.34" blue="0.34" /></rect>
+		<rect state="0"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.12" green="0.16" blue="0.17" /></rect>
+		<rect state="1"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.28" green="0.48" blue="0.44" /></rect>
+		<text string="&lt;"><bounds x="0.13" y="0.14" width="0.74" height="0.72" /><color red="0.79" green="0.86" blue="0.85" /></text>
+	</element>
+	<element name="graphic_up" defstate="0">
+		<rect><color red="0.29" green="0.34" blue="0.34" /></rect>
+		<rect state="0"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.12" green="0.16" blue="0.17" /></rect>
+		<rect state="1"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.28" green="0.48" blue="0.44" /></rect>
+		<text string="^"><bounds x="0.13" y="0.14" width="0.74" height="0.72" /><color red="0.79" green="0.86" blue="0.85" /></text>
+	</element>
+	<element name="graphic_down" defstate="0">
+		<rect><color red="0.29" green="0.34" blue="0.34" /></rect>
+		<rect state="0"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.12" green="0.16" blue="0.17" /></rect>
+		<rect state="1"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.28" green="0.48" blue="0.44" /></rect>
+		<text string="v"><bounds x="0.13" y="0.14" width="0.74" height="0.72" /><color red="0.79" green="0.86" blue="0.85" /></text>
+	</element>
+	<element name="graphic_right" defstate="0">
+		<rect><color red="0.29" green="0.34" blue="0.34" /></rect>
+		<rect state="0"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.12" green="0.16" blue="0.17" /></rect>
+		<rect state="1"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.28" green="0.48" blue="0.44" /></rect>
+		<text string="&gt;"><bounds x="0.13" y="0.14" width="0.74" height="0.72" /><color red="0.79" green="0.86" blue="0.85" /></text>
+	</element>
 	<view name="Standard">
 		<element ref="front">
 			<bounds left="0" top="0" right="643" bottom="1515" />
@@ -250,6 +283,146 @@ copyright-holders:CoinLine contributors
 		<!-- Service toggles -->
 		<element ref="hit_misc" inputtag="SECMASK" inputmask="0x01">
 			<bounds left="337" top="299" right="379" bottom="341" />
+		</element>
+
+		<!-- Card reader: insert, read, and remove the magstripe test card -->
+		<element ref="hit_misc" inputtag="CARDUI" inputmask="0x01">
+			<bounds left="317" top="945" right="451" bottom="1065" />
+		</element>
+
+		<!-- Coin slot -->
+		<element ref="hit_coin" inputtag="COINUI" inputmask="0x01">
+			<bounds left="272" top="22" right="348" bottom="121" />
+		</element>
+
+		<element ref="indicator_panel">
+			<bounds left="162" top="1232" right="442" bottom="1366" />
+		</element>
+		<element ref="indicator_housing" name="panel_housing_open" inputtag="SECMASK" inputmask="0x02">
+			<bounds left="173" top="1243" right="431" bottom="1280" />
+		</element>
+		<element ref="indicator_lock" name="panel_lock_open" inputtag="SECMASK" inputmask="0x01">
+			<bounds left="173" top="1280" right="431" bottom="1317" />
+		</element>
+		<element ref="indicator_vault" name="panel_vault_open" inputtag="SECMASK" inputmask="0x04">
+			<bounds left="173" top="1317" right="431" bottom="1354" />
+		</element>
+	</view>
+	<view name="Graphical">
+		<element ref="front">
+			<bounds left="0" top="0" right="643" bottom="1515" />
+		</element>
+		<element ref="graphic_bezel">
+			<bounds left="126" top="151" right="591" bottom="462" />
+		</element>
+		<screen index="0">
+			<bounds left="177" top="158" right="537" bottom="409" />
+		</screen>
+		<element ref="graphic_key" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x001">
+			<bounds left="143" top="294" right="171" bottom="318" />
+		</element>
+		<element ref="graphic_key" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x002">
+			<bounds left="143" top="340" right="171" bottom="364" />
+		</element>
+		<element ref="graphic_key" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x004">
+			<bounds left="143" top="386" right="171" bottom="410" />
+		</element>
+		<element ref="graphic_key" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x008">
+			<bounds left="543" top="294" right="571" bottom="318" />
+		</element>
+		<element ref="graphic_key" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x010">
+			<bounds left="543" top="340" right="571" bottom="364" />
+		</element>
+		<element ref="graphic_key" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x020">
+			<bounds left="543" top="386" right="571" bottom="410" />
+		</element>
+		<element ref="graphic_left" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x100">
+			<bounds left="279" top="420" right="310" bottom="447" />
+		</element>
+		<element ref="graphic_up" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x040">
+			<bounds left="316" top="420" right="347" bottom="447" />
+		</element>
+		<element ref="graphic_down" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x080">
+			<bounds left="353" top="420" right="384" bottom="447" />
+		</element>
+		<element ref="graphic_right" inputtag="TERMINAL21_SOFTKEYS" inputmask="0x200">
+			<bounds left="390" top="420" right="421" bottom="447" />
+		</element>
+		<!-- Numeric keypad -->
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000001">
+			<bounds left="387" top="528" right="429" bottom="570" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000002">
+			<bounds left="446" top="527" right="489" bottom="569" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000004">
+			<bounds left="504" top="526" right="547" bottom="571" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000008">
+			<bounds left="383" top="584" right="430" bottom="633" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000010">
+			<bounds left="445" top="585" right="488" bottom="630" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000020">
+			<bounds left="505" top="586" right="547" bottom="632" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000040">
+			<bounds left="387" top="643" right="431" bottom="687" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000080">
+			<bounds left="445" top="644" right="492" bottom="689" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000100">
+			<bounds left="504" top="642" right="549" bottom="692" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000200">
+			<bounds left="386" top="703" right="433" bottom="749" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000400">
+			<bounds left="446" top="705" right="493" bottom="749" />
+		</element>
+		<element ref="hit_num" inputtag="KEYMATRIX" inputmask="0x00000800">
+			<bounds left="504" top="702" right="550" bottom="750" />
+		</element>
+
+		<!-- Top row: down/up/language/new-call -->
+		<element ref="hit_down" inputtag="KEYMATRIX" inputmask="0x00020000">
+			<bounds left="325" top="466" right="354" bottom="491" />
+		</element>
+		<element ref="hit_up" inputtag="KEYMATRIX" inputmask="0x00010000">
+			<bounds left="387" top="470" right="406" bottom="486" />
+		</element>
+		<element ref="hit_lang" inputtag="KEYMATRIX" inputmask="0x00040000">
+			<bounds left="433" top="466" right="499" bottom="492" />
+		</element>
+		<element ref="hit_newcall" inputtag="KEYMATRIX" inputmask="0x00001000">
+			<bounds left="515" top="465" right="581" bottom="491" />
+		</element>
+
+		<!-- Quick access row -->
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00100000">
+			<bounds left="330" top="899" right="372" bottom="920" />
+		</element>
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00200000">
+			<bounds left="392" top="897" right="436" bottom="919" />
+		</element>
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00400000">
+			<bounds left="452" top="898" right="494" bottom="918" />
+		</element>
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x00800000">
+			<bounds left="513" top="897" right="553" bottom="918" />
+		</element>
+		<element ref="hit_quick" inputtag="KEYMATRIX" inputmask="0x01000000">
+			<bounds left="573" top="896" right="614" bottom="919" />
+		</element>
+
+		<!-- The receiver photo and the handset button operate the same switch. -->
+		<element ref="hit_misc" inputtag="KEYMATRIX" inputmask="0x00080000">
+			<bounds left="100" top="590" right="293" bottom="1220" />
+		</element>
+		<element ref="handset_button" inputtag="KEYMATRIX" inputmask="0x00080000">
+			<bounds left="162" top="1376" right="442" bottom="1434" />
 		</element>
 
 		<!-- Card reader: insert, read, and remove the magstripe test card -->

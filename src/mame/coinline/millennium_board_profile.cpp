@@ -136,6 +136,15 @@ bool millennium_board_parse_display_profile(std::string const &board_json, mille
 		out.busy_cycles_clear = int(bcl);
 	if (parse_uint_after(dsec, "\"busy_cycles_cursor\"", bcu) && bcu > 0)
 		out.busy_cycles_cursor = int(bcu);
+	parse_uint_after(dsec, "\"graphic_write_cycles\"", out.graphic_write_cycles);
+	parse_uint_after(dsec, "\"graphic_clear_cycles\"", out.graphic_clear_cycles);
+	unsigned lamp_polarity = 1;
+	if (parse_uint_after(dsec, "\"graphic_lamp_active_high\"", lamp_polarity))
+		out.graphic_lamp_active_high = lamp_polarity != 0;
+	unsigned brightness_levels = 0;
+	if (parse_uint_after(dsec, "\"graphic_brightness_levels\"", brightness_levels)
+		&& brightness_levels > 0 && brightness_levels <= 256)
+		out.graphic_brightness_levels = brightness_levels;
 
 	auto const idlek = dsec.find("\"idle_fixture\"");
 	if (idlek != std::string::npos) {

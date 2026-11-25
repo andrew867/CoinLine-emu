@@ -17,6 +17,21 @@ MTR 2.0 `NCA1X03` remains blocked during required table updates. The other
 102 catalogue IDs have missing dumps or unresolved program
 layout.
 
+The archive counts above exclude the additional locally supplied NLA1X08
+MTR 2.12-based graphical/ADSI Multi-Pay candidate (terminal type 40,
+internal DLA version 1.3). Its mapped 1 MiB program SHA-256 is
+`112800558509bab98f939ea9a52f1710bd3d77085617d55612d21a1eabfc4874`.
+The native 11-line profile with later-board DMA1 wiring completed cold
+INSTALL, including all 18 NCC records, keypad, magnetic-card and escrow
+checks. The chip-card check failed. All 16 downloaded MT131/132 bitmap
+screens were confirmed as exact 112 by 72 pixel matches in the native VFD.
+It also returned to service on an independent warm launch after a transient
+telephony alarm and normal NCC maintenance. Including this additional
+local candidate, 24 of 25 runnable IDs have verified cold INSTALL and
+in-service restart, with the chip-card limitation noted. Graphical menus
+and ADSI service operation remain independent qualification gates.
+[Graphical hardware evidence](../status/graphic-vfd-hardware-2026-11-25.md)
+
 ## Local firmware library
 
 The library is under `build/firmware-acceptance/`. Look in `images/<firmware ID>/` for the unchanged bytes and in `inventory.json` for roles, sizes, SHA-256 hashes, Git blob IDs, and pinned per-file links. `SHA256SUMS` verifies all 85 staged files from the library root with `sha256sum --check SHA256SUMS`. The same local directory holds the raw wiki snapshot and Git objects used for the import. The workspace ignores the library and the release builder uses its own input paths. [Pinned primary dump archive](https://github.com/muccc/millennium/tree/a70a19ec891c65e4d70e2ce5c833ce9b517889bf/firmware) · [Pinned supplementary dump archive](https://github.com/armeniki/Nortel-Millennium/tree/2abc8f42910b05e42a2870947c47d8f58a8df915/Firmware)
