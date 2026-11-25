@@ -346,7 +346,9 @@ void millennium_smartcard_model::update_later_pins(std::uint8_t d, std::uint8_t 
 	else if (power_clock && !m_later_power_clock && m_card_present)
 		m_later_power_latch = true;
 	m_later_power_clock = power_clock;
-	drive_sync_pins(request && !(e & 0x01U) && (d & 0x03U) == 0x03U, m_later_power_latch,
+	// The manual synchronous clock/data contacts do not use the asynchronous
+	// socket address. Both address values 0 and 3 occur in real contact tests.
+	drive_sync_pins(request && !(e & 0x01U), m_later_power_latch,
 		(e & 0x04U) != 0U, (d & 0x08U) != 0U, (d & 0x04U) != 0U, cycle);
 }
 

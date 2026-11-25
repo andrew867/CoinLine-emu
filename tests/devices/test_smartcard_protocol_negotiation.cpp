@@ -59,7 +59,7 @@ int main()
 		if (!m.parse_fixture_json("{\"protocol\":\"sync\",\"atr_hex\":\"00\",\"memory_hex\":\"A55A\"}", err))
 			return 20;
 		m.insert_card_at(0, 12288000);
-		m.update_later_pins(0x04, 0x08, 0x00); // another socket selected
+		m.update_later_pins(0x04, 0x09, 0x00); // automatic clock, not the manual contact path
 		if (m.sync_data_selected()) return 28;
 		// Later-board supply request alone does not power the contact.
 		m.update_later_pins(0x07, 0x08, 0x00);
@@ -84,6 +84,23 @@ int main()
 		m.remove_card();
 		m.update_later_pins(0x07, 0x08, 0x00);
 		if (m.sync_powered() || !m.sync_data_high()) return 25;
+		m.insert_card_at(0, 12288000);
+		// The asynchronous address may be zero during a manual contact test.
+		m.update_later_pins(0x04, 0x08, 0x00);
+		m.update_later_pins(0x04, 0x08, 0x02);
+		m.update_later_pins(0x04, 0x08, 0x00);
+		m.update_later_pins(0x04, 0x0c, 0x00);
+		m.update_later_pins(0x0c, 0x0c, 0x00);
+		m.update_later_pins(0x04, 0x0c, 0x00);
+		m.update_later_pins(0x04, 0x08, 0x00);
+		value = 0;
+		for (unsigned i = 0; i < 8; ++i) {
+			value = (value << 1) | unsigned(m.sync_data_high());
+			m.update_later_pins(0x0c, 0x08, 0x00);
+			m.update_later_pins(0x04, 0x08, 0x00);
+		}
+		if (value != 0xa5U) return 29;
+		m.remove_card();
 		m.insert_card_at(0, 12288000);
 		// Earlier-board contact uses direct supply and port C clock/reset.
 		m.update_earlier_pins(0x40, 0x00);

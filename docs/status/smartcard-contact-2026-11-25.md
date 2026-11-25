@@ -45,3 +45,21 @@
 - Do not infer a card payment from a successful Craft contact test or table
   acknowledgement. Test fixtures and payments must be confined to the lab;
   no real issuer credentials or production transactions are included.
+
+## Follow-up qualification
+
+- A subsequent isolated INSTALL received all twelve revised lab records but
+  exposed an overly restrictive contact-address gate: the same later board
+  may read the contact with either selector value. Removed that restriction;
+  the native probe now covers both selectors and contact removal/reinsertion.
+  Run: `build/firmware-acceptance/smartcard-pin-probe/20261125T064942.166739Z/`.
+- The warm restart needed more than the original 120-second acceptance
+  budget while alarm maintenance completed. Increased the optional swipe
+  test's warm limit to 300 emulated seconds. A longer interactive warm run
+  returned to service, accepted the synthetic stripe, and reached card
+  validation, the host quote and an approved synthetic authorization. It
+  outpulsed the reserved test destination after authorization, but the CO
+  did not answer because it retained manager-call supervision when the
+  modem relay released with the handset still off-hook. No settlement was
+  demonstrated in this run.
+  Run: `build/firmware-acceptance/graphic-firmware/20261125T064954.854171Z/`.

@@ -21,12 +21,14 @@ local function d(v) io:write_u8(0xc1, v) end
 local function e(v) io:write_u8(0xc2, v) end
 local function f(v) io:write_u8(0xc3, v) end
 local function bit() return (io:read_u8(0xc0) & 2) ~= 0 end
-local function select_card()
-    d(7); e(0); f(0); e(8); f(2); f(0)
-    e(12); d(15); d(7); e(8)
+local base = 7
+local function select_card(address)
+    base = 4 | (address or 3)
+    d(base); e(0); f(0); e(8); f(2); f(0)
+    e(12); d(base | 8); d(base); e(8)
 end
-local function advance() d(15); d(7) end
-local function program() e(12); e(8); d(15) end
+local function advance() d(base | 8); d(base) end
+local function program() e(12); e(8); d(base | 8) end
 emu.register_frame_done(function()
     frame = frame + 1
     if frame == 5 then card:set_value(1) end
@@ -37,12 +39,12 @@ emu.register_frame_done(function()
         assert(bit(), "initial contact bit missing")
         advance()
         assert(bit(), "initial writable bit missing")
-        program(); d(7) -- too short
+        program(); d(base) -- too short
         assert(bit(), "short pulse changed memory")
         program() -- hold through the next frame
     end
     if frame == 14 then
-        d(7)
+        d(base)
         assert(not bit(), "timed programming did not clear the bit")
         select_card()
         assert(bit(), "read-only neighbour modified")
@@ -59,7 +61,7 @@ emu.register_frame_done(function()
     if frame == 38 then card:clear_value() end
     if frame == 45 then
         assert(io:read_u8(0x40) & 6 == 6, "card not reinserted")
-        select_card(); assert(bit(), "read-only neighbour lost")
+        select_card(0); assert(bit(), "read-only neighbour lost")
         advance(); assert(not bit(), "reinsertion restored programmed bit")
         print("SMARTCARD_PIN_PROBE passed")
         e(0); machine:exit()

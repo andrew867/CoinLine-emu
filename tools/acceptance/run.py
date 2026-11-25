@@ -238,7 +238,7 @@ def run_phase(args, settings, attempt, name, base_env):
                    COINLINE_TP_CSIO_RAW_TRACE=str(run / "acceptance-trace-csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(run / "acceptance-trace-csio.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(run / "acceptance-trace-telephony.jsonl"))
-    if args.voice_trace or (args.test_call and name == "warm"):
+    if args.voice_trace or ((args.test_call or args.test_mag_call) and name == "warm"):
         env["COINLINE_VOICEWARE_TRACE"] = str(run / "acceptance-trace-voiceware.jsonl")
     if args.card_trace:
         env["COINLINE_SMART_CARD_TRACE"] = "1"
@@ -361,7 +361,8 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
                COINLINE_ACCEPTANCE_LINE=settings["line"], COINLINE_ACCEPTANCE_SERIAL=settings["serial"],
                COINLINE_ACCEPTANCE_PIN=settings["pin"],
                COINLINE_ACCEPTANCE_KEYS="+-LN1234567890*#" + "abcdefghij"[:len(profile["keypad"]["quick_access_keys"])],
-               COINLINE_ACCEPTANCE_DIAL=settings["free_call"] if args.test_call else "")
+               COINLINE_ACCEPTANCE_DIAL=settings["free_call"] if (args.test_call or args.test_mag_call) else "",
+               COINLINE_ACCEPTANCE_MAG_CALL="1" if args.test_mag_call else "0")
     if settings.get("code_server_number"):
         env.update(COINLINE_CODE_SERVER_NUMBER=settings["code_server_number"],
                    COINLINE_CODE_SERVER_PORT=str(settings["code_server_port"]))
@@ -453,7 +454,7 @@ def validate_settings(args, selected):
                  *(args.reference / "roms/cl_millennium" / name for name in ("voice_u16.bin", "voice_u26.bin"))):
         if not path.is_file():
             raise ValueError(f"Missing run input: {path}")
-    terminals = {code: validate_terminal({**settings, **overrides.get(code, {})}, args.test_call) for code in selected}
+    terminals = {code: validate_terminal({**settings, **overrides.get(code, {})}, args.test_call or args.test_mag_call) for code in selected}
     return terminals, hashlib.sha256(contents).hexdigest()
 
 
@@ -540,6 +541,7 @@ def main():
     parser.add_argument("--inventory-only", action="store_true", help="verify hashes and report candidate plans without launching MAME")
     parser.add_argument("--boot-only", action="store_true", help="stop at the first stable startup prompt, without entering INSTALL")
     parser.add_argument("--test-call", action="store_true", help="after restart, dial the configured destination on the local CO")
+    parser.add_argument("--test-mag-call", action="store_true", help="after restart, present a synthetic magstripe and dial the configured local-only test destination")
     args = parser.parse_args()
     if args.timeout <= 0 or args.startup_timeout <= 0:
         parser.error("Timeouts must be positive")
@@ -547,8 +549,10 @@ def main():
         parser.error("Read-watch file does not exist")
     if args.board == "both" and not args.boot_only:
         parser.error("--board both requires --boot-only")
-    if args.test_call and (args.boot_only or args.inventory_only):
-        parser.error("--test-call requires an INSTALL run")
+    if args.test_call and args.test_mag_call:
+        parser.error("Select either --test-call or --test-mag-call")
+    if (args.test_call or args.test_mag_call) and (args.boot_only or args.inventory_only):
+        parser.error("Local call testing requires an INSTALL run")
     for key in ("library", "output", "mame", "controller", "reference", "python", "profile", "mag_card", "smart_card"):
         setattr(args, key, getattr(args, key).resolve())
     if not args.inventory_only and (not args.mag_card.is_file() or not args.smart_card.is_file()):
@@ -587,7 +591,8 @@ def main():
              "controller_sha256": None if args.inventory_only else sha256(args.controller),
              "board_profile_sha256": None if args.inventory_only else sha256(args.profile),
              "settings_sha256": settings_hash,
-             "panel_driver_sha256": sha256(args.driver), "local_call_test": args.test_call,
+             "panel_driver_sha256": sha256(args.driver), "local_call_test": args.test_call or args.test_mag_call,
+             "magstripe_call_test": args.test_mag_call,
              "read_watch_sha256": sha256(args.read_watch) if args.read_watch else None,
              "selected": selected, "results": []}
     print(f"Results: {out}", flush=True)
