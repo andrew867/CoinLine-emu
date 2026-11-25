@@ -421,15 +421,8 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
     return result
 
 
-def validate_terminal(settings, test_call):
-    for key, pattern in (("line", r"[0-9]{10}"), ("serial", r"[0-9]{10}"), ("pin", r"[0-9]{5}")):
-        if not isinstance(settings.get(key), str) or not re.fullmatch(pattern, settings[key]):
-            raise ValueError(f"Set {key} in the local settings JSON as digits in a string")
-    if "free_call" in settings and (not isinstance(settings["free_call"], str) or
-                                   not re.fullmatch(r"[0-9]{10,11}", settings["free_call"])):
-        raise ValueError("free_call must be a 10- or 11-digit destination served by the local CO")
-    if test_call and "free_call" not in settings:
-        raise ValueError("Set free_call for the optional local call test")
+def validate_data_routes(settings):
+    """Validate the same loopback routes in cold and interactive sessions."""
     settings.setdefault("ncc_port", 4000)
     if type(settings["ncc_port"]) is not int or not 1 <= settings["ncc_port"] <= 65535:
         raise ValueError("ncc_port must be an integer port on loopback")
@@ -439,6 +432,19 @@ def validate_terminal(settings, test_call):
         if (not isinstance(code_number, str) or not re.fullmatch(r"[0-9]{10}", code_number)
                 or code_number == "2130706433" or type(code_port) is not int or not 1 <= code_port <= 65535):
             raise ValueError("Set a distinct 10-digit code_server_number and a valid code_server_port")
+    return settings
+
+
+def validate_terminal(settings, test_call):
+    for key, pattern in (("line", r"[0-9]{10}"), ("serial", r"[0-9]{10}"), ("pin", r"[0-9]{5}")):
+        if not isinstance(settings.get(key), str) or not re.fullmatch(pattern, settings[key]):
+            raise ValueError(f"Set {key} in the local settings JSON as digits in a string")
+    if "free_call" in settings and (not isinstance(settings["free_call"], str) or
+                                   not re.fullmatch(r"[0-9]{10,11}", settings["free_call"])):
+        raise ValueError("free_call must be a 10- or 11-digit destination served by the local CO")
+    if test_call and "free_call" not in settings:
+        raise ValueError("Set free_call for the optional local call test")
+    validate_data_routes(settings)
     if "desk_key_card" in settings and not Path(settings["desk_key_card"]).is_file():
         raise ValueError("desk_key_card must point to a local synthetic magstripe fixture")
     return settings

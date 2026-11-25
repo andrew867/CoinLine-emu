@@ -26,6 +26,12 @@ and ASCI1 path transports raw code-server bytes without adding an NCC frame.
 The alias is disabled by default. The format and timing of the actual
 download protocol still need qualification with a compatible code server.
 
+The batch acceptance runner and interactive later-board `graphic_session.py`
+accept the same optional `code_server_number` and `code_server_port` in
+the local settings JSON. They validate the alias before launching and keep
+ordinary NCC routing unchanged. Use a copy of an independently installed
+lab terminal's battery and flash state, not the operator's running phone.
+
 The download application processes validated 4 KiB blocks. The application
 retains checksum tables and progress information, backs up unaffected data
 from an erase sector to SRAM, erases the selected NOR sector, and programs
@@ -113,3 +119,33 @@ The expanded native erase-and-program probe passed both phases in
 This establishes native CPU-bus erase, programming and restart persistence for
 the synthetic image. Actual code-server delivery and OEM application
 upgrade validation remain separate acceptance gates.
+
+## Read-only pre/post upgrade evidence
+
+When the emulator is closed, compare its persisted `program_flash` against
+the original mapped seed and, when available, the pre-upgrade saved state.
+The comparison checks the saved image's seed binding and 1 MiB geometry,
+records both chip hashes and all changed 4 KiB block indices, and optionally
+compares requested blocks against an independently approved target image.
+It makes no writes to firmware, flash or battery and never asserts that a
+matching flash snapshot establishes a successful reboot or service state.
+
+```sh
+python tools/acceptance/firmware_upgrade_evidence.py \
+  --seed <original-mapped-image> --before <pre-run-program_flash> \
+  --after <completed-run-program_flash> --expected-image <approved-target-image> \
+  --output <new-report.json>
+```
+
+For a selected-block job, repeat `--expected-block <index>` for the actual
+job's zero-based 4 KiB block indices. Changes outside the requested set are
+reported separately rather than automatically accepting them; firmware
+may write its own metadata and each unexpected change needs explanation.
+Without an independently supplied target, the tool reports changes only.
+
+The latest native synthetic dual-flash probe passed cold and warm phases,
+and the evidence tool independently identified changed blocks 1 and 130
+in `build/firmware-acceptance/flash-bus-probe/20261125T223420.771891Z/`.
+The separate code-server modem route, NOR model and bank mapping tests
+also passed. This is preparation for a genuine NCC-issued MT94 job and
+compatible code-server session, not an end-to-end remote upgrade result.
