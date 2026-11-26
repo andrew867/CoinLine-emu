@@ -76,6 +76,33 @@ the modem-task/relay sequencing in the full feature combination.
 Evidence: `build/firmware-acceptance/nla1x09-pins-full/20261126T022915.972523Z/`
 and `build/firmware-acceptance/nla1x09-pins-focused/20261126T022957.579944Z/`.
 
+A repeat with native telephony transaction traces narrows this further.
+Both images received the same controller handset transition bytes
+`62 6E`. The focused image subsequently sent CO status query `37` and
+received connected status `84`, released the internal modem relay,
+and completed the dial-tone check. The full image never issued `37`
+and retained R1 through the end of the test. The full build therefore
+stalls before the CO status reply or SSI dial-tone detector stage.
+Investigation should first establish whether the relay-sequence task
+receives and dispatches the communications-suspended event; no missing
+CO voltage or detector response has been established at this boundary.
+Evidence: `build/firmware-acceptance/nla1x09-tp-full/20261126T024423.170982Z/`
+and `build/firmware-acceptance/nla1x09-tp-focused/20261126T024456.422902Z/`.
+
+The matching full-image symbol information enabled bounded, read-only
+observation of the task dispatch and return registers. The relay start
+signal remained pending while the higher-priority service task repeatedly
+returned a nonzero value in the scheduler's return register (`HL=AEAE`).
+All 997 sampled returns from that task had the same value; its input
+signals were clear. Inspection of the mapped instruction sequence
+confirmed that the nominal zero-return path reused a nonzero register
+byte. The resulting repeated dispatch starves the pending relay task.
+The evidence locates the fault in the compiled firmware, not the CO
+line or emulator's SSI detector. A corrected build is required for the
+next cold INSTALL. No CPU instruction, memory value or scheduler result
+was overridden. Evidence:
+`build/firmware-acceptance/nla1x09-co-register-watch/20261126T030534.818592Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.

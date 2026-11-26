@@ -35,7 +35,9 @@ if watch_path then
     local input = assert(io.open(watch_path, "r"))
     local output = assert(io.open(assert(os.getenv("COINLINE_GRAPHIC_READ_WATCH_OUT")), "w"))
     local taps, samples, reading = {}, 0, false
-    output:write("frame\tlabel\tphysical\tpc\tsnapshot\n")
+    local registers = os.getenv("COINLINE_GRAPHIC_READ_WATCH_REGISTERS") == "1"
+    local per_frame = tonumber(os.getenv("COINLINE_GRAPHIC_READ_WATCH_PER_FRAME")) or 0
+    output:write("frame\tlabel\tphysical\tpc\tsnapshot", registers and "\tregisters\n" or "\n")
     for line in input:lines() do
         local label, address, fields = line:match("^(%S+)%s+([0-9a-fA-F]+)%s*(.*)$")
         assert(label and address, "invalid read watch entry")
@@ -47,8 +49,12 @@ if watch_path then
             snapshot[#snapshot + 1] = value
         end
         assert(#taps < 32 and #snapshot <= 32, "read watch exceeds diagnostic bound")
+        local last_frame, frame_samples = -1, 0
         taps[#taps + 1] = space:install_read_tap(location, location, label, function(offset)
             if reading or samples >= 2000 or keypad:read() & 0x80000 == 0 then return end
+            if last_frame ~= frame then last_frame, frame_samples = frame, 0 end
+            if per_frame > 0 and frame_samples >= per_frame then return end
+            frame_samples = frame_samples + 1
             reading, samples = true, samples + 1
             local values = {}
             for _, addr in ipairs(snapshot) do
@@ -56,7 +62,16 @@ if watch_path then
             end
             local pc = cpu.state["PC"]
             output:write(frame, "\t", label, "\t", string.format("%05X\t%04X\t", offset, pc and pc.value or 0),
-                table.concat(values, " "), "\n")
+                table.concat(values, " "))
+            if registers then
+                local values = {}
+                for _, name in ipairs({"AF", "BC", "DE", "HL", "IX", "IY", "SP"}) do
+                    local reg = cpu.state[name]
+                    if reg then values[#values + 1] = string.format("%s:%04X", name, reg.value) end
+                end
+                output:write("\t", table.concat(values, " "))
+            end
+            output:write("\n")
             output:flush()
             reading = false
             -- No return value: do not modify the hardware read.
