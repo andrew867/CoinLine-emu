@@ -48,3 +48,21 @@ changed during this on-hook interval. This verifies that the changes do not
 immediately disturb the installed display; it does not demonstrate firmware
 collection accounting, a full alarm or a successful NCC report.
 Evidence: `build/firmware-acceptance/cashbox-installed-firmware/20261126T023724.449499Z/`.
+
+An isolated installed graphical Craft item 264 run reached the actual
+coin unit test. After the initial no-insertion timeout, a new test with
+two native 5-cent insertions produced two denomination bytes on the
+validator UART and advanced to `Deposit a coin to test escrow unit`.
+The bounded run ended before completing escrow, so this is calibration
+progress rather than a completed Craft test or collection report.
+Evidence: `build/firmware-acceptance/coin-craft-native/20261126T034734.679648Z/`.
+
+A second Craft 264 run inserted two nickels followed by a dime at the
+escrow prompt. The display advanced to `Testing refund` and subsequently
+returned to the coin-unit menu. After a normal exit, the separate physical
+coin device file recorded 20 cents refunded, zero escrow, zero cashbox
+contents and zero removed contents, matching all three insertions. This
+demonstrates a firmware-driven calibration and refund sequence through the
+native validator, not a collection report. A completed-result display was
+not captured during this run.
+Evidence: `build/firmware-acceptance/coin-craft-complete/20261126T041002.483565Z/`.

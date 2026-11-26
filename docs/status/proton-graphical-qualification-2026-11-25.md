@@ -123,6 +123,52 @@ earlier repeated service-task return pattern. The display again reached
 `Completed: 00`. Evidence:
 `build/firmware-acceptance/nla1x09-co-corrected-register-watch/20261126T031828.600347Z/`.
 
+The current full image, SHA-256
+`8c7aa5129b2c752e2f45d8de578432cdf0fcf4b5c8f3c3671627b994241dc38e`,
+also independently passed both cold pre-NCC checks from blank battery storage.
+Both `Completed: 00` screenshots matched the earlier candidate byte for byte;
+the local office observed real answer supervision and relay release. The
+terminal reached the NCC-ready prompt and exited without a download attempt.
+This digest is the current full-image acceptance target. Evidence:
+`build/firmware-acceptance/nla1x09-current-full-cold/20261126T033538.139211Z/`.
+
+Two cold INSTALL attempts connected to a separate isolated type-40 host
+with an 18-record assignment. Both passed CO and answer supervision. The
+terminal sent MT36; the host ACKed, sent MT20, and received the terminal
+ACK. The native modem trace independently decodes the 19-byte MT20 with
+valid CRC and eight application bytes. The terminal then entered its
+closing state before accepting the host MT13; no MT44 or table delivery
+occurred. Both attempts displayed `Failed: 24`.
+
+Read-only observations of task execution and saved device state show the
+clock handler was reached. The one-byte packet count was read together
+with its adjacent byte, producing a nonzero high byte in the remaining
+message count after all eight clock-message bytes were consumed. The
+terminal reported invalid message type (error 9) while attempting to
+process data outside that valid payload. This explains the clear without
+implicating host CRC, timing or table contents. No response or memory
+change was made to disguise the result. The next attempt requires a
+corrected candidate image; the isolated assignment is preserved.
+Evidence: `build/firmware-acceptance/nla1x09-full-isolated-install/20261126T035206.324964Z/`
+and `build/firmware-acceptance/nla1x09-full-ncc-trace/20261126T040248.230501Z/`.
+
+The corrected full-feature candidate SHA-256 is
+`7f59977b8e25a790d7cd7d7fd02bb839dd5bead4fd33a6cf373d8ae6f06f2d55`.
+A cold native INSTALL again passed both line checks. This time the clock
+dialogue continued through MT13 and MT44. The independent native CRC-checked
+trace and isolated host both confirm all 18 application acknowledgements:
+21, 26, 31, 62, 50, 73, 92, 93, 72, 134, 135, 136, 30, 33, 49, 131, 132,
+133. The terminal acknowledged the final end-of-data message and alarm
+reply, cleared the connection normally and displayed `Completed: 02`.
+The keypad and magnetic-reader checks advanced to the optional SAM socket
+menu. Testing an empty socket left the display at `Please wait` through
+more than 100 emulated seconds; a quit key did not return it to the menu.
+A normal shutdown preserved the terminal-written battery state; warm restart
+still displayed `Not installed`. The full INSTALL remains incomplete.
+No fabricated module response, terminal memory patch or host timing change
+was introduced. Evidence:
+`build/firmware-acceptance/nla1x09-corrected-ncc-install/20261126T041328.461310Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.

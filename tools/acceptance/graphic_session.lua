@@ -8,6 +8,7 @@ local softkeys = assert(ports[":TERMINAL21_SOFTKEYS"])
 local card = assert(ports[":CARDUI"])
 local coins = assert(ports[":COINUI"])
 local cashbox = ports[":CASHBOXUI"]
+local data_jack = ports[":DATAJACKUI"]
 local power = ports[":POWERUI"]
 local power_test = os.getenv("COINLINE_BOARD_SUPERVISION_PROFILE")
 local offline_line = os.getenv("COINLINE_GRAPHIC_OFFLINE_LINE") == "1" and assert(ports[":LINECTRL"]) or nil
@@ -29,6 +30,8 @@ local frame, next_frame, processed = 0, 0, 0
 local snapshot_interval = tonumber(os.getenv("COINLINE_GRAPHIC_SNAPSHOT_INTERVAL")) or 180
 local pending = {}
 local watch_path = os.getenv("COINLINE_GRAPHIC_READ_WATCH")
+local watch_manual = os.getenv("COINLINE_GRAPHIC_READ_WATCH_MANUAL") == "1"
+local watch_enabled = not watch_manual
 if watch_path then
     local cpu = assert(machine.devices[":maincpu"])
     local space = assert(cpu.spaces["program"])
@@ -51,7 +54,7 @@ if watch_path then
         assert(#taps < 32 and #snapshot <= 32, "read watch exceeds diagnostic bound")
         local last_frame, frame_samples = -1, 0
         taps[#taps + 1] = space:install_read_tap(location, location, label, function(offset)
-            if reading or samples >= 2000 or keypad:read() & 0x80000 == 0 then return end
+            if reading or samples >= 2000 or not watch_enabled or (not watch_manual and keypad:read() & 0x80000 == 0) then return end
             if last_frame ~= frame then last_frame, frame_samples = frame, 0 end
             if per_frame > 0 and frame_samples >= per_frame then return end
             frame_samples = frame_samples + 1
@@ -171,6 +174,12 @@ local function execute(line)
         if ((security:read() & 4) ~= 0) ~= (arg == "open") then pulse(assert(security:field(4)), frame + 3) end
         next_frame = frame + 30
         log("input", "vault " .. arg)
+    elseif action == "datajack" then
+        assert(data_jack and os.getenv("COINLINE_DATA_JACK_PROFILE"), "data-jack profile is not enabled")
+        local mask = assert(({plug=1, unplug=1, seize=2, release=2})[arg])
+        schedule(frame + 3, assert(data_jack:field(mask)), (arg == "plug" or arg == "seize") and 1 or 0)
+        next_frame = frame + 30
+        log("input", "datajack " .. arg)
     elseif action == "soft" then
         local position = assert(tonumber(arg))
         assert(position >= 1 and position <= 12 and position % 1 == 0)
@@ -181,6 +190,10 @@ local function execute(line)
         local frames = assert(tonumber(arg))
         assert(frames >= 0 and frames % 1 == 0)
         next_frame = frame + frames
+    elseif action == "watch" then
+        assert(watch_path and watch_manual and (arg == "on" or arg == "off"), "manual read watch is not configured")
+        watch_enabled = arg == "on"
+        log("diagnostic", "watch " .. arg)
     elseif action == "snapshot" then
         assert(arg:match("^[%w_-]+$"), "invalid snapshot name")
         screen:snapshot(arg .. ".png")

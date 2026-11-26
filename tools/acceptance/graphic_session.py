@@ -38,6 +38,9 @@ def main():
     parser.add_argument("--dtmf-trace", action="store_true", help="trace controller dial-pad tone gating and genuine tone events")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--coin-trace", action="store_true", help="capture the later-board validator UART register activity")
+    parser.add_argument("--modem-trace", action="store_true", help="capture modem traffic without enabling default boot traces")
+    parser.add_argument("--data-jack", choices=("downloaded", "desktop", "universal"), help="select an optional later-board data-jack monitor/relay profile")
+    parser.add_argument("--data-jack-trace", action="store_true", help="trace raw data-jack monitor and relay transitions")
     parser.add_argument("--io-trace", action="store_true", help="capture compact native I/O trace for a bounded diagnostic run")
     parser.add_argument("--enclosure-trace", action="store_true", help="capture the native enclosure warning latch transitions")
     parser.add_argument("--sam-pin-trace", action="store_true", help="capture bounded internal contact selector and latch transitions")
@@ -56,6 +59,7 @@ def main():
     parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
     parser.add_argument("--read-watch-registers", action="store_true", help="include CPU register snapshots with read watches")
     parser.add_argument("--read-watch-per-frame", type=int, default=0, help="limit samples per watch address per frame (0: existing global cap only)")
+    parser.add_argument("--read-watch-manual", action="store_true", help="arm read watches explicitly using watch on/off in the actions file, including on-hook activity")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     parser.add_argument("--video", choices=("gdi", "d3d", "opengl") if os.name == "nt" else ("auto", "soft", "opengl", "bgfx"),
                         default="opengl" if os.name == "nt" else "auto", help="renderer when artwork is enabled")
@@ -72,10 +76,12 @@ def main():
         parser.error("--snapshot-interval cannot be negative")
     if not 0 <= args.read_watch_per_frame <= 2000:
         parser.error("--read-watch-per-frame must be between 0 and 2000")
-    if (args.read_watch_registers or args.read_watch_per_frame) and not args.read_watch:
+    if (args.read_watch_registers or args.read_watch_per_frame or args.read_watch_manual) and not args.read_watch:
         parser.error("Read-watch sampling options require --read-watch")
     if args.actions and not args.actions.is_file():
         parser.error("--actions requires an existing local command file")
+    if args.data_jack_trace and not args.data_jack:
+        parser.error("--data-jack-trace requires a data-jack profile")
     sam_slots = {slot: getattr(args, f"sam_slot{slot}") for slot in range(3) if getattr(args, f"sam_slot{slot}") is not None}
     if any(not path.is_file() for path in sam_slots.values()):
         parser.error("Each configured internal contact fixture must be an existing local file.")
@@ -144,6 +150,8 @@ def main():
         env["COINLINE_VFD_LIVE"] = str(out / "display.txt")
     if not args.quiet:
         env.update(COINLINE_MODEM_TRACE="1", COINLINE_BOOT_TRACE=str(out / "boot.jsonl"))
+    if args.modem_trace:
+        env["COINLINE_MODEM_TRACE"] = "1"
     for key in ("line", "serial", "pin"):
         if key in settings:
             env["COINLINE_ACCEPTANCE_" + key.upper()] = str(settings[key])
@@ -170,6 +178,10 @@ def main():
         env["COINLINE_SMART_CARD_TRACE"] = "1"
     if args.coin_trace:
         env["COINLINE_EXTERNAL_UART_TRACE"] = str(out / "external-uart.jsonl")
+    if args.data_jack:
+        env["COINLINE_DATA_JACK_PROFILE"] = args.data_jack
+    if args.data_jack_trace:
+        env["COINLINE_DATA_JACK_TRACE"] = "1"
     if args.io_trace:
         env["COINLINE_IO_TRACE"] = str(out / "io.jsonl")
     if args.enclosure_trace:
@@ -198,6 +210,8 @@ def main():
             env["COINLINE_GRAPHIC_READ_WATCH_REGISTERS"] = "1"
         if args.read_watch_per_frame:
             env["COINLINE_GRAPHIC_READ_WATCH_PER_FRAME"] = str(args.read_watch_per_frame)
+        if args.read_watch_manual:
+            env["COINLINE_GRAPHIC_READ_WATCH_MANUAL"] = "1"
     if args.telephony_trace:
         env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),

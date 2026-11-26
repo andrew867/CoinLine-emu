@@ -42,6 +42,10 @@ sample, and `--read-watch-per-frame 2` to limit each watch address to two
 samples per video frame. The global limit is still enforced. This is
 particularly useful when a frequently dispatched routine would otherwise
 exhaust the diagnostic sample budget before another task can run.
+For an on-hook dialogue, use `--read-watch-manual` and issue `watch on` /
+`watch off` in the action file; the same 2,000-sample cap applies across
+the entire run. Use `--modem-trace` to capture the native modem bytes
+without the full boot trace. Keep these diagnostic logs local.
 
 For later boards with the internal contact-module expansion, the native
 `smartcard_async_probe.py --protocol slots` test runs a synthetic CPU program
@@ -52,6 +56,12 @@ changed selection/latch observations. The optional `--sam-slot0`,
 `--sam-slot1` and `--sam-slot2` paths configure separate generic non-payment
 async fixtures; absent paths leave the respective sockets unpopulated.
 These tests do not provide or qualify historical payment authentication.
+
+Use `graphic_session.py --data-jack downloaded --data-jack-trace` to observe
+the selected later-board connector monitor and raw relay output profile.
+The command file accepts `datajack plug`, `datajack seize`, `datajack release`
+and `datajack unplug` as separate physical inputs. These do not change the
+handset or provide a modem session.
 
 ## Independent analogue hardware probes
 
