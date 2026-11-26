@@ -9,17 +9,24 @@ import json
 import math
 from pathlib import Path
 import shutil
+import socket
 import statistics
 import struct
 import subprocess
 import os
+import time
 import wave
 
-from run import ROOT
+from run import ROOT, port
 
 
-def program():
-    code = bytearray(b"\xf3\x01\xc3\x00")  # DI; LD BC,00C3
+def program(ring_overlap=False):
+    code = bytearray(b"\xf3")  # DI
+    if ring_overlap:
+        # Enable the actual CO ringer, then wait for the line detector to
+        # observe incoming ringing before driving the warning latch.
+        code.extend(b"\x3e\x90\xed\x39\x40\xed\x38\x41\xe6\x80\x28\xf9")
+    code.extend(b"\x01\xc3\x00")  # LD BC,00C3
 
     def delay():
         code.extend(b"\x21\xfa\x00\x2b\x7c\xb5\x20\xfb")  # 250-count HL loop, near 700 Hz at 12.288 MHz
@@ -79,7 +86,7 @@ def analyze_burst(out):
     print(json.dumps({"phases": result}, indent=2))
 
 
-def analyze(out):
+def analyze(out, ring_overlap=False):
     rows = [json.loads(line) for line in (out / "gpio.jsonl").read_text().splitlines()]
     rows = [row for row in rows if row.get("port") == "0x00C3"]
     groups = []
@@ -111,9 +118,17 @@ def analyze(out):
     audible = metrics[2]
     if audible["rms"] < 100 or abs(audible["audio_hz"] - audible["gpio_hz"]) > 15:
         raise RuntimeError(f"Native alarm waveform not matched: {metrics}")
-    if any(row["rms"] > max(10, audible["rms"] / 20) for i, row in enumerate(metrics) if i != 2):
+    if ring_overlap:
+        # The ring source must be audible before and after warning selection.
+        # It must not leak into the muted warning phase, although the CO ring
+        # input remains asserted throughout the test.
+        if any(metrics[i]["rms"] < 100 or not 450 <= metrics[i]["audio_hz"] <= 680 for i in (0, 3)):
+            raise RuntimeError(f"Incoming ring did not resume on source restoration: {metrics}")
+        if metrics[1]["rms"] > max(10, audible["rms"] / 20):
+            raise RuntimeError(f"Incoming ring leaked into muted warning phase: {metrics}")
+    elif any(row["rms"] > max(10, audible["rms"] / 20) for i, row in enumerate(metrics) if i != 2):
         raise RuntimeError(f"Warning leaked into an unselected or muted phase: {metrics}")
-    (out / "result.json").write_text(json.dumps({"phases": metrics}, indent=2))
+    (out / "result.json").write_text(json.dumps({"phases": metrics, "ring_overlap": ring_overlap}, indent=2))
     print(json.dumps({"phases": metrics}, indent=2))
 
 
@@ -123,14 +138,16 @@ def main():
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/enclosure-alarm-probe")
-    parser.add_argument("--short-warning", action="store_true", help="synthetic three-burst data-jack warning, not a paid-call test")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--short-warning", action="store_true", help="synthetic three-burst data-jack warning, not a paid-call test")
+    mode.add_argument("--ring-overlap", action="store_true", help="hold a native line-jack ring input and verify warning-source arbitration")
     args = parser.parse_args()
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
     print(out, flush=True)
     shutil.copytree(ROOT / "fixtures", out / "fixtures")
     image = bytearray(b"\xff" * 1048576)
-    code = burst_program() if args.short_warning else program()
+    code = burst_program() if args.short_warning else program(args.ring_overlap)
     image[0xc0000:0xc0000 + len(code)] = code
     seed = out / "flash.bin"
     seed.write_bytes(image)
@@ -146,11 +163,53 @@ def main():
                "-nolog", "-video", "none", "-sound", "auto", "-rompath", str(args.rompath.resolve()),
                "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
                "-seconds_to_run", "4", "-wavwrite", str(out / "enclosure.wav")]
-    result = subprocess.run(command, cwd=out, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
-    (out / "mame.log").write_bytes(result.stdout)
-    if result.returncode:
-        raise RuntimeError(f"Native enclosure probe failed: {out}")
-    (analyze_burst if args.short_warning else analyze)(out)
+    if args.ring_overlap:
+        line_port = int(port())
+        env["COINLINE_LINE_PORT"] = str(line_port)
+        received = bytearray()
+        with (out / "mame.log").open("wb") as log:
+            process = subprocess.Popen(command, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)
+            try:
+                deadline = time.monotonic() + 15
+                while True:
+                    try:
+                        connection = socket.create_connection(("127.0.0.1", line_port), timeout=.2)
+                        break
+                    except OSError:
+                        if process.poll() is not None or time.monotonic() >= deadline:
+                            raise RuntimeError(f"Native line-jack did not listen: {out}")
+                        time.sleep(.05)
+                with connection:
+                    connection.sendall(b"C1\nR1\n")
+                    connection.settimeout(.2)
+                    deadline = time.monotonic() + 20
+                    while process.poll() is None and time.monotonic() < deadline:
+                        try:
+                            chunk = connection.recv(4096)
+                            if not chunk:
+                                break
+                            if len(received) < 65536:
+                                received.extend(chunk)
+                        except socket.timeout:
+                            pass
+                    process.wait(timeout=5)
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    process.wait(timeout=5)
+        signals = received.decode("ascii", "replace").splitlines()
+        (out / "line-signals.json").write_text(json.dumps([s for s in signals if not s.startswith("M")], indent=2))
+        if process.returncode or "H0" not in signals or "E1" not in signals or "H1" in signals:
+            raise RuntimeError(f"Native ring input or handset state not qualified: {out}")
+    else:
+        result = subprocess.run(command, cwd=out, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
+        (out / "mame.log").write_bytes(result.stdout)
+        if result.returncode:
+            raise RuntimeError(f"Native enclosure probe failed: {out}")
+    if args.short_warning:
+        analyze_burst(out)
+    else:
+        analyze(out, args.ring_overlap)
 
 
 if __name__ == "__main__":
