@@ -53,7 +53,7 @@ lst_files=(
   millennium_modem.cpp
   millennium_modem_model.cpp
   millennium_hostbridge.cpp
-  millennium_hostbridge_tcp.cpp
+  millennium_line.cpp
   millennium_nvram.cpp
   millennium_nvram_model.cpp
   millennium_card.cpp

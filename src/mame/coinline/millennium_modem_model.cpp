@@ -20,11 +20,38 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
 
 namespace {
+
+int socket_last_error() noexcept
+{
+#if defined(_WIN32)
+	return ::WSAGetLastError();
+#else
+	return errno;
+#endif
+}
+
+bool socket_retryable(int error) noexcept
+{
+#if defined(_WIN32)
+	return error == WSAEWOULDBLOCK || error == WSAEINTR;
+#else
+	return error == EAGAIN || error == EWOULDBLOCK || error == EINTR;
+#endif
+}
+
+#if !defined(_WIN32)
+#if defined(MSG_NOSIGNAL)
+constexpr int ncc_send_flags = MSG_NOSIGNAL;
+#else
+constexpr int ncc_send_flags = 0;
+#endif
+#endif
 
 bool parse_hex_byte(char const *start, char const *end, unsigned &out)
 {
@@ -139,8 +166,6 @@ void millennium_modem_model::reset()
 	m_ncc_attempted = false;
 	m_ncc_retry_after = 0.0;
 	m_ncc_rx.clear();
-	m_ncc_lab_hello_sent = false;
-	m_ncc_lab_hello_at = -1.0;
 	m_ncc_tx_pending.clear();
 	m_ssi_cr0 = m_ssi_cr1 = m_ssi_cr2 = m_ssi_cr3 = m_ssi_dr = m_ssi_tr = 0;
 	m_adsi_carrier = false;
@@ -199,7 +224,7 @@ void millennium_modem_model::ncc_send_bytes(std::uint8_t const *data, std::size_
 		m_ncc_tx_pending.insert(m_ncc_tx_pending.end(), data, data + n);
 }
 
-void millennium_modem_model::flush_ncc_tx()
+void millennium_modem_model::flush_ncc_tx(double now_sec)
 {
 	if (m_ncc_tx_pending.empty())
 		return;
@@ -207,27 +232,17 @@ void millennium_modem_model::flush_ncc_tx()
 	int const sent = ::send(static_cast<SOCKET>(m_ncc_sock),
 		reinterpret_cast<char const *>(m_ncc_tx_pending.data()), int(m_ncc_tx_pending.size()), 0);
 #else
-	ssize_t const sent = ::send(int(m_ncc_sock), m_ncc_tx_pending.data(), m_ncc_tx_pending.size(), MSG_NOSIGNAL);
+	ssize_t const sent = ::send(int(m_ncc_sock), m_ncc_tx_pending.data(), m_ncc_tx_pending.size(), ncc_send_flags);
 #endif
-	if (sent <= 0)
+	if (sent < 0) {
+		int const error = socket_last_error();
+		if (!socket_retryable(error))
+			lose_ncc_link("send_error", now_sec, error);
+		return;
+	}
+	if (sent == 0)
 		return;
 	m_ncc_tx_pending.erase(m_ncc_tx_pending.begin(), m_ncc_tx_pending.begin() + sent);
-}
-
-void millennium_modem_model::ncc_maybe_lab_hello()
-{
-	if (m_ncc_lab_hello_sent || !m_ncc_up)
-		return;
-	char const *env = std::getenv("COINLINE_NCC_LAB_HELLO");
-	if (env == nullptr || env[0] != '1')
-		return;
-	static std::uint8_t const k_hello[] = {
-		0x02, 0x00, 0x0D, 0x01, 0x02, 0x03, 0x04, 0x05, 0x07, 0x01, 0x02, 0x71, 0x8B, 0x03
-	};
-	ncc_send_bytes(k_hello, sizeof(k_hello));
-	m_ncc_lab_hello_sent = true;
-	m_ncc_lab_hello_at = -1.0;
-	std::fprintf(stderr, "ncc lab hello %u bytes\n", unsigned(sizeof(k_hello)));
 }
 
 void millennium_modem_model::note_tx(std::uint8_t b)
@@ -360,15 +375,16 @@ bool millennium_modem_model::replay_fixture_text(std::string const &text, std::s
 
 namespace {
 
-void ncc_net_init()
+bool ncc_net_init()
 {
 #if defined(_WIN32)
-	static bool once = false;
-	if (!once) {
+	static bool const initialized = [] {
 		WSADATA w{};
-		(void)::WSAStartup(MAKEWORD(2, 2), &w);
-		once = true;
-	}
+		return ::WSAStartup(MAKEWORD(2, 2), &w) == 0;
+	}();
+	return initialized;
+#else
+	return true;
 #endif
 }
 
@@ -416,6 +432,16 @@ void millennium_modem_model::ncc_close() noexcept
 	::close(int(m_ncc_sock));
 #endif
 	m_ncc_sock = -1;
+}
+
+void millennium_modem_model::lose_ncc_link(char const *event, double now_sec, int error) noexcept
+{
+	ncc_close();
+	m_dcd = false;
+	m_cp = cp_phase::post_dial;
+	refresh_detect_register();
+	m_state = millennium_modem_state::carrier_lost;
+	trace_call_progress(event, now_sec, error);
 }
 
 void millennium_modem_model::refresh_detect_register()
@@ -761,69 +787,90 @@ bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port,
 		return true;
 	if (m_ncc_attempted && now_sec < m_ncc_retry_after)
 		return false;
-	ncc_net_init();
+	m_ncc_attempted = true;
+	m_ncc_retry_after = now_sec + 1.0;
+	if (!ncc_net_init())
+		return false;
 #if defined(_WIN32)
 	SOCKET s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (s == INVALID_SOCKET) {
-		m_ncc_attempted = true;
-		m_ncc_retry_after = now_sec + 1.0;
+	if (s == INVALID_SOCKET)
+		return false;
+	u_long nb = 1;
+	if (::ioctlsocket(s, FIONBIO, &nb) != 0) {
+		::closesocket(s);
 		return false;
 	}
-	u_long nb = 1;
-	(void)::ioctlsocket(s, FIONBIO, &nb);
 	sockaddr_in addr{};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(static_cast<u_short>(port));
 	addr.sin_addr.s_addr = htonl(host);
 	int const cr = ::connect(s, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
-	if (cr != 0 && ::WSAGetLastError() != WSAEWOULDBLOCK) {
-		::closesocket(s);
-		m_ncc_attempted = true;
-		m_ncc_retry_after = now_sec + 1.0;
-		return false;
-	}
-	fd_set wset;
-	FD_ZERO(&wset);
-	FD_SET(s, &wset);
-	timeval tv{};
-	tv.tv_sec = 0;
-	tv.tv_usec = 400000;
-	int const sel = ::select(0, nullptr, &wset, nullptr, &tv);
-	int soerr = 0;
-	int solen = int(sizeof(soerr));
-	if (sel > 0)
-		(void)::getsockopt(s, SOL_SOCKET, SO_ERROR, reinterpret_cast<char *>(&soerr), &solen);
-	if (sel <= 0 || soerr != 0) {
-		::closesocket(s);
-		m_ncc_attempted = true;
-		m_ncc_retry_after = now_sec + 1.0;
-		return false;
+	if (cr != 0) {
+		if (::WSAGetLastError() != WSAEWOULDBLOCK) {
+			::closesocket(s);
+			return false;
+		}
+		fd_set wset, eset;
+		FD_ZERO(&wset);
+		FD_ZERO(&eset);
+		FD_SET(s, &wset);
+		FD_SET(s, &eset);
+		timeval tv{};
+		tv.tv_usec = 400000;
+		int const sel = ::select(0, nullptr, &wset, &eset, &tv);
+		int soerr = 0;
+		int solen = int(sizeof(soerr));
+		if (sel <= 0 || ::getsockopt(s, SOL_SOCKET, SO_ERROR,
+			reinterpret_cast<char *>(&soerr), &solen) != 0 || soerr != 0 || !FD_ISSET(s, &wset)) {
+			::closesocket(s);
+			return false;
+		}
 	}
 	m_ncc_sock = static_cast<std::intptr_t>(s);
 #else
 	int s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (s < 0)
 		return false;
-	int flags = ::fcntl(s, F_GETFL, 0);
-	(void)::fcntl(s, F_SETFL, flags | O_NONBLOCK);
+	int const flags = ::fcntl(s, F_GETFL, 0);
+	if (flags < 0 || ::fcntl(s, F_SETFL, flags | O_NONBLOCK) != 0) {
+		::close(s);
+		return false;
+	}
+#if defined(SO_NOSIGPIPE)
+	int const no_sigpipe = 1;
+	if (::setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe)) != 0) {
+		::close(s);
+		return false;
+	}
+#endif
 	sockaddr_in addr{};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(static_cast<uint16_t>(port));
 	addr.sin_addr.s_addr = htonl(host);
 	int const cr = ::connect(s, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
-	if (cr != 0 && errno != EINPROGRESS) {
-		::close(s);
-		return false;
+	if (cr != 0) {
+		if (errno != EINPROGRESS && errno != EINTR) {
+			::close(s);
+			return false;
+		}
+		// Readiness alone does not mean connect succeeded. Refused sockets also
+		// become writable, so require a successful SO_ERROR query with zero error.
+		pollfd ready{s, POLLOUT, 0};
+		int const result = ::poll(&ready, 1, 400);
+		int soerr = 0;
+		socklen_t solen = sizeof(soerr);
+		if (result <= 0 || ::getsockopt(s, SOL_SOCKET, SO_ERROR, &soerr, &solen) != 0
+			|| soerr != 0 || !(ready.revents & POLLOUT)) {
+			::close(s);
+			return false;
+		}
 	}
 	m_ncc_sock = s;
 #endif
-	m_ncc_attempted = true;
 	m_ncc_up = true;
 	m_ncc_connected_at = now_sec;
 	m_code_training = code_server;
-	// A code-server call is a transparent modem link, not an NCC dialogue.
-	m_ncc_lab_hello_sent = code_server;
-	m_ncc_lab_hello_at = code_server ? -1.0 : now_sec + 0.4;
+	// Both routes are transparent; only guest serial TX can submit data.
 	m_ncc_tx_pending.clear();
 	trace_call_progress(code_server ? "code_tcp_connected" : "ncc_tcp_connected", now_sec);
 	unsigned const a = (host >> 24) & 0xffU;
@@ -867,9 +914,9 @@ void millennium_modem_model::poll_ncc_link(double now_sec)
 		ncc_connect_dialed(now_sec);
 	if (!m_ncc_up || m_ncc_sock < 0)
 		return;
-	if (!m_ncc_lab_hello_sent && m_ncc_lab_hello_at >= 0.0 && now_sec >= m_ncc_lab_hello_at)
-		ncc_maybe_lab_hello();
-	flush_ncc_tx();
+	flush_ncc_tx(now_sec);
+	if (!m_ncc_up)
+		return;
 	std::uint8_t buf[64];
 #if defined(_WIN32)
 	int const n = ::recv(static_cast<SOCKET>(m_ncc_sock), reinterpret_cast<char *>(buf), int(sizeof(buf)), 0);
@@ -877,14 +924,13 @@ void millennium_modem_model::poll_ncc_link(double now_sec)
 	ssize_t const n = ::recv(int(m_ncc_sock), buf, sizeof(buf), 0);
 #endif
 	if (n == 0) {
-		ncc_close();
-		m_dcd = false;
-		m_cp = cp_phase::post_dial;
-		refresh_detect_register();
-		m_state = millennium_modem_state::carrier_lost;
-		trace_call_progress("peer_closed", now_sec);
+		lose_ncc_link("peer_closed", now_sec);
 	} else if (n > 0) {
 		m_ncc_rx.insert(m_ncc_rx.end(), buf, buf + n);
+	} else {
+		int const error = socket_last_error();
+		if (!socket_retryable(error))
+			lose_ncc_link("receive_error", now_sec, error);
 	}
 }
 
