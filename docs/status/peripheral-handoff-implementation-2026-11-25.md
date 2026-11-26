@@ -311,3 +311,38 @@ separate audible alarm qualification on an eligible reference fixture, and
 cold/warm service regression. This remains a diagnosis, not a tested fix.
 
 Evidence: `build/firmware-acceptance/oem-card-controls/router-startup-watch/20261126T134617.195210Z/`.
+
+### Corrected routing candidate, retained-storage control
+
+The separate full graphical candidate with SHA-256
+`cb6be6c988bf57818bd25ed4cc0922f23c45429cba2fc81919203decb5fe603d`
+was tested against byte-identical copies of the preceding installed
+battery, EEPROM and coin state. The new program image was used as its
+initial flash seed; its predecessor's persisted flash was not substituted.
+The original state and images remained unchanged. The test endpoint was
+disconnected from NCC.
+
+The startup sequence reached the initial handler transmit and response
+routing normally. Across the sampled startup, insertion and removal
+windows, the trace recorded four router task entries, four response
+destination lookups, one isolated log call and zero serious-error recovery
+entries. The generic removal task ran during startup and cleared the
+previous pending validation state. The ordinary idle display also showed
+its installed graphical advertisement.
+
+The same unsupported generic customer fixture then displayed `Cannot read
+card / Try a different card` rather than remaining in validation. After
+hangup the card-removal reminder remained visible at the 63.6-second
+observation. Physical removal at frame 6930 produced normal validation
+cleanup at frames 6940 and 6970; the reader was idle and both sensors were
+clear. The snapshot at frame 8766 showed `Please lift receiver`. The
+emulator exited normally. No actual warning-source activation was observed;
+the unsupported fixture does not establish audible warning eligibility.
+
+This qualifies the corrected candidate's retained-storage startup and
+ordinary rejected-card reminder/removal recovery. A blank-storage INSTALL
+and its own warm restart remain independent gates, held pending a verified
+isolated NCC listener. No payment application or alarm hardware behavior
+was changed to produce this result.
+
+Evidence: `build/firmware-acceptance/oem-card-controls/cb6be6c988bf/warm/20261126T135233.016721Z/`.
