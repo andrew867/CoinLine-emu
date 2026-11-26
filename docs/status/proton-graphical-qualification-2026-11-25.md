@@ -81,7 +81,7 @@ Both images received the same controller handset transition bytes
 `62 6E`. The focused image subsequently sent CO status query `37` and
 received connected status `84`, released the internal modem relay,
 and completed the dial-tone check. The full image never issued `37`
-and retained R1 through the end of the test. The full build therefore
+and retained R1 through the end of the test. The full image therefore
 stalls before the CO status reply or SSI dial-tone detector stage.
 Investigation should first establish whether the relay-sequence task
 receives and dispatches the communications-suspended event; no missing
@@ -89,22 +89,21 @@ CO voltage or detector response has been established at this boundary.
 Evidence: `build/firmware-acceptance/nla1x09-tp-full/20261126T024423.170982Z/`
 and `build/firmware-acceptance/nla1x09-tp-focused/20261126T024456.422902Z/`.
 
-The matching full-image symbol information enabled bounded, read-only
-observation of the task dispatch and return registers. The relay start
+Bounded, read-only CPU observations exposed the task dispatch and return
+registers. The relay start
 signal remained pending while the higher-priority service task repeatedly
 returned a nonzero value in the scheduler's return register (`HL=AEAE`).
 All 997 sampled returns from that task had the same value; its input
 signals were clear. Inspection of the mapped instruction sequence
 confirmed that the nominal zero-return path reused a nonzero register
 byte. The resulting repeated dispatch starves the pending relay task.
-The evidence locates the fault in the compiled firmware, not the CO
-line or emulator's SSI detector. A corrected build is required for the
+The evidence locates the fault in the firmware image, not the CO
+line or emulator's SSI detector. A corrected image is required for the
 next cold INSTALL. No CPU instruction, memory value or scheduler result
 was overridden. Evidence:
 `build/firmware-acceptance/nla1x09-co-register-watch/20261126T030534.818592Z/`.
 
-A separately linked full-feature candidate with the corrected service
-return has mapped-image SHA-256
+A full-feature candidate received for validation has mapped-image SHA-256
 `187b47bac50be9fb195dac686a938ffbf837bf7435727be41592a8619b98a22f`.
 An unmodified emulator started it with blank battery storage and an
 isolated NCC endpoint. The CO check and answer-supervision check both
@@ -116,6 +115,13 @@ download` and the session exited normally without requesting a download.
 This confirms the corrected firmware resolves the original CO-check
 blocker. Full NCC transfer and subsequent INSTALL remain to be observed.
 Evidence: `build/firmware-acceptance/nla1x09-service-return-fix/20261126T031230.374819Z/`.
+
+A second cold run of that digest with the same bounded read-watch setup
+observed the relay task progress through three dispatches, with the CO
+check advancing through its successive states. It did not observe the
+earlier repeated service-task return pattern. The display again reached
+`Completed: 00`. Evidence:
+`build/firmware-acceptance/nla1x09-co-corrected-register-watch/20261126T031828.600347Z/`.
 
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
