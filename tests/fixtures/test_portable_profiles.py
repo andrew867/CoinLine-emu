@@ -44,6 +44,46 @@ def test_windows_scale_and_maximize_options(tmp_path, monkeypatch):
         launcher.window_settings(args, launcher.config_for_run("oem"))
 
 
+def test_internal_contact_module_fixture_options_are_profile_scoped(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    for name in ("slot0.json", "slot1.json", "override.json"):
+        (tmp_path / name).write_text(json.dumps({"protocol": "async", "application": "lab-readonly", "atr_hex": "3B 00"}))
+    (tmp_path / "coinline-graphical.ini").write_text("[cards]\nsam_slot0=slot0.json\nsam_slot1=slot1.json\n")
+    args = SimpleNamespace(sam_slot0=None, sam_slot1=Path("override.json"), sam_slot2=None)
+    config = launcher.config_for_run("graphical")
+    result = launcher.module_fixture_environment(args, config["cards"], "later")
+    assert result == {"COINLINE_SAM_SLOT0": str(tmp_path / "slot0.json"),
+                      "COINLINE_SAM_SLOT1": str(tmp_path / "override.json")}
+    assert launcher.module_fixture_environment(SimpleNamespace(), launcher.config_for_run("oem")["cards"], "earlier") == {}
+    with pytest.raises(ValueError, match="later motherboard"):
+        launcher.module_fixture_environment(args, config["cards"], "earlier")
+    (tmp_path / "bad.json").write_text(json.dumps({"protocol": "sync"}))
+    args.sam_slot1 = Path("bad.json")
+    with pytest.raises(ValueError, match="read-only async"):
+        launcher.module_fixture_environment(args, config["cards"], "later")
+    (tmp_path / "bad.json").write_text(json.dumps({"protocol": "async", "application": "lab-readonly", "atr_hex": "XX"}))
+    with pytest.raises(ValueError, match="invalid fixture parameters"):
+        launcher.module_fixture_environment(args, config["cards"], "later")
+    args.sam_slot1 = Path("missing.json")
+    with pytest.raises(ValueError, match="missing or invalid"):
+        launcher.module_fixture_environment(args, config["cards"], "later")
+
+
+def test_data_jack_profile_is_explicit_and_later_board_only():
+    args = SimpleNamespace(data_jack=None)
+    assert launcher.data_jack_environment(args, {}, "earlier") == {}
+    settings = {"data_jack_profile": "desktop", "data_jack_monitor_polarity": "low"}
+    assert launcher.data_jack_environment(args, settings, "later") == {
+        "COINLINE_DATA_JACK_PROFILE": "desktop", "COINLINE_DATA_JACK_MONITOR_POLARITY": "low"}
+    with pytest.raises(ValueError, match="later motherboard"):
+        launcher.data_jack_environment(args, settings, "earlier")
+    args.data_jack = "disabled"
+    assert launcher.data_jack_environment(args, settings, "earlier") == {}
+    args.data_jack = "downloaded"
+    with pytest.raises(ValueError, match="polarity"):
+        launcher.data_jack_environment(args, {"data_jack_monitor_polarity": "invalid"}, "later")
+
+
 def test_profile_default_programs_display_and_state(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     monkeypatch.setattr(launcher, "check_files", lambda *_: None)
@@ -87,7 +127,8 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
     entries = []
     states = []
     for firmware_id, variant in (("NLA1X08", "original"), ("NLA1X09", "focused"),
-                                 ("NLA1X09", "full"), ("NLA1X09", "full-service-fix")):
+                                 ("NLA1X09", "full"), ("NLA1X09", "full-service-fix"),
+                                 ("NLA1X09", "full-current")):
         image = f"<{firmware_id}V1.3>{variant}".encode().ljust(0x100000, b"\xff")
         path = tmp_path / "firmware" / f"{firmware_id}-{variant}.bin"
         path.parent.mkdir(exist_ok=True)

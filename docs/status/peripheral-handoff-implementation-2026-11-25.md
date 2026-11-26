@@ -73,6 +73,14 @@ and cancellation still require a qualifying native contact application.
 This qualifies the monitor and raw control decoding only. Analogue switching,
 external DTMF detection and modem handshake/bidirectional data remain open.
 
+The optional later-board profile can now be selected in the portable
+launcher and graphical bench without inherited environment overrides.
+An installed NLA1X08 run observed the native monitor read change on separate
+plug, seize, release and unplug inputs; the office remained connected and
+the handset remained on-hook. No data-call relay transition occurred after
+the input changes, so the result is monitor observation, not a completed
+data call. Evidence: `build/firmware-acceptance/datajack-installed-firmware/20261126T034508.291684Z/`.
+
 ### Connector and profile follow-up
 
 J34's two inner harness positions connect to the external data-jack module;
