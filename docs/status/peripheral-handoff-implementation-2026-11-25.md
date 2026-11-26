@@ -235,3 +235,44 @@ The contact presence trace is opt-in and otherwise leaves the device
 behavior unchanged.
 
 Run: `build/firmware-acceptance/nla1x09-native-forgotten-card-repeat/20261126T085756.573966Z/`.
+
+### Independent stock-image removal controls
+
+Three unchanged stock images were restarted from copies of their own
+previously installed battery and flash state, with the same generic
+read-only contact fixture as the full graphical run. Each used its
+previously qualified board profile, two-line display and a disconnected
+local NCC endpoint. No payment or external call was attempted.
+
+| Image | Board | Card-present display | On-hook reminder | After removal |
+| --- | --- | --- | --- | --- |
+| NLA1X05 | V1.3 | Cannot read card | Please remove your card | Please lift receiver |
+| NQA1X01 | V1.3 | Cannot read card | Please remove your card | Please lift receiver |
+| NKA1X02 | V1.1 | Cannot read card | Please remove your card | Please lift receiver |
+
+In each case, physical presence changed from 1 to 0, the reminder was
+still visible 63.6 emulated seconds after hangup, and the screenshot 30.5
+emulated seconds after removal matched the initial idle screenshot
+byte-for-byte. All three processes exited normally. Two enclosure latch
+writes after removal retained the normal `08` value in each case; no
+audible warning-source activation was observed. The generic rejected card
+does not qualify the actual audible reminder policy.
+
+The full graphical image repeated the same failure with a bounded,
+read-only task trace. Across separate short insertion and removal sample
+windows, the router entered recurring recovery 18 and 19 times respectively,
+completed its recovery notification and re-entered with alternating signals.
+Neither the pending card-removal cleanup nor validation-clear path was
+observed. The terminal's raw sensors were clear and reader idle after
+removal, while validation remained pending. The final reminder screenshot
+was byte-identical to its pre-removal reminder. The process exited normally.
+This distinguishes a recurring recovery condition in this image from a
+missing physical card-removal signal. The cause of the repeated recovery
+is still under investigation; there was no forced state change.
+
+Evidence under `build/firmware-acceptance/oem-card-controls/`:
+
+- `NLA1X05-async/20261126T131511.574333Z/`
+- `NQA1X01-async/20261126T131601.353426Z/`
+- `NKA1X02-async/20261126T131916.227881Z/`
+- `full-removal-watch/20261126T132021.270191Z/`
