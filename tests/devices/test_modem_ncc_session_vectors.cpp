@@ -62,6 +62,19 @@ int main()
 			std::cerr << "clear-call did not return session to idle\n";
 			return 6;
 		}
+		s.on_tx_frame(0x01U);
+		clear.control = CONTROL_CLEAR_CALL | CONTROL_ACK | 0x01U;
+		s.on_rx_frame(clear);
+		if (s.state != session_state::idle || s.retry_count != 0U) {
+			std::cerr << "combined ACK and clear did not close session\n";
+			return 7;
+		}
+		s.on_tx_frame(0x02U);
+		s.on_tx_frame(CONTROL_CLEAR_CALL);
+		if (s.state != session_state::idle) {
+			std::cerr << "local clear incorrectly waits for ACK\n";
+			return 8;
+		}
 	}
 
 	std::cout << "modem_ncc_session_vectors ok\n";
