@@ -111,6 +111,19 @@ std::uint8_t read_detect_register(millennium_modem_model &modem)
 	return result;
 }
 
+void write_register(millennium_modem_model &modem, std::uint8_t address, std::uint8_t value)
+{
+	constexpr std::uint8_t clock = 0x02U;
+	std::uint8_t const base = (address << 4) | 0x04U;
+	for (unsigned bit = 0; bit < 8; ++bit) {
+		std::uint8_t const level = base | 0x08U | (((value >> bit) & 1U) ^ 1U);
+		modem.ssi_pio_a_write(level | clock, true);
+		modem.ssi_pio_a_write(level, true);
+	}
+	modem.ssi_pio_a_write(base | clock, true);
+	modem.ssi_pio_a_write(base | 0x08U | clock, true);
+}
+
 } // namespace
 
 int main()
@@ -151,10 +164,46 @@ int main()
 	modem.poll_ncc_link(5.1);
 	if (read_detect_register(modem) != 0x04U || modem.dcd())
 		return fail("Code-server answer-tone phase was not visible on the SSI bus");
-	modem.poll_ncc_link(6.6);
+	modem.poll_ncc_link(8.34);
+	if (read_detect_register(modem) != 0x00U || modem.dcd())
+		return fail("Code-server answer turn-off gap must be observable");
+	modem.poll_ncc_link(8.39);
+	if (read_detect_register(modem) != 0x08U || modem.dcd())
+		return fail("DPSK carrier acquisition is independent of mark qualification");
+	modem.poll_ncc_link(8.41);
+	if (read_detect_register(modem) != 0x38U || modem.dcd())
+		return fail("Code-server unscrambled mark detector must be distinct from receive data");
+	modem.poll_ncc_link(15.0);
+	if (modem.dcd() || read_detect_register(modem) != 0x38U)
+		return fail("A TCP connection and elapsed time alone cannot complete training");
+	modem.note_tx(0x55U);
+	if (ready(code_call.value, 20))
+		return fail("Guest data escaped before modem training completed");
+	// Guest starts in DPSK originate mode and transmits the actual S1
+	// pattern through the modem control registers. A remote S1 response
+	// cannot arrive until the guest's complete burst ends.
+	write_register(modem, 0, 0x13);
+	write_register(modem, 1, 0x40);
+	write_register(modem, 4, 0x10);
+	modem.poll_ncc_link(15.001);
+	modem.poll_ncc_link(15.101);
+	if (read_detect_register(modem) != 0x38U || modem.dcd())
+		return fail("Remote S1 arrived before the originating S1 finished");
+	write_register(modem, 1, 0x80);
+	modem.poll_ncc_link(15.102);
+	modem.poll_ncc_link(15.128);
+	if (read_detect_register(modem) != 0x48U || modem.dcd())
+		return fail("Remote S1 pattern was not visible on the SSI pins");
+	modem.poll_ncc_link(15.23);
 	if (read_detect_register(modem) != 0x28U || modem.dcd())
-		return fail("Code-server mark phase was not visible before DCD");
-	modem.poll_ncc_link(8.1);
+		return fail("Scrambled marks must follow S1 without premature data carrier");
+	modem.poll_ncc_link(15.703);
+	modem.poll_ncc_link(16.00);
+	if (modem.dcd())
+		return fail("Peer must wait for actual guest QAM configuration");
+	write_register(modem, 0, 0x53);
+	modem.poll_ncc_link(16.001);
+	modem.poll_ncc_link(16.02);
 	if (!modem.dcd() || read_detect_register(modem) != 0x08U)
 		return fail("Code-server call did not provide carrier");
 
@@ -165,7 +214,7 @@ int main()
 		std::uint8_t received = 0;
 		bool obtained = false;
 		for (int attempt = 0; attempt < 100 && !obtained; ++attempt) {
-			modem.poll_ncc_link(8.2);
+			modem.poll_ncc_link(16.1);
 			obtained = modem.take_ncc_rx(received);
 			if (!obtained)
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -174,7 +223,7 @@ int main()
 			return fail("Code-server receive stream was altered");
 		modem.note_tx(received);
 	}
-	modem.poll_ncc_link(8.3);
+	modem.poll_ncc_link(16.2);
 	std::array<char, 4> returned{};
 	for (std::size_t offset = 0; offset < returned.size();) {
 		if (!ready(code_call.value))
@@ -187,10 +236,29 @@ int main()
 	}
 	if (returned != bytes)
 		return fail("Code-server transmit stream was altered");
-	modem.note_modem_relay(false, 9.0);
+	modem.note_modem_relay(false, 17.0);
 	if (modem.ncc_link_up() || modem.dcd() || !ready(code_call.value)
 		|| recv(code_call.value, returned.data(), 1, 0) != 0)
 		return fail("Releasing the relay did not end the code-server call");
+
+	// V.22 fallback uses scrambled 1200 bit/s marks without S1 or QAM.
+	dial(modem, "2130706434");
+	if (!ready(code_listener.value)) return fail("Cannot start fallback data call");
+	socket_handle fallback_call{accept(code_listener.value, nullptr, nullptr)};
+	if (fallback_call.value == invalid_socket) return fail("Cannot accept fallback data call");
+	write_register(modem, 0, 0x13);
+	write_register(modem, 1, 0x80);
+	write_register(modem, 4, 0x00);
+	modem.poll_ncc_link(8.41);
+	modem.poll_ncc_link(8.69);
+	if (read_detect_register(modem) != 0x28U || modem.dcd())
+		return fail("V.22 fallback did not qualify the guest's scrambled marks");
+	modem.poll_ncc_link(9.4);
+	if (modem.dcd()) return fail("V.22 fallback completed before its remote training interval");
+	modem.poll_ncc_link(9.46);
+	if (!modem.dcd() || read_detect_register(modem) != 0x08U)
+		return fail("V.22 fallback did not complete");
+	modem.note_modem_relay(false, 9.5);
 
 	set_config("COINLINE_NCC_LAB_HELLO", "0");
 	dial(modem, "2130706433");

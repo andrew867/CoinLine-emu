@@ -454,7 +454,6 @@ private:
 	void trace_cp_to_tp_qualified(std::uint64_t cycle, std::uint16_t pc, std::uint16_t sp, std::uint8_t byte,
 		char const *parser_before, char const *parser_after, bool checksum_ok);
 	void trace_tp_command_accepted(std::uint8_t byte, bool response_queued, char const *response_label, char const *reason);
-	void trace_tp_response_emitted(std::initializer_list<std::uint8_t> bytes, char const *label, bool checksum_ok);
 	void tp_enqueue_ui_event(std::uint8_t code, char const *reason);
 	bool user_io_cp_policy_absorb_tp_opcode(std::uint8_t code, char const **rule_id_out,
 		char const **expected_consumer_out) const;
@@ -648,9 +647,6 @@ private:
 	std::string m_tel_last_runtime_response;
 	bool m_tel_runtime_waiting_c4 = false;
 	std::uint64_t m_tel_runtime_wait_c4_deadline_cycle = 0ULL;
-	bool m_tel_init_dialogue_window_active = false;
-	std::uint64_t m_tel_init_dialogue_window_start_cycle = 0ULL;
-	unsigned m_tel_init_dialogue_step = 0U;
 	// Model of telephony -> control bytes as presented on the CSI/O link (firmware ISR feeds ip_rx_buffer).
 	bool m_csio_rx_in_frame = false;
 	std::uint8_t m_csio_rx_code = 0;

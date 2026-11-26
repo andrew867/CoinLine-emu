@@ -96,13 +96,18 @@ coinline_add_test(test_telephony_boot_contract_vectors telephony tests/devices/t
 coinline_add_test(test_telephony_boot_code_selection telephony tests/devices/test_telephony_boot_code_selection.cpp)
 coinline_add_test(test_modem_ncc_framing telephony tests/devices/test_modem_ncc_framing.cpp)
 coinline_add_test(test_modem_ncc_session_vectors telephony tests/devices/test_modem_ncc_session_vectors.cpp)
+coinline_add_test(test_modem_ncc_capture telephony tests/devices/test_modem_ncc_capture.cpp)
+set_tests_properties(test_modem_ncc_capture PROPERTIES SKIP_RETURN_CODE 77)
 coinline_add_test(test_modem_ssi telephony tests/devices/test_modem_ssi.cpp
 	src/mame/coinline/millennium_modem_model.cpp)
 coinline_add_test(test_modem_code_server telephony tests/devices/test_modem_code_server.cpp
 	src/mame/coinline/millennium_modem_model.cpp)
+coinline_add_test(test_modem_ncc_tcp telephony tests/devices/test_modem_ncc_tcp.cpp
+	src/mame/coinline/millennium_modem_model.cpp)
 if(WIN32)
 	target_link_libraries(test_modem_ssi PRIVATE ws2_32)
 	target_link_libraries(test_modem_code_server PRIVATE ws2_32)
+	target_link_libraries(test_modem_ncc_tcp PRIVATE ws2_32)
 endif()
 coinline_add_test(test_terminal_peripherals_vectors telephony tests/devices/test_terminal_peripherals_vectors.cpp)
 coinline_add_test(test_voiceware_runtime_vectors telephony tests/devices/test_voiceware_runtime_vectors.cpp)
@@ -174,6 +179,21 @@ endfunction()
 
 coinline_add_integration_test(test_evidence_bundle evidence_bundle tests/integration/test_evidence_bundle.cpp)
 coinline_add_integration_test(test_terminal_full_stack_vectors evidence_bundle tests/integration/test_terminal_full_stack_vectors.cpp)
+
+# The legacy raw/side-band loopback helper is deliberately test-only. It
+# must never be linked into MAME's native NCC or central-office line path.
+find_package(Threads REQUIRED)
+add_library(coinline_test_hostbridge STATIC tests/support/millennium_hostbridge_tcp.cpp)
+target_include_directories(coinline_test_hostbridge PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tests/support)
+target_link_libraries(coinline_test_hostbridge PUBLIC Threads::Threads)
+if(WIN32)
+	target_link_libraries(coinline_test_hostbridge PUBLIC ws2_32)
+endif()
+foreach(test_name IN ITEMS test_host_bridge_loopback test_host_bridge_sideband_negotiate test_host_bridge_no_sideband_default)
+	coinline_add_integration_test(${test_name} host_bridge tests/integration/${test_name}.cpp)
+	target_link_libraries(${test_name} PRIVATE coinline_test_hostbridge)
+	set_tests_properties(${test_name} PROPERTIES TIMEOUT 35)
+endforeach()
 
 message(STATUS "coinline-emu: configured C++ tests (labels: boot, unknown_port, z180, telephony, vfd, vfd-parity, evidence_bundle, tool). "
 	"MAME driver is built separately via EXTERNAL_MAME_ROOT.")

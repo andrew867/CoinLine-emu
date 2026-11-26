@@ -44,8 +44,12 @@ int main()
 		s.close_socket();
 	});
 
-	while (port_out.load(std::memory_order_relaxed) == 0)
+	while (port_out.load(std::memory_order_relaxed) == 0 && ok.load())
 		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	if (!ok.load()) {
+		server.join();
+		return 1;
+	}
 
 	millennium_hostbridge_tcp client;
 	if (!client.connect_ipv4("127.0.0.1", port_out.load(std::memory_order_relaxed))) {

@@ -22,6 +22,8 @@ PROFILES = {
     "graphical": ("coinline-graphical.ini", "firmware/graphical/flash.bin", "11line", 5088, 15000, 19999),
 }
 SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "PASSWORD"}
+SYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-sync-test.json"
+ASYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-async-contact-atr-lab.json"
 
 
 def config_for_run(profile):
@@ -63,6 +65,17 @@ def get_line_port():
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         return str(probe.getsockname()[1])
+
+
+def contact_fixture_default(entry):
+    # This is a launch-time choice of generic test contact, based on an
+    # explicitly qualified image, not a native response or payment profile.
+    return ASYNC_CONTACT_FIXTURE if entry.get("contact_test") == "generic-async-t0" else SYNC_CONTACT_FIXTURE
+
+
+def customer_fixture_path(args, cards, hardware_env):
+    return ROOT / (args.smart_card or cards.get("smart_fixture", "").strip()
+                   or hardware_env.get("COINLINE_SMART_CARD", SYNC_CONTACT_FIXTURE))
 
 
 def module_fixture_environment(args, cards, motherboard):
@@ -204,7 +217,8 @@ def prepare_hardware(args, config):
             raise ValueError("The graphical expansion requires a later motherboard profile.")
         state /= "11line"
     env = {"COINLINE_MOTHERBOARD": mapping,
-           "COINLINE_BOARD": str(ROOT / f"fixtures/board/board-profile-{display_profile}-vfd.json")}
+           "COINLINE_BOARD": str(ROOT / f"fixtures/board/board-profile-{display_profile}-vfd.json"),
+           "COINLINE_SMART_CARD": str(ROOT / contact_fixture_default(entry))}
     if preset:
         env["COINLINE_HARDWARE_PRESET"] = preset
         env["COINLINE_CARD_DMA_CHANNEL"] = str(PRESETS[preset].card_dma_channel)
@@ -246,7 +260,7 @@ def run(args, config, hardware):
         raise ValueError("Set valid outbound_digits for the local CO under [line] in coinline.ini.")
     cards = config["cards"]
     mag_card = ROOT / (args.mag_card or cards.get("mag_fixture", "").strip() or "fixtures/cards/magcard-valid.json")
-    smart_card = ROOT / (args.smart_card or cards.get("smart_fixture", "").strip() or "fixtures/cards/smartcard-sync-test.json")
+    smart_card = customer_fixture_path(args, cards, hardware_env)
     if not mag_card.is_file() or not smart_card.is_file():
         raise ValueError("The selected local card fixture file is missing.")
     module_env = module_fixture_environment(args, cards, hardware_env["COINLINE_MOTHERBOARD"])

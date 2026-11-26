@@ -350,6 +350,103 @@ Evidence:
 `build/firmware-acceptance/nla1x09-queue-sam-craft/20261126T073413.349187Z/`
 and `build/firmware-acceptance/nla1x09-queue-sam-readwatch/20261126T073806.855289Z/`.
 
+The subsequent candidate, SHA-256
+`af90b90ae1e728dc703a135ed83a91ecb7d62c463f43a3b19feeeec4c7598a90`,
+completed a further blank-storage INSTALL. The terminal acknowledged all
+18 records and cleared normally, passed keypad and magnetic-reader
+checks, displayed `SAM Socket Okay` for menu selections 01, 02 and 03,
+and displayed `Smart Card Test Okay` for the independent customer fixture.
+The first calibration insertion preceded the actual deposit prompt; the
+normal retry completed the coin checks. Normal cabinet closure and 30
+seconds of idle service followed, with intact saved memory-check markers.
+
+A separate warm run from that image's own saved state also retained idle
+service, responded to a physical hook cycle and returned to service after
+the internal contact diagnostic. Only physical internal slot 0 was
+populated in that run. All three menu selections nevertheless displayed
+`SAM Socket Okay`, and every recorded active contact pin observation
+selected physical position 0. Therefore the menu completion is qualified,
+but independent physical selection by this firmware remains unqualified;
+the earlier synthetic three-position transport tests are distinct.
+
+Read-only saved-state inspection also found a calendar discrepancy. The
+retained clock-sync record contained 2026-11-26 07:44:27, while the
+independently decoded terminal calendar at shutdown was 2031-10-28
+03:28:46. No time-zone interpretation can account for that difference.
+Timed code-download qualification for this candidate is held pending a
+correct observed calendar. No clock, battery, flash or application state
+has been edited to work around these results.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-contact-completion-cold/20261126T074230.238305Z/`
+and `build/firmware-acceptance/nla1x09-contact-completion-warm-slot0/20261126T075639.987738Z/`.
+
+## Independent physical contact and calendar qualification
+
+SHA-256 `996a8ac5e81daea2c3618792a15ccd5d0571a9d6ee62c5b541bc66bc27f2fb1f`
+completed another blank-storage INSTALL. The terminal acknowledged all 18
+records, passed keypad and magnetic-reader checks, reported `SAM Socket
+Okay` for each of its three menu entries, and reported `Smart Card Test
+Okay` for the separate customer contact. The native pin trace independently
+observed each corresponding physical selector 0, 1 and 2 with its own
+reset and clock control and actual serial activation. Twelve generic ATR
+characters were transmitted in total across the four contacts. Coin
+calibration was retried normally, and the terminal displayed `Install is
+complete. Close terminal now`. After cabinet closure it remained at
+`Please lift receiver` through the 30-second idle check.
+
+The retained MT20 clock-sync record encoded 2026-11-26 08:08:43. Native
+live observations independently decoded terminal calendar and epoch
+2026-11-26 08:08:54 after synchronization, and 08:19:27 at the end of the
+cold run. Both saved memory-check markers were intact. The separate warm
+run used only the firmware-written state, remained in service through the
+30-second idle and physical hook cycle, and then opened Craft 778 with
+only physical internal slot 1 populated. Menu 01 and 03 returned `SAM
+Socket Not Resp`; menu 02 returned `SAM Socket Okay`. Only the selected
+populated slot produced an active contact and ATR. Normal cabinet closure
+returned to idle; the warm calendar advanced to 08:21:30 and both markers
+remained intact. The emulator process exited normally.
+
+This exact image qualifies cold INSTALL, retained warm service, clock
+synchronization and ordinary generic customer and distinct internal
+contact diagnostics, including a negative fixture control. The contact
+fixtures contain no historical issuer application or authorization state.
+Historical card scheme recognition, spending, and remote image transfer
+remain separate qualification gates.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-selector-clock-cold/20261126T080633.216501Z/`
+and `build/firmware-acceptance/nla1x09-selector-clock-warm-slot1/20261126T082024.440124Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.
+
+## Full demo table-set download teardown, 2026-11-26
+
+Two operator-observed graphical INSTALL attempts reported status 23 after
+downloading the expanded 43-record table set. Independent host session
+records show all 43 distinct application acknowledgements in each attempt,
+with no missing record, retry or invalid record. Both terminal dialogues
+completed the end-of-data and link ACK exchange and sent their own clear
+packet. The first stored host closure timestamp followed receipt of that
+clear by 15.307 ms. This is a host timestamp, not a native carrier timing
+measurement. Status 23 indicates loss of established modem carrier.
+
+Earlier successful 18-record installs used a different 36-byte MT33
+record, whose carrier-loss timeout monitoring was disabled. The current
+full configuration enables the monitor and uses different debounce
+settings. The normal terminal-clear completion also includes a native
+post-transmit delay. A retained successful native trace recorded TCP EOF
+at emulated 753.866800 s, the subsequent raw detector read at 753.873800 s,
+and relay release at 754.072661 s (205.861 ms after EOF). It tolerated this
+ordering with the earlier configuration.
+
+This supports, but does not yet prove, a close-timing interaction with the
+enabled carrier-loss monitor rather than a bad downloaded table. The
+recommended host control is to complete protocol handling at the terminal
+clear, allow the terminal to release its modem and close the transport
+normally, and retain a bounded cleanup timeout for abandoned peers. This
+does not require changing the table, suppressing an actual carrier event,
+or fabricating an acknowledgement. A shorter isolated native control and
+host integration regression are needed before declaring the issue fixed.

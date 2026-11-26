@@ -37,6 +37,12 @@ function createProjects_mame_coinline(_target, _subtarget)
 		MAME_DIR .. "src/mame/coinline/**.cpp",
 		MAME_DIR .. "src/mame/coinline/**.h",
 	}
+	-- Do not compile stale copies from overlays installed before the raw
+	-- test bridge was separated from the live line-jack implementation.
+	removefiles {
+		MAME_DIR .. "src/mame/coinline/millennium_hostbridge_tcp.cpp",
+		MAME_DIR .. "src/mame/coinline/millennium_hostbridge_tcp.h",
+	}
 end
 
 function linkProjects_mame_coinline(_target, _subtarget)

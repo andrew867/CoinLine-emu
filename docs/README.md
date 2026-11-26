@@ -26,6 +26,8 @@ Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick 
 | [ADSI interoperation](status/adsi-interop-2026-11-25.md) | Actual SIP/RTP, CAS, CONNECT and D1 evidence, with the first-response timing gate. |
 | [Graphical render performance](status/graphical-render-performance-2026-11-25.md) | Release tracing, display caching, board clock and measured live emulation speed. |
 | [Peripheral handoff implementation](status/peripheral-handoff-implementation-2026-11-25.md) | Native enclosure waveform, data-jack monitor and deterministic ADSI qualifier progress. |
+| [Full graphical qualification](status/proton-graphical-qualification-2026-11-25.md) | Exact image digests, real cold installation, retained service, clock and distinct module contacts; application-level gates remain separate. |
+| [Coin and cashbox qualification](status/coin-cashbox-qualification-2026-11-26.md) | Native quarter-rated local call, coin record, collection and empty replacement-box report. |
 | [Windows window timing](status/windows-window-timing-2026-11-25.md) | Nonmodal native window dragging and host renderer clock-progress measurements. |
 | [Connected DTMF and ADSI navigation](status/connected-dtmf-adsi-welcome-2026-11-25.md) | Hardware tone routing, negotiated SIP transports and genuine live graphical menu navigation. |
 | [OEM answer and dual launchers](status/oem-answer-dual-launcher-2026-11-25.md) | Cold OEM answer regression and independent portable terminal profiles. |

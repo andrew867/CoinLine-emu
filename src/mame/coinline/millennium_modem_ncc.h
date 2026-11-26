@@ -2,6 +2,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -14,11 +15,11 @@ struct ncc_frame_fields {
 	std::vector<std::uint8_t> payload{};
 };
 
-// `count` includes control + 5-byte terminal id + payload + crc16 (2 bytes).
-std::uint16_t compute_crc16(std::uint8_t control, std::uint8_t count,
-	std::array<std::uint8_t, 5> const &term_id,
-	std::vector<std::uint8_t> const &payload) noexcept;
+// NCC CRC covers exactly STX through the last data byte, excluding CRC and ETX.
+std::uint16_t compute_crc16(std::uint8_t const *bytes, std::size_t length) noexcept;
 
+// Control packets have no terminal ID or payload on the wire. Message packets
+// contain five ID bytes and 1..245 data bytes. An invalid frame encodes to empty.
 std::vector<std::uint8_t> encode(ncc_frame_fields const &f);
 
 // Strict single-frame decoder.
@@ -29,6 +30,8 @@ constexpr std::uint8_t CONTROL_RETRANSMIT = 0x04U;
 constexpr std::uint8_t CONTROL_ACK = 0x08U;
 constexpr std::uint8_t CONTROL_NACK = 0x10U;
 constexpr std::uint8_t CONTROL_CLEAR_CALL = 0x20U;
+constexpr std::uint8_t CONTROL_MASK = 0x38U;
+constexpr std::uint8_t CONTROL_SPARE_MASK = 0xc0U;
 
 inline std::uint8_t control_packet_id(std::uint8_t control) noexcept { return control & CONTROL_PACKET_ID_MASK; }
 

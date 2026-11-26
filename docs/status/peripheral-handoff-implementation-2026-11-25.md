@@ -208,3 +208,141 @@ ROM-dependent skips and no failures. All 18 central-office tests and all
 deterministic PCM sample boundaries and unchanged captured CONNECT input.
 Native line-jack, data-jack and synchronous contact probes also passed
 again after the final receiver-clock build.
+
+## Full graphical forgotten-card control, 2026-11-26
+
+The qualified full graphical image started from its own installed storage
+and displayed `Please lift receiver`. A generic customer contact fixture
+was physically inserted off hook, and the terminal displayed `Card
+validation in progress`. After replacing the handset, the terminal later
+displayed `Please remove your card`. The opt-in contact trace confirmed
+physical presence changed from 1 to 0 on removal. The reminder screenshot
+63.6 emulated seconds after hangup and the screenshot 30.5 emulated seconds
+after removal were byte-identical. No enclosure alerter GPIO transition
+occurred during the card-present or removal interval.
+
+This establishes the visual reminder on this exact image, but not audible
+reminder activation or recovery after removal. The latter two remain open;
+the previous graphical image's removal result is not transferable to this
+one. Independent read-only inspection of the retained state confirmed
+that the terminal itself saw both sensors clear, classified the card as
+out, and returned the reader to idle; its validation state was still
+pending. The configured alarm duration was nonzero. This separates the
+physical removal path from the application/UI cleanup and does not prove
+that this generic contact fixture is eligible for an audible alarm.
+No application response, alarm output or service state was forced.
+The contact presence trace is opt-in and otherwise leaves the device
+behavior unchanged.
+
+Run: `build/firmware-acceptance/nla1x09-native-forgotten-card-repeat/20261126T085756.573966Z/`.
+
+### Independent stock-image removal controls
+
+Three unchanged stock images were restarted from copies of their own
+previously installed battery and flash state, with the same generic
+read-only contact fixture as the full graphical run. Each used its
+previously qualified board profile, two-line display and a disconnected
+local NCC endpoint. No payment or external call was attempted.
+
+| Image | Board | Card-present display | On-hook reminder | After removal |
+| --- | --- | --- | --- | --- |
+| NLA1X05 | V1.3 | Cannot read card | Please remove your card | Please lift receiver |
+| NQA1X01 | V1.3 | Cannot read card | Please remove your card | Please lift receiver |
+| NKA1X02 | V1.1 | Cannot read card | Please remove your card | Please lift receiver |
+
+In each case, physical presence changed from 1 to 0, the reminder was
+still visible 63.6 emulated seconds after hangup, and the screenshot 30.5
+emulated seconds after removal matched the initial idle screenshot
+byte-for-byte. All three processes exited normally. Two enclosure latch
+writes after removal retained the normal `08` value in each case; no
+audible warning-source activation was observed. The generic rejected card
+does not qualify the actual audible reminder policy.
+
+The full graphical image repeated the same failure with a bounded,
+read-only task trace. Across separate short insertion and removal sample
+windows, the router entered recurring recovery 18 and 19 times respectively,
+completed its recovery notification and re-entered with alternating signals.
+Neither the pending card-removal cleanup nor validation-clear path was
+observed. The terminal's raw sensors were clear and reader idle after
+removal, while validation remained pending. The final reminder screenshot
+was byte-identical to its pre-removal reminder. The process exited normally.
+This distinguishes a recurring recovery condition in this image from a
+missing physical card-removal signal. The cause of the repeated recovery
+is still under investigation; there was no forced state change.
+
+Evidence under `build/firmware-acceptance/oem-card-controls/`:
+
+- `NLA1X05-async/20261126T131511.574333Z/`
+- `NQA1X01-async/20261126T131601.353426Z/`
+- `NKA1X02-async/20261126T131916.227881Z/`
+- `full-removal-watch/20261126T132021.270191Z/`
+
+### Startup routing discriminator
+
+A further warm control used the same full graphical image and its own
+installed storage, without lifting the handset or inserting a customer
+card. The display reached `Please lift receiver`, but an opt-in bounded
+read-only trace captured the following task sequence:
+
+| Emulated frame | Observed event |
+| --- | --- |
+| 129 | Service card subsystem and router initialization |
+| 182 | Initial generic handler transmit |
+| 211 | Router receive and response-destination lookup; first error log entry |
+| 212 | Second destination lookup, rejected transmit, serious-error recovery and subsystem reinitialization |
+| 219 | Another service initialization transmit |
+
+The 15-second control captured 82 serious-error entries, 164 router task
+entries, 164 response-destination lookups, and 410 error-log calls. The
+retained circular log independently showed repeated no-command-flow,
+invalid-destination and transmit-failure errors followed by recovery.
+The dedicated reminder start, cancellation and cadence task entry points
+were not observed. The entire condition is therefore present before card
+use and is not a consequence of the card switch or reminder timer.
+
+The upstream review identified incorrect index width in shared router
+command and response relationship bookkeeping as a concrete defect
+consistent with this observed sequence. The recommended correction is
+limited to normal relationship bookkeeping and response routing; do not
+alter the alarm timer, payment validation or physical input behavior to
+conceal the failure. Acceptance requires an idle startup with no recurring
+router errors, normal rejection and removal of an unsupported test card,
+separate audible alarm qualification on an eligible reference fixture, and
+cold/warm service regression. This remains a diagnosis, not a tested fix.
+
+Evidence: `build/firmware-acceptance/oem-card-controls/router-startup-watch/20261126T134617.195210Z/`.
+
+### Corrected routing candidate, retained-storage control
+
+The separate full graphical candidate with SHA-256
+`cb6be6c988bf57818bd25ed4cc0922f23c45429cba2fc81919203decb5fe603d`
+was tested against byte-identical copies of the preceding installed
+battery, EEPROM and coin state. The new program image was used as its
+initial flash seed; its predecessor's persisted flash was not substituted.
+The original state and images remained unchanged. The test endpoint was
+disconnected from NCC.
+
+The startup sequence reached the initial handler transmit and response
+routing normally. Across the sampled startup, insertion and removal
+windows, the trace recorded four router task entries, four response
+destination lookups, one isolated log call and zero serious-error recovery
+entries. The generic removal task ran during startup and cleared the
+previous pending validation state. The ordinary idle display also showed
+its installed graphical advertisement.
+
+The same unsupported generic customer fixture then displayed `Cannot read
+card / Try a different card` rather than remaining in validation. After
+hangup the card-removal reminder remained visible at the 63.6-second
+observation. Physical removal at frame 6930 produced normal validation
+cleanup at frames 6940 and 6970; the reader was idle and both sensors were
+clear. The snapshot at frame 8766 showed `Please lift receiver`. The
+emulator exited normally. No actual warning-source activation was observed;
+the unsupported fixture does not establish audible warning eligibility.
+
+This qualifies the corrected candidate's retained-storage startup and
+ordinary rejected-card reminder/removal recovery. A blank-storage INSTALL
+and its own warm restart remain independent gates, held pending a verified
+isolated NCC listener. No payment application or alarm hardware behavior
+was changed to produce this result.
+
+Evidence: `build/firmware-acceptance/oem-card-controls/cb6be6c988bf/warm/20261126T135233.016721Z/`.

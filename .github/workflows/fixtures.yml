@@ -13,7 +13,7 @@ on:
       - "requirements-dev.txt"
       - ".github/workflows/fixtures.yml"
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
     paths:
       - "fixtures/**"
       - "tests/fixtures/**"

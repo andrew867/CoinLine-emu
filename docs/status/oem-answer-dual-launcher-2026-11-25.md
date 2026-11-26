@@ -40,5 +40,38 @@ still active and separate line jacks present. Both exited with status 0.
 Evidence: `build/firmware-acceptance/dual-profile/probe-ak9nr1mf/`.
 External account-to-account calling remains untested.
 
+A later private Windows package combined the standard two-line OEM image
+with the independently cold/warm-qualified full graphical image identified
+by SHA-256 prefix `0974cea06aaa`. The ZIP integrity and both packaged image
+hashes were verified, with no recordings or saved terminal state included.
+Both extracted profiles registered concurrently on their separate default
+ports at the local test registrar, established separate CO line jacks, and
+exited normally. Evidence: `build/firmware-acceptance/dual-profile/probe-3o6q29d5/`.
+
+The subsequent local package contains the independently qualified full
+graphical image `996a8ac5e81d` and selects its generic asynchronous contact
+fixture by registered digest. The standard OEM default remains synchronous,
+and the optional internal module positions remain empty unless configured.
+The final ZIP passed integrity and image-hash checks and contained neither
+recordings nor saved terminal state. Both packaged profiles again registered
+concurrently with distinct ports and separate local CO line jacks and
+exited normally. Evidence:
+`build/firmware-acceptance/dual-profile/probe-1uubu1ow/`.
+
 All 49 Python fixture and CO tests passed, including the early manager
 relay-release cases and isolated profile defaults.
+
+The next local package retains the same qualified native executable and
+standard OEM image, but registers and bundles the full graphical routing
+candidate `cb6be6c988bf`. Its default is the same generic async contact
+fixture; its launcher state remains isolated by the full image digest.
+The quick start documents carrying the previous installed battery, EEPROM
+and coin state to the new digest directory without copying old program flash.
+All seven portable-profile tests passed. Both packaged launcher input checks
+passed, all 168 manifest entries and ZIP integrity were verified, and no
+recordings or saved terminal state were included. A separate actual packaged
+graphical launch using byte-identical copies of the prior installed state
+connected its local CO jack, displayed `Please lift receiver` and exited
+normally. The fresh INSTALL gate for this image remains separate.
+
+Evidence: `build/firmware-acceptance/routing-portable-smoke/20261126T163713.991759Z/`.

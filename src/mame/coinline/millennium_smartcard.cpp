@@ -123,6 +123,9 @@ void millennium_smartcard_device::insert_card(u64 cycle, u64 cpu_hz)
 		stop_async_serial();
 	m_async_hz = cpu_hz ? cpu_hz : 12288000;
 	m_model.insert_card_at(cycle, cpu_hz);
+	if (m_pin_trace)
+		osd_printf_info("smart-card physical insert at %llu present=%u\n",
+			static_cast<unsigned long long>(async_cycle()), unsigned(m_model.status_lines() & 1U));
 }
 
 void millennium_smartcard_device::remove_card()
@@ -130,6 +133,9 @@ void millennium_smartcard_device::remove_card()
 	m_model.remove_card();
 	if (m_serial_model == &m_model)
 		stop_async_serial();
+	if (m_pin_trace)
+		osd_printf_info("smart-card physical remove at %llu present=%u\n",
+			static_cast<unsigned long long>(async_cycle()), unsigned(m_model.status_lines() & 1U));
 }
 
 std::uint8_t millennium_smartcard_device::read_fifo(u64 cycle)

@@ -127,6 +127,61 @@ acknowledged the manager's disabled MT94. The observation endpoint was
 closed, and the terminal returned to ordinary operation. Evidence:
 `build/firmware-acceptance/nla1x08-code-disabled-callback/20261126T052319.695480Z/`.
 
+### Full graphical reference carrier observation
+
+The independently cold/warm-qualified full graphical image (SHA-256
+prefix `996a8ac5e81d`) accepted a separate scheduled code-only callback.
+The manager persisted a genuine MT19 acknowledgement, MT9 callback return
+and one MT94 application ACK, without unrelated table delivery. The
+terminal's independently verified calendar was correct before scheduling.
+The receive-only code endpoint was isolated from ordinary NCC and supplied
+no code payload.
+
+At the scheduled checkpoint the terminal opened the distinct code-server
+TCP connection at emulated 267.337067 s. Its native SSI reads observed
+ringback, answer tone at 269.346267 s, and the existing mark-phase value
+`28` at 270.846267 s. At 271.035174 s the actual terminal released its
+modem relay, before the programmed carrier phase. A bounded read-only
+observation independently captured the resident loader's carrier-wait
+state and its failure branch when all four qualified line indications
+were absent. No application handshake or image bytes were exchanged.
+The persistent flash file was byte-identical before and after this run;
+both terminal memory-check markers remained intact.
+
+The [73K324L manufacturer datasheet, pp. 10-11 and 20](https://static6.arrow.com/aropdfconversion/aa1da1e214c115791f9da7f15337dacb4abdfc16/fds73k324l_v7.0.pdf)
+distinguishes the carrier indication (D3), unscrambled-mark indication
+(D4), received data (D5), and S1 pattern (D6). The current `28` value
+contains carrier and receive-data bits, not an independent unscrambled-mark
+indication. The [ITU-T V.22bis recommendation, section 6.3 and Figure 5](https://www.itu.int/rec/T-REC-V.22bis-198811-I/en)
+defines the distinct training sequence beginning at 1200 bit/s for a
+2400 bit/s connection. The native terminal's retained detector settings
+specify a 50 ms nominal answer release and 100 ms nominal carrier
+qualification. The observed all-zero interval is consistent with a gap
+between these independent qualifications; actual detector sample counts
+and a standards-compatible remote training sequence still require further
+verification. Neither a permanently asserted answer tone nor a forced
+data-carrier status is a valid substitute for that verification.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-code-phase-observation/20261126T082451.792563Z/`.
+
+The separate code endpoint now has a register-level answering modem model
+with the [V.25 answer sequence and turn-off gap](https://www.itu.int/rec/dologin_pub.asp?id=T-REC-V.25-198811-S%21%21PDF-E&lang=e&type=items),
+distinct carrier and unscrambled-mark indications, an S1 response to a
+complete guest-transmitted S1 pattern, and subsequent scrambled-mark and
+QAM training phases. A V.22 fallback is modeled separately. Nominal
+detector acquisition/hold intervals are selected within the manufacturer's
+specified bounds; the ordinary NCC peer's existing timing remains
+unchanged. Carrier completion requires the guest's actual modem-register
+programming, not solely TCP connection or elapsed time. This is a
+logical pin-level abstraction, not an analogue waveform modem or a claim
+of completed native firmware transfer.
+
+The component regression verifies the initial no-signal gap, separate
+detect bits, no data transfer before training, genuine SSI-programmed S1
+and QAM transition, and 1200 bit/s fallback. Actual resident-loader
+interoperation with this model remains a separate live test.
+
 ## Tests
 
 `test_flash_model` exercises NOR command sequencing, program and erase
@@ -137,12 +192,12 @@ the later-board low-window address remap.
 upper-window selection and the observed linear address bounds.
 `test_modem_code_server` checks the independent loopback data-call route,
 carrier establishment, unchanged binary data in both directions, relay
-release and ordinary NCC route selection. The test reads the existing
-ringback, answer-tone, mark and carrier status through the SSI pins in
-sequence. The opt-in native modem trace records the corresponding
-call-progress transitions, relay/TCP events and changed SSI detect reads
-without changing the modem timings or generating a successful protocol
-response.
+release and ordinary NCC route selection. It reads the code peer's
+ringback, answer-tone gap, raw carrier, separate mark, S1 and training
+states through normal SSI pins, and checks both V.22bis and V.22 fallback.
+The opt-in native modem trace records corresponding call-progress
+transitions, relay/TCP events, changed SSI detect reads and register writes
+without generating a successful protocol response.
 The native synthetic flash-bus probe starts with non-erased bytes in one
 sector of each chip, erases those sectors, polls the device ready state and
 programs the target bytes with normal Z180 instructions executing from SRAM.
@@ -214,3 +269,14 @@ phase. Evidence: `build/firmware-acceptance/flash-bus-probe/20261126T024018.9641
 Live qualification still requires an isolated NCC assignment and code-server
 listener, an approved compatible target image, and observation of the
 firmware-initiated transfer, resulting flash state and actual reboot.
+
+The next full graphical retry remains held at normal schedule cancellation.
+A native Craft refresh completed all 18 assigned records and the terminal
+then returned its pending special callback on the same NCC connection. The
+manager acknowledged the callback but did not deliver the separately queued
+disabled MT94 because its ordinary install-dialogue guard was still active.
+The manager-side focused regression now passes; deployment into the isolated
+test environment is pending. The terminal is offline, with its retained
+state preserved. No replacement schedule, modem-table change or image
+transfer has occurred. The component-level V.22bis training result does not
+establish native carrier or download success.

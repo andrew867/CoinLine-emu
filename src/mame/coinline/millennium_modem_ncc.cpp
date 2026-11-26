@@ -10,54 +10,56 @@ constexpr std::uint8_t k_etx = 0x03U;
 constexpr std::size_t k_term_id_bytes = 5U;
 constexpr std::size_t k_max_packet_size = 256U;
 constexpr std::size_t k_max_payload_size = 245U;
+constexpr std::uint8_t k_control_count = 5U;
+constexpr std::uint8_t k_message_overhead = k_control_count + k_term_id_bytes;
+
+bool valid_control(std::uint8_t control) noexcept
+{
+	return !(control & CONTROL_SPARE_MASK)
+		&& (control & (CONTROL_ACK | CONTROL_NACK)) != (CONTROL_ACK | CONTROL_NACK);
+}
 } // namespace
 
-std::uint16_t compute_crc16(std::uint8_t control, std::uint8_t count, std::array<std::uint8_t, 5> const &term_id,
-	std::vector<std::uint8_t> const &payload) noexcept
+std::uint16_t compute_crc16(std::uint8_t const *bytes, std::size_t length) noexcept
 {
-	// Provisional NCC CRC16 implementation: CRC-16/IBM (poly 0xA001, init 0xFFFF), little-endian on wire.
-	std::uint16_t crc = 0xFFFFU;
-	auto const step = [&crc](std::uint8_t b) {
-		crc ^= b;
-		for (unsigned i = 0; i < 8U; ++i)
+	// Reflected polynomial 0xA001, initial value zero, no final XOR.
+	std::uint16_t crc = 0U;
+	for (std::size_t i = 0; i < length; ++i) {
+		crc ^= bytes[i];
+		for (unsigned bit = 0; bit < 8U; ++bit)
 			crc = (crc & 1U) ? static_cast<std::uint16_t>((crc >> 1) ^ 0xA001U) : static_cast<std::uint16_t>(crc >> 1);
-	};
-	step(control);
-	step(count);
-	for (std::uint8_t b : term_id)
-		step(b);
-	for (std::uint8_t b : payload)
-		step(b);
+	}
 	return crc;
 }
 
 std::vector<std::uint8_t> encode(ncc_frame_fields const &f)
 {
 	std::vector<std::uint8_t> out;
-	if (f.payload.size() > k_max_payload_size)
+	bool const is_control = (f.control & CONTROL_MASK) != 0;
+	if (!valid_control(f.control) || (is_control ? !f.payload.empty()
+		: f.payload.empty() || f.payload.size() > k_max_payload_size))
 		return out;
-	std::uint8_t const count = static_cast<std::uint8_t>(1U + k_term_id_bytes + f.payload.size() + 2U);
-	std::uint16_t const crc = compute_crc16(f.control, count, f.term_id, f.payload);
-	out.reserve(1U + 1U + 1U + k_term_id_bytes + f.payload.size() + 2U + 1U);
+	std::uint8_t const count = is_control ? k_control_count
+		: static_cast<std::uint8_t>(k_message_overhead + f.payload.size());
+	out.reserve(static_cast<std::size_t>(count) + 1U);
 	out.push_back(k_stx);
 	out.push_back(f.control);
 	out.push_back(count);
-	for (std::uint8_t b : f.term_id)
-		out.push_back(b);
-	for (std::uint8_t b : f.payload)
-		out.push_back(b);
+	if (!is_control) {
+		out.insert(out.end(), f.term_id.begin(), f.term_id.end());
+		out.insert(out.end(), f.payload.begin(), f.payload.end());
+	}
+	std::uint16_t const crc = compute_crc16(out.data(), out.size());
 	out.push_back(static_cast<std::uint8_t>(crc & 0xffU));
 	out.push_back(static_cast<std::uint8_t>((crc >> 8) & 0xffU));
 	out.push_back(k_etx);
-	if (out.size() > k_max_packet_size)
-		out.clear();
 	return out;
 }
 
 bool decode(std::vector<std::uint8_t> const &wire, ncc_frame_fields &out, std::string &error)
 {
 	error.clear();
-	if (wire.size() < 1U + 1U + 1U + k_term_id_bytes + 2U + 1U) {
+	if (wire.size() < k_control_count + 1U) {
 		error = "frame too short";
 		return false;
 	}
@@ -75,39 +77,38 @@ bool decode(std::vector<std::uint8_t> const &wire, ncc_frame_fields &out, std::s
 	}
 	std::uint8_t const control = wire[1];
 	std::uint8_t const count = wire[2];
-	if (count < (1U + k_term_id_bytes + 2U)) {
+	if (!valid_control(control)) {
+		error = "invalid control";
+		return false;
+	}
+	bool const is_control = (control & CONTROL_MASK) != 0;
+	if (is_control ? count != k_control_count : count <= k_message_overhead) {
 		error = "invalid count";
 		return false;
 	}
-	// [stx][control][count][term_id(5)][payload...][crc_lo][crc_hi][etx]
-	std::size_t const expected_total = static_cast<std::size_t>(count) + 3U;
+	// The wire length is count + 1, including STX and ETX.
+	std::size_t const expected_total = static_cast<std::size_t>(count) + 1U;
 	if (wire.size() != expected_total) {
 		error = "count mismatch";
 		return false;
 	}
-	std::size_t const payload_len = static_cast<std::size_t>(count) - (1U + k_term_id_bytes + 2U);
-	if (payload_len > k_max_payload_size) {
-		error = "payload too large";
-		return false;
-	}
-	std::array<std::uint8_t, 5> term_id{};
-	for (std::size_t i = 0; i < k_term_id_bytes; ++i)
-		term_id[i] = wire[3U + i];
-	std::vector<std::uint8_t> payload;
-	payload.reserve(payload_len);
-	for (std::size_t i = 0; i < payload_len; ++i)
-		payload.push_back(wire[3U + k_term_id_bytes + i]);
-	std::uint8_t const crc_lo = wire[3U + k_term_id_bytes + payload_len];
-	std::uint8_t const crc_hi = wire[3U + k_term_id_bytes + payload_len + 1U];
+	std::size_t const crc_pos = wire.size() - 3U;
+	std::uint8_t const crc_lo = wire[crc_pos];
+	std::uint8_t const crc_hi = wire[crc_pos + 1U];
 	std::uint16_t const got = static_cast<std::uint16_t>(crc_lo | (static_cast<std::uint16_t>(crc_hi) << 8));
-	std::uint16_t const want = compute_crc16(control, count, term_id, payload);
+	std::uint16_t const want = compute_crc16(wire.data(), crc_pos);
 	if (got != want) {
 		error = "crc mismatch";
 		return false;
 	}
 	out.control = control;
-	out.term_id = term_id;
-	out.payload = std::move(payload);
+	out.term_id.fill(0);
+	out.payload.clear();
+	if (!is_control) {
+		for (std::size_t i = 0; i < k_term_id_bytes; ++i)
+			out.term_id[i] = wire[3U + i];
+		out.payload.assign(wire.begin() + 3U + k_term_id_bytes, wire.begin() + crc_pos);
+	}
 	return true;
 }
 
@@ -115,6 +116,11 @@ void session_model::on_tx_frame(std::uint8_t control) noexcept
 {
 	last_frame_was_nack = false;
 	local_packet_id = control_packet_id(control);
+	if ((control & CONTROL_CLEAR_CALL) != 0U) {
+		state = session_state::idle;
+		retry_count = 0U;
+		return;
+	}
 	if ((control & CONTROL_ACK) != 0U || (control & CONTROL_NACK) != 0U) {
 		state = session_state::established;
 		return;
@@ -126,6 +132,12 @@ void session_model::on_tx_frame(std::uint8_t control) noexcept
 
 void session_model::on_rx_frame(ncc_frame_fields const &frame) noexcept
 {
+	if ((frame.control & CONTROL_CLEAR_CALL) != 0U) {
+		state = session_state::idle;
+		retry_count = 0U;
+		last_frame_was_nack = false;
+		return;
+	}
 	std::uint8_t const remote_packet_id = control_packet_id(frame.control);
 	if ((frame.control & CONTROL_NACK) != 0U && remote_packet_id == local_packet_id) {
 		last_frame_was_nack = true;
@@ -138,12 +150,6 @@ void session_model::on_rx_frame(ncc_frame_fields const &frame) noexcept
 		last_frame_was_nack = false;
 		if (state != session_state::failed)
 			state = session_state::established;
-		return;
-	}
-	if ((frame.control & CONTROL_CLEAR_CALL) != 0U) {
-		state = session_state::idle;
-		retry_count = 0U;
-		last_frame_was_nack = false;
 		return;
 	}
 }
