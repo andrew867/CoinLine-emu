@@ -208,3 +208,24 @@ ROM-dependent skips and no failures. All 18 central-office tests and all
 deterministic PCM sample boundaries and unchanged captured CONNECT input.
 Native line-jack, data-jack and synchronous contact probes also passed
 again after the final receiver-clock build.
+
+## Full graphical forgotten-card control, 2026-11-26
+
+The qualified full graphical image started from its own installed storage
+and displayed `Please lift receiver`. A generic customer contact fixture
+was physically inserted off hook, and the terminal displayed `Card
+validation in progress`. After replacing the handset, the terminal later
+displayed `Please remove your card`. The opt-in contact trace confirmed
+physical presence changed from 1 to 0 on removal. The reminder screenshot
+63.6 emulated seconds after hangup and the screenshot 30.5 emulated seconds
+after removal were byte-identical. No enclosure alerter GPIO transition
+occurred during the card-present or removal interval.
+
+This establishes the visual reminder on this exact image, but not audible
+reminder activation or recovery after removal. The latter two remain open;
+the previous graphical image's removal result is not transferable to this
+one. No application response, alarm output or service state was forced.
+The contact presence trace is opt-in and otherwise leaves the device
+behavior unchanged.
+
+Run: `build/firmware-acceptance/nla1x09-native-forgotten-card-repeat/20261126T085756.573966Z/`.

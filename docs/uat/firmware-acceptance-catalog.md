@@ -38,6 +38,23 @@ and ADSI service operation remain independent qualification gates.
 The updated synchronous reader also passed NLA1X08's standalone Craft
 contact test twice. It did not establish a funded payment application.
 [Card contact evidence](../status/smartcard-contact-2026-11-25.md)
+The free ADSI service subsequently passed genuine menu navigation and
+release, but paid ADSI and physical handset qualification remain separate.
+[ADSI evidence](../status/connected-dtmf-adsi-welcome-2026-11-25.md)
+
+The additional full-feature NLA1X09 11-line Multi-Pay candidate, terminal
+type 40 and DLA 1.3, is independently qualified at mapped SHA-256
+`996a8ac5e81daea2c3618792a15ccd5d0571a9d6ee62c5b541bc66bc27f2fb1f`.
+It completed blank-storage INSTALL with all 18 NCC records, both line
+checks, keypad, magnetic-reader, coin calibration/escrow, generic customer
+contact and three distinct native module-contact tests. It retained service
+through a separate warm restart and hook cycle; a one-populated negative
+control rejected both empty sockets, and its native calendar followed the
+actual NCC clock sync. This makes 25 of 26 runnable IDs with the two
+additional local graphical candidates included; archive counts are unchanged.
+Historical purse transactions, end-to-end remote image transfer and physical
+terminal certification remain separate gates.
+[Full graphical acceptance](../status/proton-graphical-qualification-2026-11-25.md)
 
 ## Local firmware library
 

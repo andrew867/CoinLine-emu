@@ -60,7 +60,9 @@ and coin tests. It reached `Please lift receiver` after cabinet closure
 and remained in service across an independent warm restart and hook cycle.
 The real NCC clock synchronization and three distinct internal module
 contact diagnostics also passed. With just one module populated, the two
-empty sockets correctly reported no response. Historical purse transactions
+empty sockets correctly reported no response. Including the two additional
+local graphical variants, 25 of 26 runnable identifiers now have cold
+INSTALL and in-service restart evidence. Historical purse transactions
 remain a separate qualification gate.
 
 The graphical board now uses its 24.576 MHz oscillator and the local ADSI
