@@ -46,7 +46,10 @@ board revision with `--display 11line`, or `display = 11line` under
 uses the verified firmware registry and otherwise selects `2line`.
 Use a compatible later-board program image and its matching hardware preset.
 The launcher selects the graphical artwork and isolates its persistent terminal
-state. The registered NLA1X08 image automatically selects its graphical profile.
+state. The registered NLA1X08 and NLA1X09 images automatically select their
+graphical profile. The full and earlier focused NLA1X09 variants are separate
+hash-bound battery states. The full variant is the next qualification target;
+the existing packaged image remains the reference until its INSTALL passes.
 The graphical board profile and Multi-pay V1.3 control-board preset use a
 24.576 MHz oscillator, corresponding to a 12.288 MHz Z180 processor clock.
 The conventional earlier-board profile retains its 12.288 MHz oscillator.

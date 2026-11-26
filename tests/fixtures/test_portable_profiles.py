@@ -86,12 +86,12 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
     registry.parent.mkdir(parents=True)
     entries = []
     states = []
-    for firmware_id in ("NLA1X08", "NLA1X09"):
-        image = f"<{firmware_id}V1.3>".encode().ljust(0x100000, b"\xff")
-        path = tmp_path / "firmware" / f"{firmware_id}.bin"
+    for firmware_id, variant in (("NLA1X08", "original"), ("NLA1X09", "focused"), ("NLA1X09", "full")):
+        image = f"<{firmware_id}V1.3>{variant}".encode().ljust(0x100000, b"\xff")
+        path = tmp_path / "firmware" / f"{firmware_id}-{variant}.bin"
         path.parent.mkdir(exist_ok=True)
         path.write_bytes(image)
-        entries.append({"version_id": firmware_id, "firmware_id": firmware_id,
+        entries.append({"version_id": firmware_id + "-" + variant, "firmware_id": firmware_id,
                         "motherboard": "later", "display": "11line",
                         "sha256_hex": hashlib.sha256(image).hexdigest()})
         registry.write_text(json.dumps({"entries": entries}), encoding="utf-8")
@@ -103,4 +103,4 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
         assert env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
         assert launcher.select_hardware("auto", image) == ("multipay-v1.3", "program tag")
         states.append(state)
-    assert states[0] != states[1]
+    assert len(set(states)) == len(states)
