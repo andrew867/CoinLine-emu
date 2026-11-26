@@ -29,7 +29,10 @@ NCC address is 127.0.0.1 and TCP port 4000. Copy coinline.example.ini to
 coinline.ini to configure a different NCC port. For operator instructions and
 front-panel controls, see docs/Running.md.
 
-Later-board profiles accept optional read-only internal contact fixtures
+The qualified full graphical image (SHA-256 prefix 996a8ac5e81d) uses the
+generic asynchronous contact fixture for its INSTALL diagnostic; other
+images retain their synchronous default. You can override smart_fixture
+in the appropriate INI. Later-board profiles accept optional read-only internal contact fixtures
 under [cards], using sam_slot0, sam_slot1 and sam_slot2. The included generic
 module fixture does not provide payment authorization. The independent local
 LAB ledger utility is app/lab_purse.py; run python3 app/lab_purse.py --help.

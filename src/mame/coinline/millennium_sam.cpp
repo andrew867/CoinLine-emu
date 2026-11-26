@@ -46,7 +46,12 @@ void millennium_sam_device::observe_later_pins(u8 h, u8 d, u8 e, u8 c, u8 g, u64
 	m_contacts.later_pins(h, d, e, c, g, cycle);
 	if (!m_pin_trace || m_trace_count >= 4096 || (!was_internal && !internal))
 		return;
-	u64 const packed = (u64(h) << 32) | (u64(d) << 24) | (u64(e) << 16) | (u64(c) << 8) | u64(g);
+	// Deduplicate on the contact selector, supply, clock and reset lines.
+	// Other bits on these shared latches (notably periodic supervision)
+	// must not consume the bounded contact observation budget.
+	u64 const packed = (u64(h & 0x08U) << 32) | (u64(d & 0x03U) << 24)
+		| (u64(e & 0x02U) << 16) | (u64(c & 0x0fU) << 8) | u64(g & 0x3eU)
+		| (u64(m_contacts.active()) << 40);
 	if (m_last_pins == packed)
 		return;
 	m_last_pins = packed;

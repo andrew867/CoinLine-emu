@@ -10,6 +10,7 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 - [INSTALL verification](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) for the firmware and network evidence.
 - [Card contact and payment qualification](docs/status/smartcard-contact-2026-11-25.md), [ADSI interoperation](docs/status/adsi-interop-2026-11-25.md), and [graphical performance](docs/status/graphical-render-performance-2026-11-25.md) for the latest live trials and remaining gates.
 - [Native smart-card transport and high-DPI window sizing](docs/status/smartcard-native-transport-2026-11-25.md) for the synthetic ASCI0 and memory-persistence tests.
+- [Full graphical image qualification](docs/status/proton-graphical-qualification-2026-11-25.md) and [native coin and cashbox qualification](docs/status/coin-cashbox-qualification-2026-11-26.md) for the latest independent cold, warm and transaction results.
 - [Independent simulated-value purse](docs/lab-purse.md) for the local nonredeemable ledger, separate from native card authorization.
 - [Interactive and audio milestone status](docs/status/interactive-audio-milestone-status.md) for the native New Call relay and SIP-dialog restart check.
 - [Windows window and artwork timing](docs/status/windows-window-timing-2026-11-25.md) for nonmodal window moves/resizes and native renderer measurements.
@@ -51,6 +52,17 @@ settlement were not observed. The synchronous contact fixture is nonfunded;
 a funded chip application and a fresh NLA1X08 INSTALL with the new reader
 remain separate gates.
 
+The full-feature NLA1X09 graphical image identified by SHA-256 prefix
+`996a8ac5e81d` completed INSTALL from blank storage on the corrected
+later-board common-SRAM map, acknowledged all 18 NCC records and passed
+the genuine keypad, magnetic-reader, generic asynchronous customer-contact
+and coin tests. It reached `Please lift receiver` after cabinet closure
+and remained in service across an independent warm restart and hook cycle.
+The real NCC clock synchronization and three distinct internal module
+contact diagnostics also passed. With just one module populated, the two
+empty sockets correctly reported no response. Historical purse transactions
+remain a separate qualification gate.
+
 The graphical board now uses its 24.576 MHz oscillator and the local ADSI
 route carries real PCMU audio over SIP/RTP. Live firmware trials produced
 the capability A tone, decoded authentic CONNECT frames and emitted D1
@@ -73,6 +85,11 @@ audio measurements verified the later waveform and silent muted phases.
 The optional later-board data-jack monitor and raw relay combinations also
 passed a native bus probe; external modem audio and data-session acceptance
 are still pending. See [peripheral qualification](docs/status/peripheral-handoff-implementation-2026-11-25.md).
+The actual forgotten-card prompt and normal recovery on removal also passed;
+the installed firmware's audible reminder remains unqualified. A separate
+local-only 25-cent coin call produced a matching native CDR, physical
+cashbox collection report and empty replacement-box report without
+duplicate records. See [cashbox evidence](docs/status/coin-cashbox-qualification-2026-11-26.md).
 All three tested Coin Basic images completed detached-display Craft access,
 INSTALL with the temporary display attached, and a locally answered call
 after removing the display and restarting. The Inmate firmware is still
@@ -91,7 +108,9 @@ and verifies the saved bytes after a separate launch. The
 original firmware inputs remain unchanged. Actual remote upgrades and recovery
 after interrupted delivery still need a compatible code-server exchange. The
 modem offers a configurable, independent loopback route for the firmware's
-code-server call.
+code-server call. Native scheduled pickup of an MT94 job, separate dialing
+and acknowledged cancellation have been demonstrated. The observed
+code-server call closed before carrier and did not transfer an image.
 
 The Windows build supports SIP audio and selection of a recording device. An OEM inbound call through SignalWire carried captured audio to the calling side and cleared on remote hangup. Linux and macOS builds use the local central-office simulator. SIP audio and microphone capture on those platforms are future work.
 

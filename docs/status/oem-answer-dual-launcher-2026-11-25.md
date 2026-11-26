@@ -40,5 +40,23 @@ still active and separate line jacks present. Both exited with status 0.
 Evidence: `build/firmware-acceptance/dual-profile/probe-ak9nr1mf/`.
 External account-to-account calling remains untested.
 
+A later private Windows package combined the standard two-line OEM image
+with the independently cold/warm-qualified full graphical image identified
+by SHA-256 prefix `0974cea06aaa`. The ZIP integrity and both packaged image
+hashes were verified, with no recordings or saved terminal state included.
+Both extracted profiles registered concurrently on their separate default
+ports at the local test registrar, established separate CO line jacks, and
+exited normally. Evidence: `build/firmware-acceptance/dual-profile/probe-3o6q29d5/`.
+
+The subsequent local package contains the independently qualified full
+graphical image `996a8ac5e81d` and selects its generic asynchronous contact
+fixture by registered digest. The standard OEM default remains synchronous,
+and the optional internal module positions remain empty unless configured.
+The final ZIP passed integrity and image-hash checks and contained neither
+recordings nor saved terminal state. Both packaged profiles again registered
+concurrently with distinct ports and separate local CO line jacks and
+exited normally. Evidence:
+`build/firmware-acceptance/dual-profile/probe-1uubu1ow/`.
+
 All 49 Python fixture and CO tests passed, including the early manager
 relay-release cases and isolated profile defaults.

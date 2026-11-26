@@ -115,6 +115,8 @@ def test_profile_default_programs_display_and_state(tmp_path, monkeypatch):
     assert graphic_env["COINLINE_MOTHERBOARD"] == "later"
     assert graphic_env["COINLINE_HARDWARE_PRESET"] == "multipay-v1.3"
     assert graphic_env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
+    assert oem_env["COINLINE_SMART_CARD"] == str(tmp_path / launcher.SYNC_CONTACT_FIXTURE)
+    assert graphic_env["COINLINE_SMART_CARD"] == str(tmp_path / launcher.SYNC_CONTACT_FIXTURE)
     with pytest.raises(ValueError, match="registered 11-line"):
         launcher.prepare_hardware(args("graphical", Path("firmware/oem/flash.bin")), launcher.config_for_run("graphical"))
 
@@ -133,9 +135,12 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
         path = tmp_path / "firmware" / f"{firmware_id}-{variant}.bin"
         path.parent.mkdir(exist_ok=True)
         path.write_bytes(image)
-        entries.append({"version_id": firmware_id + "-" + variant, "firmware_id": firmware_id,
-                        "motherboard": "later", "display": "11line",
-                        "sha256_hex": hashlib.sha256(image).hexdigest()})
+        entry = {"version_id": firmware_id + "-" + variant, "firmware_id": firmware_id,
+                 "motherboard": "later", "display": "11line",
+                 "sha256_hex": hashlib.sha256(image).hexdigest()}
+        if variant == "full-current":
+            entry["contact_test"] = "generic-async-t0"
+        entries.append(entry)
         registry.write_text(json.dumps({"entries": entries}), encoding="utf-8")
         args = SimpleNamespace(profile="graphical", firmware=path, flash1=None,
                                rompath=None, display=None, hardware=None, portable_display=None)
@@ -143,6 +148,19 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
         assert env["COINLINE_HARDWARE_PRESET"] == "multipay-v1.3"
         assert env["COINLINE_CARD_DMA_CHANNEL"] == "1"
         assert env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
+        default = launcher.ASYNC_CONTACT_FIXTURE if variant == "full-current" else launcher.SYNC_CONTACT_FIXTURE
+        assert env["COINLINE_SMART_CARD"] == str(tmp_path / default)
         assert launcher.select_hardware("auto", image) == ("multipay-v1.3", "program tag")
         states.append(state)
     assert len(set(states)) == len(states)
+
+
+def test_contact_fixture_defaults_and_explicit_overrides(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    hardware_env = {"COINLINE_SMART_CARD": str(tmp_path / launcher.ASYNC_CONTACT_FIXTURE)}
+    args = SimpleNamespace(smart_card=None)
+    assert launcher.customer_fixture_path(args, {}, hardware_env) == tmp_path / launcher.ASYNC_CONTACT_FIXTURE
+    assert launcher.customer_fixture_path(args, {"smart_fixture": launcher.SYNC_CONTACT_FIXTURE}, hardware_env) == tmp_path / launcher.SYNC_CONTACT_FIXTURE
+    args.smart_card = "custom.json"
+    assert launcher.customer_fixture_path(args, {"smart_fixture": launcher.SYNC_CONTACT_FIXTURE}, hardware_env) == tmp_path / "custom.json"
+    assert launcher.module_fixture_environment(SimpleNamespace(), {}, "later") == {}

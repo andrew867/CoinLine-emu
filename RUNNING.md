@@ -49,8 +49,12 @@ The launcher selects the graphical artwork and isolates its persistent terminal
 state. The registered NLA1X08 and NLA1X09 images automatically select their
 graphical profile. The full, corrected full candidate, and earlier focused
 NLA1X09 variants use separate hash-bound battery states. The corrected
-candidate passes CO and answer supervision from blank storage; the existing
-packaged image remains the reference until the full INSTALL passes.
+full-feature image with SHA-256 prefix `996a8ac5e81d` passed blank-storage
+INSTALL, all 18 configuration records, generic customer contact, coin
+tests, distinct internal module diagnostics, clock synchronization and a
+separate in-service restart. An existing installation belonging
+to another firmware digest is not reused. See [full-image qualification](docs/status/proton-graphical-qualification-2026-11-25.md)
+for the exact digest and remaining application-level gates.
 The graphical board profile and Multi-pay V1.3 control-board preset use a
 24.576 MHz oscillator, corresponding to a 12.288 MHz Z180 processor clock.
 The conventional earlier-board profile retains its 12.288 MHz oscillator.
@@ -67,7 +71,9 @@ For a local card bench, choose synthetic card fixtures with `--mag-card`
 and `--smart-card` or set `mag_fixture` and `smart_fixture` under
 `[cards]` in `coinline.ini`. Paths are relative to the extracted package
 or absolute. The default chip-card fixture exercises the physical contacts;
-it is not a funded payment card. The optional `smartcard-async-t0-lab.json`
+the registered full graphical image `996a8ac5e81d` defaults to the qualified
+`smartcard-async-contact-atr-lab.json` fixture instead of the synchronous
+default. Neither is a funded payment card. The optional `smartcard-async-t0-lab.json`
 and `smartcard-async-t1-lab.json` fixtures use the actual later-board ASCI0
 pin path and a read-only synthetic application. They are intended for a
 compatible transport test, not recognition by historical payment firmware.

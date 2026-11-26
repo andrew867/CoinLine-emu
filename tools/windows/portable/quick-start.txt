@@ -92,11 +92,17 @@ Allow the refund and collection tests to finish before pressing * again.
 
 The optional smartcard-async-t0-lab.json and smartcard-async-t1-lab.json fixtures
 are generic read-only native serial application tests, not historical payment
-cards. Keep the default synchronous fixture for the existing INSTALL test.
+cards. The qualified full graphical image (SHA-256 prefix 996a8ac5e81d) defaults
+to smartcard-async-contact-atr-lab.json for its asynchronous INSTALL contact
+test. Earlier images retain the synchronous default. Override smart_fixture
+in the profile INI if you deliberately want a different fixture.
 
 On later boards, optionally set sam_slot0, sam_slot1 or sam_slot2 under
 [cards] in the profile's INI to a generic read-only async contact fixture.
-For example, use fixtures/cards/smartcard-async-module-lab.json. Leave the
+For the full graphical contact diagnostics, use
+fixtures/cards/smartcard-async-contact-atr-lab.json for each desired slot.
+For a generic module application transport test, use
+fixtures/cards/smartcard-async-module-lab.json. Leave the
 positions blank to emulate no installed module. These fixtures are separate
 from the customer card and do not provide historical payment authorization.
 The independent LAB ledger utility is available at app/lab_purse.py. Run
