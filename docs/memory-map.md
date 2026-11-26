@@ -5,10 +5,12 @@
 The Z180's physical program address space is 20 bits. The later-board
 driver maps two 512 KiB NOR flash devices into that space and selects the
 low 64 KiB bootstrap, download and main-program windows through the board
-latch. The later-board SRAM is a separate 512 KiB banked device. The
-`0xC0000` through `0xDFFFF` window selects a 128 KiB SRAM bank, and
-`0xE0000` through `0xFFFFF` selects the next SRAM bank when the latch's low three
-bits are 7, or flash otherwise. The serial EEPROM is accessed via I/O.
+latch. The later-board SRAM is a separate 512 KiB device. The observed
+`0xC0000` through `0xDFFFF` common SRAM window remains fixed across low
+ROM remaps. `0xE0000` through `0xFFFFF` selects the next linear SRAM area
+when the latch's low three bits are 7, or flash otherwise. Further
+selection of the device's remaining physical capacity is unqualified.
+The serial EEPROM is accessed via I/O.
 Flash, battery SRAM and EEPROM retain independently written contents.
 
 The [current flash model and upgrade gates](firmware-download-storage.md)

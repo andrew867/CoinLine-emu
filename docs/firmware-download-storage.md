@@ -52,10 +52,13 @@ block protection remain unqualified.
 The later board's low 64 KiB address window selects flash sectors C through F
 for latch selections 0 through 3, with the resident bootstrap at C and the
 download-application banks at D and E. Selections 6 and 7 select the main
-program. Selection 7 also enables the upper SRAM window. The SRAM windows
-retain their own bank selection. The model wraps the two bank-address bits
-in that upper window, an inference consistent with the 512 KiB SRAM capacity
-and the observed bootstrap behavior.
+program. Selection 7 also enables the upper SRAM window. Common SRAM
+remains fixed while the lower ROM window changes. The upper SRAM window
+exposes the next linear physical area; further addressing of the remaining
+capacity of the 512 KiB device is unqualified. Native loader traces exposed
+the earlier incorrect high-latch-bit bank assumption: after the F9 to 07
+remap, the same transfer-instruction addresses returned erased bytes.
+The decode correction restores continuity without preloading any RAM.
 The emulator exposes the bootstrap and writable flash through normal
 memory-bus transactions. The initial images are validated by SHA-256 and
 are retained as read-only input files.
@@ -130,7 +133,8 @@ closed, and the terminal returned to ordinary operation. Evidence:
 timing, electronic identification, zero-to-one programming restrictions, and
 the later-board low-window address remap.
 
-`test_mach_pio_c0` checks the separate SRAM bank selection and wrap.
+`test_mach_pio_c0` checks common SRAM continuity across the ROM selector,
+upper-window selection and the observed linear address bounds.
 `test_modem_code_server` checks the independent loopback data-call route,
 carrier establishment, unchanged binary data in both directions, relay
 release and ordinary NCC route selection.

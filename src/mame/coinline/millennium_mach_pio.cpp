@@ -3,12 +3,6 @@
 #include "millennium_mach_pio.h"
 #include "millennium_cashbox_hw.h"
 
-namespace {
-
-constexpr std::uint32_t k_window_span = 0x20000U;
-
-} // namespace
-
 std::uint32_t millennium_mach_flash_address(std::uint8_t mach_port_h_shadow, std::uint32_t phys_addr_20)
 {
 	std::uint32_t const phys = phys_addr_20 & 0xfffffU;
@@ -36,9 +30,11 @@ millennium_mach_phys_ram_decode millennium_mach_decode_phys_ram(std::uint8_t mac
 		out.route = millennium_mach_phys_ram_route::below_sram_windows;
 		return out;
 	}
-	unsigned const bank = (mach_port_h_shadow >> 4) & 3U;
 	if (phys <= 0xdffffU) {
-		std::size_t const idx = std::size_t(bank) * k_window_span + (phys - 0xc0000U);
+		// The common SRAM remains visible while the low ROM window is
+		// remapped. In particular, native loader code and stack survive
+		// the F9 -> 07 -> 06 -> 07 latch sequence without any data copy.
+		std::size_t const idx = phys - 0xc0000U;
 		if (idx < sram_capacity_bytes) {
 			out.route = millennium_mach_phys_ram_route::sram_chip;
 			out.chip_byte_index = idx;
@@ -48,9 +44,9 @@ millennium_mach_phys_ram_decode millennium_mach_decode_phys_ram(std::uint8_t mac
 		return out;
 	}
 	if ((mach_port_h_shadow & 0x07U) == 0x07U) {
-		// The upper window remains selected as SRAM. The two bank-address
-		// bits wrap at the end of the 512 KiB device.
-		std::size_t const idx = std::size_t((bank + 1U) & 3U) * k_window_span + (phys - 0xe0000U);
+		// The upper SRAM window exposes the next linear physical area.
+		// No observed hardware behavior establishes a further page select.
+		std::size_t const idx = phys - 0xc0000U;
 		if (idx < sram_capacity_bytes) {
 			out.route = millennium_mach_phys_ram_route::sram_chip;
 			out.chip_byte_index = idx;

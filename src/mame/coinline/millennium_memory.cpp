@@ -6,14 +6,13 @@
 
 void millennium_map_program(address_map &map, millennium_state &state)
 {
-	// 768 KiB low: flash image for reads; writable overlay for stores (Z180 MMU maps logical
-	// stack/data to physical addresses below 0xC0000 — see DLAPP.MAP bank vs SRAM split).
+	// Low 768 KiB: program flash, with earlier-board writable overlay handling.
 	map(0x00000, 0xbffff)
 		.lrw8(
 			NAME([&state](offs_t offset) -> u8 { return state.phys_low_r(offset); }),
 			NAME([&state](offs_t offset, u8 data) { state.phys_low_w(offset, data); }));
-	// SRAM (512 KiB device): decode/banking from **PIO_PORT_H** latch is centralized in
-	// **millennium_mach_decode_phys_ram** (`millennium_mach_pio.cpp`). Two CPU windows call **phys_ram_r/w**.
+	// Fixed common SRAM and selectable upper window share one physical device.
+	// Both CPU windows use the same decoder in phys_ram_r/w.
 	map(0xc0000, 0xdffff)
 		.lrw8(
 			NAME([&state](offs_t offset) -> u8 { return state.phys_ram_r(offs_t(0xc0000U + offset)); }),
