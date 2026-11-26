@@ -42,6 +42,9 @@ sample, and `--read-watch-per-frame 2` to limit each watch address to two
 samples per video frame. The global limit is still enforced. This is
 particularly useful when a frequently dispatched routine would otherwise
 exhaust the diagnostic sample budget before another task can run.
+An optional `@HL=1234` token on an entry limits that entry's samples to
+the specified CPU register value. The filter is also read-only and does not
+consume the sample budget when the register does not match.
 For an on-hook dialogue, use `--read-watch-manual` and issue `watch on` /
 `watch off` in the action file; the same 2,000-sample cap applies across
 the entire run. Use `--modem-trace` to capture the native modem bytes

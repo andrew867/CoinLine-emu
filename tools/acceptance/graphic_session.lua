@@ -45,16 +45,26 @@ if watch_path then
         local label, address, fields = line:match("^(%S+)%s+([0-9a-fA-F]+)%s*(.*)$")
         assert(label and address, "invalid read watch entry")
         local location, snapshot = tonumber(address, 16), {}
+        local match_register, match_value
         assert(location < 0x100000, "physical watch address outside bus")
         for field in fields:gmatch("%S+") do
-            local value = assert(tonumber(field, 16), "invalid physical snapshot address")
-            assert(value >= 0 and value < 0x100000, "physical snapshot address outside bus")
-            snapshot[#snapshot + 1] = value
+            local name, expected = field:match("^@([A-Z]+)=([0-9a-fA-F]+)$")
+            if name then
+                assert(not match_register and cpu.state[name], "invalid or duplicate register filter")
+                match_value = assert(tonumber(expected, 16))
+                assert(match_value <= 0xffff, "register filter outside 16-bit range")
+                match_register = name
+            else
+                local value = assert(tonumber(field, 16), "invalid physical snapshot address")
+                assert(value >= 0 and value < 0x100000, "physical snapshot address outside bus")
+                snapshot[#snapshot + 1] = value
+            end
         end
         assert(#taps < 32 and #snapshot <= 32, "read watch exceeds diagnostic bound")
         local last_frame, frame_samples = -1, 0
         taps[#taps + 1] = space:install_read_tap(location, location, label, function(offset)
             if reading or samples >= 2000 or not watch_enabled or (not watch_manual and keypad:read() & 0x80000 == 0) then return end
+            if match_register and cpu.state[match_register].value ~= match_value then return end
             if last_frame ~= frame then last_frame, frame_samples = frame, 0 end
             if per_frame > 0 and frame_samples >= per_frame then return end
             frame_samples = frame_samples + 1

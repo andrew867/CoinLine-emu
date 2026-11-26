@@ -192,6 +192,41 @@ was involved. The cause of the apparent restart remains unresolved; full
 INSTALL and in-service acceptance are not established for this digest.
 Evidence: `build/firmware-acceptance/nla1x09-full-async-install/20261126T044125.177678Z/`.
 
+The next corrected candidate, SHA-256
+`e2250aae2755b288f40f75c8b3e60e1bc33a55c8fbc30813fef7f6d56bb7aafc`,
+was independently started from blank battery storage. CO and answer checks
+again returned 00, all 18 assigned NCC records were acknowledged, and the
+keypad and magnetic-reader tests passed. Three generic read-only asynchronous
+module fixtures were configured. Selecting the optional socket 01 test
+activated the contact serial transmitter; two ATR characters were sent
+before the display returned to `Not installed` within the six-second
+post-selection interval. No historical application, card authorization,
+or transaction was involved. The separate customer-contact test was not
+reached in this run. The cause of this second apparent restart remains open.
+Evidence: `build/firmware-acceptance/nla1x09-corrected-contact-install/20261126T051137.390007Z/`.
+
+The same digest repeated all 18 table ACKs in a separate cold run, normally
+quit the optional module menu, and exercised the customer-contact fixture
+with a valid generic T=0 ATR containing one historical byte. Bounded,
+read-only CPU observations captured execution of the reset path eight
+video frames after the physical insertion. The instrumented ATR parser and
+completion points were not reached; the card serial device had transmitted
+only the first two characters. This establishes a genuine early reset,
+rather than a display-only transition or payment application rejection.
+Evidence: `build/firmware-acceptance/nla1x09-contact-readwatch/20261126T052745.147574Z/`.
+
+A second bounded trace captured the actual UART receive path. The contact
+initialization and receive-enable routines executed, but the receive and
+error callback addresses remained zero. The first ATR character, `3B`,
+arrived with receive-ready status and no reported UART error. The serial
+dispatch entered the common indirect-call path with target zero and then
+executed the reset vector, all in the same video frame. No ATR parser or
+application response was involved. This locates the remaining fault in
+the terminal's callback initialization rather than the emulated contact
+clock, card selection or serial framing. No callback, register, memory,
+or device response was modified by the observation.
+Evidence: `build/firmware-acceptance/nla1x09-contact-rx-readwatch/20261126T055118.206108Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.

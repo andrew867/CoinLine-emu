@@ -289,6 +289,18 @@
       "firmware_release": "2.12-based",
       "dla_version": "1.3",
       "friendly_name": "NLA1X09 full-feature graphical Multi-Pay (NCC message count correction candidate)"
+    },
+    {
+      "version_id": "nla1x09-full-contact-candidate",
+      "sha256_hex": "e2250aae2755b288f40f75c8b3e60e1bc33a55c8fbc30813fef7f6d56bb7aafc",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NLA1X09",
+      "display": "11line",
+      "terminal_type": 40,
+      "firmware_release": "2.12-based",
+      "dla_version": "1.3",
+      "friendly_name": "NLA1X09 full-feature graphical Multi-Pay (contact maintenance correction candidate)"
     }
   ]
 }
