@@ -82,6 +82,8 @@ def main():
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/smartcard-pin-probe")
+    parser.add_argument("--program-us", type=int, choices=(1000, 10000), default=1000,
+                        help="synthetic test-region programming delay, not a historical card specification")
     args = parser.parse_args()
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
@@ -96,7 +98,7 @@ def main():
     fixture = out / "synthetic-memory.json"
     fixture.write_text(json.dumps({"protocol": "sync", "atr_hex": "00", "memory_hex": "FFFF",
         "sync_program_enabled": True, "sync_program_first_bit": 1, "sync_program_end_bit": 2,
-        "sync_program_us": 1000}))
+        "sync_program_us": args.program_us}))
     lua = out / "probe.lua"
     lua.write_text(PROBE)
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("COINLINE_")}

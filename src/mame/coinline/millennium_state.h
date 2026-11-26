@@ -90,6 +90,8 @@ public:
 	TIMER_CALLBACK_MEMBER(adsi_fixture_tick);
 	TIMER_CALLBACK_MEMBER(adsi_fixture_answer_tick);
 	TIMER_CALLBACK_MEMBER(adsi_line_tick);
+	TIMER_CALLBACK_MEMBER(board_supervision_tick);
+	TIMER_CALLBACK_MEMBER(board_watchdog_expired);
 
 	virtual tiny_rom_entry const *device_rom_region() const override ATTR_COLD;
 	virtual ioport_constructor device_input_ports() const override ATTR_COLD;
@@ -198,6 +200,7 @@ private:
 	required_ioport m_keymatrix_io;
 	required_ioport m_secmask_io;
 	required_ioport m_linectrl_io;
+	required_ioport m_powerui;
 	required_ioport m_terminal21_softkeys_io;
 
 	std::filesystem::path m_boot_trace_path;
@@ -300,6 +303,14 @@ private:
 	emu_timer *m_adsi_fixture_timer = nullptr;
 	emu_timer *m_adsi_fixture_answer_timer = nullptr;
 	emu_timer *m_adsi_line_timer = nullptr;
+	emu_timer *m_board_supervision_timer = nullptr;
+	emu_timer *m_board_watchdog_timer = nullptr;
+	coinline::terminal::watchdog_monitor m_board_watchdog;
+	bool m_board_supervision_profile = false;
+	bool m_board_watchdog_deadline = false;
+	bool m_board_supervision_trace = false;
+	bool m_control_rail_lost = false;
+	u8 m_board_power_inputs = 0;
 	std::deque<std::int16_t> m_adsi_monitor_pcm;
 	std::mutex m_adsi_monitor_mutex;
 	bool m_adsi_live_gap = false;

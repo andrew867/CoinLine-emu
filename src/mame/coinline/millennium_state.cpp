@@ -490,6 +490,7 @@ millennium_state::millennium_state(machine_config const &mconfig, device_type ty
 	, m_keymatrix_io(*this, "KEYMATRIX")
 	, m_secmask_io(*this, "SECMASK")
 	, m_linectrl_io(*this, "LINECTRL")
+	, m_powerui(*this, "POWERUI")
 	, m_terminal21_softkeys_io(*this, "TERMINAL21_SOFTKEYS")
 {
 	m_phys_ram.resize(0x80000, 0xff); // M5M5408-class 512 KiB linear image (see MACH PIO bank select).
@@ -941,6 +942,14 @@ void millennium_state::driver_start()
 
 	load_io_fixture_masks();
 	load_firmware_and_emit_m0();
+	if (char const *profile = osd_getenv("COINLINE_BOARD_SUPERVISION_PROFILE"); profile && *profile) {
+		if (m_earlier_motherboard || (std::strcmp(profile, "cp-only") && std::strcmp(profile, "cp-interrupt")))
+			throw emu_fatalerror("millennium: provisional control supervisor requires later board");
+		m_board_supervision_profile = true;
+		m_board_watchdog_deadline = !std::strcmp(profile, "cp-only");
+	}
+	if (char const *trace = osd_getenv("COINLINE_BOARD_SUPERVISION_TRACE"); trace && *trace == '1')
+		m_board_supervision_trace = !m_earlier_motherboard;
 	if (char const *jack = osd_getenv("COINLINE_DATA_JACK_PROFILE"); jack && *jack) {
 		using wiring = coinline::terminal::data_jack_hardware::profile;
 		if (m_earlier_motherboard)
@@ -950,13 +959,12 @@ void millennium_state::driver_start()
 		else if (!std::strcmp(jack, "desktop")) selected = wiring::desktop;
 		else if (!std::strcmp(jack, "universal")) selected = wiring::universal;
 		else throw emu_fatalerror("millennium: invalid later data-jack wiring profile");
-		bool active_high = true;
+		bool active_high = selected == wiring::downloaded;
 		if (char const *sense = osd_getenv("COINLINE_DATA_JACK_MONITOR_POLARITY"); sense && *sense) {
 			if (std::strcmp(sense, "high") && std::strcmp(sense, "low"))
 				throw emu_fatalerror("millennium: data-jack monitor polarity must be high or low");
 			active_high = !std::strcmp(sense, "high");
-		} else if (selected != wiring::downloaded)
-			throw emu_fatalerror("millennium: historical data-jack monitor polarity requires explicit calibration");
+		}
 		m_data_jack_hw.configure(selected, active_high);
 		if (char const *trace = osd_getenv("COINLINE_DATA_JACK_TRACE"); trace && *trace == '1') m_data_jack_trace = true;
 	}
@@ -1118,6 +1126,8 @@ void millennium_state::machine_start()
 	m_adsi_fixture_timer = timer_alloc(FUNC(millennium_state::adsi_fixture_tick), this);
 	m_adsi_fixture_answer_timer = timer_alloc(FUNC(millennium_state::adsi_fixture_answer_tick), this);
 	m_adsi_line_timer = timer_alloc(FUNC(millennium_state::adsi_line_tick), this);
+	m_board_supervision_timer = timer_alloc(FUNC(millennium_state::board_supervision_tick), this);
+	m_board_watchdog_timer = timer_alloc(FUNC(millennium_state::board_watchdog_expired), this);
 	save_item(NAME(m_voicew_prev_upd_idle));
 	save_item(NAME(m_voicew_int0_asserted));
 	save_item(NAME(m_graphic_vfd.m_pages));
@@ -1315,6 +1325,12 @@ void millennium_state::machine_reset()
 			new_hw_rev = false;
 		millennium_hwinit_apply_pio_port_initialize(new_hw_rev, m_pio_8255_shadow, m_pio_port_g, m_mach_pio_shadow);
 	}
+	m_board_watchdog.reset((m_pio_port_g & 0x80U) != 0U);
+	m_board_power_inputs = 0;
+	m_control_rail_lost = false;
+	m_board_supervision_timer->adjust(m_board_supervision_profile ? attotime::from_msec(1) : attotime::never,
+		0, m_board_supervision_profile ? attotime::from_msec(1) : attotime::never);
+	m_board_watchdog_timer->adjust(m_board_watchdog_deadline ? attotime::from_seconds(1) : attotime::never);
 	// Reset selects the resident bootstrap in the low flash window while the
 	// remaining MACH outputs retain their inactive high reset levels.
 	if (!m_earlier_motherboard)
@@ -3549,11 +3565,14 @@ u8 millennium_state::board_status_r()
 	if (m_data_jack_hw.enabled()) {
 		u32 const inputs = ioport("DATAJACKUI")->read();
 		bool const plugged = m_data_jack_hw.plugged(), seized = m_data_jack_hw.external_loop();
+		bool const office = m_data_jack_hw.office_line_available();
 		m_data_jack_hw.set_connector((inputs & 1U) != 0U, (inputs & 2U) != 0U);
+		m_data_jack_hw.set_office_line(m_line.enabled() ? m_line.line_connected() : (m_linectrl_io->read() & 1U) != 0U);
 		r = m_data_jack_hw.merge_monitor(r);
-		if (m_data_jack_trace && (plugged != m_data_jack_hw.plugged() || seized != m_data_jack_hw.external_loop()))
-			std::fprintf(stderr, "data jack monitor %.6f plug=%d loop=%d level=%d\n", machine().time().as_double(),
-				m_data_jack_hw.plugged(), m_data_jack_hw.external_loop(), (r & 0x80U) != 0U);
+		if (m_data_jack_trace && (plugged != m_data_jack_hw.plugged() || seized != m_data_jack_hw.external_loop() ||
+			office != m_data_jack_hw.office_line_available()))
+			std::fprintf(stderr, "data jack monitor %.6f plug=%d loop=%d office=%d level=%d\n", machine().time().as_double(),
+				m_data_jack_hw.plugged(), m_data_jack_hw.external_loop(), m_data_jack_hw.office_line_available(), (r & 0x80U) != 0U);
 	}
 	emit_io_trace_line("board_status", 0x40, 'r', r);
 	if (!m_tp_board_status_trace_path.empty()) {
@@ -3952,6 +3971,9 @@ void millennium_state::write_hw_cntl(u8 data)
 		static constexpr u8 PWR_FAIL_LINE = 0x20U;
 		bool const prev_pf = (prev & PWR_FAIL_LINE) != 0U;
 		bool const now_pf = (data & PWR_FAIL_LINE) != 0U;
+		if (m_board_supervision_trace && prev_pf != now_pf)
+			osd_printf_info("board telephony power indication ns=%llu available=%u\n",
+				static_cast<unsigned long long>(machine().time().as_ticks(1000000000U)), unsigned(now_pf));
 		u64 const hz = m_maincpu->clocks_to_cycles(m_maincpu->unscaled_clock());
 		u64 c10 = hz / 100U;
 		if (c10 == 0ULL)
@@ -5145,9 +5167,59 @@ u8 millennium_state::pio_port_g_r()
 void millennium_state::pio_port_g_w(u8 data)
 {
 	m_pio_port_g = data;
-	if (!m_earlier_motherboard)
+	if (!m_earlier_motherboard) {
+		if (m_board_supervision_profile || m_board_supervision_trace) {
+			if (auto const pulse = m_board_watchdog.observe((data & 0x80U) != 0U,
+				machine().time().as_ticks(1000000000U))) {
+				if (m_board_watchdog_deadline && !m_control_rail_lost)
+					m_board_watchdog_timer->adjust(attotime::from_seconds(1));
+				if (m_board_supervision_trace)
+					osd_printf_info("board watchdog pulse ns=%llu width_ns=%llu gap_ns=%llu has_gap=%u\n",
+						static_cast<unsigned long long>(pulse->at), static_cast<unsigned long long>(pulse->width),
+						static_cast<unsigned long long>(pulse->gap), unsigned(pulse->has_gap));
+			}
+		}
 		update_async_contacts();
+	}
 	maybe_io_trace("pio_port_g", 0x63, 'w', data);
+}
+
+TIMER_CALLBACK_MEMBER(millennium_state::board_watchdog_expired)
+{
+	if (!m_board_watchdog_deadline || m_control_rail_lost)
+		return;
+	// Provisional CPU-only reset. Do not reset the telephony controller or
+	// select a flash bank on behalf of the board's unknown reset fan-out.
+	if (m_board_supervision_trace)
+		osd_printf_info("board watchdog deadline expired; control CPU reset\n");
+	m_board_watchdog.reset((m_pio_port_g & 0x80U) != 0U);
+	m_maincpu->pulse_input_line(INPUT_LINE_RESET, attotime::zero);
+	m_board_watchdog_timer->adjust(attotime::from_seconds(1));
+}
+
+TIMER_CALLBACK_MEMBER(millennium_state::board_supervision_tick)
+{
+	if (!m_board_supervision_profile)
+		return;
+	u8 const inputs = m_powerui->read() & 3U;
+	u8 const changed = inputs ^ m_board_power_inputs;
+	m_board_power_inputs = inputs;
+	if (changed & 2U) {
+		m_control_rail_lost = (inputs & 2U) != 0U;
+		m_maincpu->set_input_line(INPUT_LINE_HALT, m_control_rail_lost ? ASSERT_LINE : CLEAR_LINE);
+		m_board_watchdog.reset((m_pio_port_g & 0x80U) != 0U);
+		m_board_watchdog_timer->adjust(m_control_rail_lost || !m_board_watchdog_deadline ? attotime::never : attotime::from_seconds(1));
+		if (!m_control_rail_lost)
+			m_maincpu->pulse_input_line(INPUT_LINE_RESET, attotime::zero);
+		if (m_board_supervision_trace)
+			osd_printf_info("board control rail %s\n", m_control_rail_lost ? "unavailable" : "restored; control CPU reset");
+	}
+	if ((changed & inputs & 1U) && !m_control_rail_lost) {
+		// Distinct from the CP's telephony power-available output latch.
+		m_maincpu->pulse_input_line(INPUT_LINE_NMI, attotime::zero);
+		if (m_board_supervision_trace)
+			osd_printf_info("board control NMI asserted\n");
+	}
 }
 
 void millennium_state::update_async_contacts()
@@ -7361,6 +7433,9 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 				if (m_tp_backend_kind == tp_backend_kind::pcd3349a && m_tp_pcd3349a)
 					m_tp_pcd3349a->reset(m_tel_hook_onhook, cy);
 				m_tel_ip_link_enabled = true;
+				if (m_board_supervision_trace)
+					osd_printf_info("board telephony link enabled ns=%llu\n",
+						static_cast<unsigned long long>(machine().time().as_ticks(1000000000U)));
 				m_tel_link_enable_cycle = cy;
 				m_tel_boot_code_deadline_cycle = cy + (tp_10ms * 100U);
 				telephony_runtime_trace_event("telephony_init_status_ok", "", "", true, "ip_link_enabled_after_reset_delays");

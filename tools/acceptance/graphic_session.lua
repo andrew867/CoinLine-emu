@@ -7,6 +7,8 @@ local security = assert(ports[":SECMASK"])
 local softkeys = assert(ports[":TERMINAL21_SOFTKEYS"])
 local card = assert(ports[":CARDUI"])
 local coins = assert(ports[":COINUI"])
+local power = ports[":POWERUI"]
+local power_test = os.getenv("COINLINE_BOARD_SUPERVISION_PROFILE")
 local offline_line = os.getenv("COINLINE_GRAPHIC_OFFLINE_LINE") == "1" and assert(ports[":LINECTRL"]) or nil
 local screen = assert(machine.screens[":screen"])
 local keys = {}
@@ -112,6 +114,17 @@ local function execute(line)
             (action == "pin" and "" or "*"), action)
     elseif action == "ncc" then
         sequence("2130706433*", "loopback NCC number")
+    elseif action == "power-nmi" then
+        assert(power and (power_test == "cp-only" or power_test == "cp-interrupt"), "supervision test profile is not enabled")
+        pulse(assert(power:field(1)), frame + 3)
+        next_frame = frame + 12
+        log("input", "control power NMI pulse")
+    elseif action == "control-rail" then
+        assert(power and (power_test == "cp-only" or power_test == "cp-interrupt"), "supervision test profile is not enabled")
+        assert(arg == "down" or arg == "up", "control-rail requires down or up")
+        schedule(frame + 3, assert(power:field(2)), arg == "down" and 1 or 0)
+        next_frame = frame + 12
+        log("input", "control rail " .. arg)
     elseif action == "hook" then
         assert(arg == "off" or arg == "on")
         if (keypad:read() & 0x80000 ~= 0) ~= (arg == "off") then

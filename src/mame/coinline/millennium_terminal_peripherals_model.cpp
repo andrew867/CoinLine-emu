@@ -13,7 +13,7 @@ void data_jack_hardware::configure(profile wiring, bool monitor_active_high) noe
 
 void data_jack_hardware::reset() noexcept
 {
-	m_plugged = m_seized = false;
+	m_plugged = m_seized = m_office_line_available = false;
 	m_pio_c = m_hw_control = 0;
 }
 

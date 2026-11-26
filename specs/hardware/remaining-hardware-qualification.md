@@ -20,11 +20,11 @@ Preserve the normal serial controller's framing, declared frame length and check
 
 ## Multiple internal contact-module sockets
 
-The revised board contains three distinct internal asynchronous module selector positions in addition to the customer card. The hardware selection, per-slot clock, reset, supply and async-resource ownership are independent. This is valuable to emulate even with harmless synthetic module responses: it tests actual multiplexing and separate session state, particularly when a customer card is removed while an internal module is idle or active. Do not infer the actual security-module part number or application from a selector. See [contact smart-card hardware](smartcard-contact-black-box-handoff.md).
+The revised board contains three distinct internal asynchronous module selector positions in addition to the customer card. Independent supply, reset, clock and ASCI0 routing passed native synthetic transport tests, including all three module positions and the separate customer contact. Native scheme initialization and authorized application qualification remain open; do not infer the actual security-module part number or application from a selector. See [contact smart-card hardware](smartcard-contact-black-box-handoff.md).
 
 ## Power, persistent memory and board supervision
 
-The board has a software-visible power-failure indication toward the telephony circuitry on the `0x40` write latch, mask `0x20`, and a periodic board sanity/watchdog output on the later board's `0x63` latch, mask `0x80`. The exact external watchdog timeout and analogue supply ride-through behavior require a hardware reference. Persistent EEPROM and battery-backed RAM have distinct responsibilities from volatile display and modem state. Do not assume that persisting the entire emulator process is equivalent to physical warm restart.
+The board has a software-visible power-failure indication toward the telephony circuitry on the `0x40` write latch, mask `0x20`, and a positive watchdog pulse on the later board's `0x63` latch, mask `0x80`. Firmware nominally services the watchdog every 500 ms with a documented one-second maximum gap; the physical threshold and reset fan-out are unmeasured. Passive and provisional CPU-only supervision probes now exist, with separate NMI and control-rail inputs. See [native supervision evidence](../../docs/status/board-supervision-2026-11-25.md) for actual startup timing differences and synthetic acceptance. Persistent EEPROM and battery-backed RAM have distinct responsibilities from volatile display and modem state. Do not assume that persisting the entire emulator process is equivalent to physical warm restart.
 
 Useful acceptance cases:
 
@@ -48,10 +48,10 @@ Useful acceptance cases:
 
 ## Suggested order
 
-1. Close the ADSI first-response timing gate and menu/softkey round trip.
+1. Repeat ADSI first-response timing and menu navigation under controlled workloads; a full free-service round trip already passed.
 2. Validate the enclosure output and incoming-ring interaction from actual registers.
-3. Implement async contact transport and slot multiplexing alongside the qualified synchronous contact path.
-4. Implement the external data jack with a local modem endpoint and compare its monitor/relay behavior with the desktop hardware.
-5. Qualify cold/warm power and peripheral recovery in both controller profiles.
+3. Qualify native card and module application behavior independently of the completed generic transport probes.
+4. Implement the external data jack with a local modem endpoint and compare its monitor/relay behavior with actual circuitry; raw logical profiles passed.
+5. Qualify actual firmware interruption and peripheral recovery, including distinct control and telephony power domains. Passive tracing and provisional synthetic reset tests already passed.
 
 Each milestone should include component and native-firmware evidence. A component model may pass while the CPU-visible hardware path remains incomplete. Report those outcomes separately rather than marking a subsystem fully supported solely because a test helper exists.

@@ -37,6 +37,10 @@ def main():
     parser.add_argument("--dtmf-trace", action="store_true", help="trace controller dial-pad tone gating and genuine tone events")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--sam-pin-trace", action="store_true", help="capture bounded internal contact selector and latch transitions")
+    parser.add_argument("--board-supervision-trace", action="store_true", help="observe firmware watchdog pulses and telephony power indication")
+    supervisor = parser.add_mutually_exclusive_group()
+    supervisor.add_argument("--board-supervision-test", action="store_true", help="enable provisional later-board CPU-only watchdog and explicit power inputs")
+    supervisor.add_argument("--board-power-test", action="store_true", help="enable explicit control NMI/rail inputs with no watchdog deadline")
     for slot in range(3):
         parser.add_argument(f"--sam-slot{slot}", type=Path, help=f"read-only non-payment internal contact fixture for socket {slot}")
     parser.add_argument("--quiet", action="store_true", help="omit default boot and modem traces for release diagnostics testing")
@@ -151,6 +155,12 @@ def main():
         env["COINLINE_SMART_CARD_TRACE"] = "1"
     if args.sam_pin_trace:
         env["COINLINE_SAM_PIN_TRACE"] = "1"
+    if args.board_supervision_trace or args.board_supervision_test or args.board_power_test:
+        env["COINLINE_BOARD_SUPERVISION_TRACE"] = "1"
+    if args.board_supervision_test:
+        env["COINLINE_BOARD_SUPERVISION_PROFILE"] = "cp-only"
+    elif args.board_power_test:
+        env["COINLINE_BOARD_SUPERVISION_PROFILE"] = "cp-interrupt"
     for slot, path in sam_slots.items():
         env[f"COINLINE_SAM_SLOT{slot}"] = str(path.resolve())
     if sam_slots:
