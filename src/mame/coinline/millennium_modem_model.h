@@ -109,6 +109,7 @@ private:
 	void flush_ncc_tx();
 	void poll_call_progress(double now_sec);
 	void refresh_detect_register();
+	void trace_call_progress(char const *event, double sampled_sec, int value = -1) noexcept;
 
 	bool m_ncc_lab_hello_sent = false;
 	double m_ncc_lab_hello_at = -1.0;
@@ -142,6 +143,11 @@ private:
 	};
 	cp_phase m_cp = cp_phase::idle;
 	double m_ncc_connected_at = -1.0;
+	// Optional, bounded observations only; never feed back into line state.
+	bool m_call_trace = false;
+	unsigned m_call_trace_count = 0;
+	int m_call_trace_last_dr = -1;
+	double m_call_trace_poll_sec = 0.0;
 	bool m_r1 = false;
 	bool m_line_present = false;
 };

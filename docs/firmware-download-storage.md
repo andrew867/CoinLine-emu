@@ -137,7 +137,12 @@ the later-board low-window address remap.
 upper-window selection and the observed linear address bounds.
 `test_modem_code_server` checks the independent loopback data-call route,
 carrier establishment, unchanged binary data in both directions, relay
-release and ordinary NCC route selection.
+release and ordinary NCC route selection. The test reads the existing
+ringback, answer-tone, mark and carrier status through the SSI pins in
+sequence. The opt-in native modem trace records the corresponding
+call-progress transitions, relay/TCP events and changed SSI detect reads
+without changing the modem timings or generating a successful protocol
+response.
 The native synthetic flash-bus probe starts with non-erased bytes in one
 sector of each chip, erases those sectors, polls the device ready state and
 programs the target bytes with normal Z180 instructions executing from SRAM.

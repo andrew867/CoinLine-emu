@@ -93,6 +93,24 @@ void dial(millennium_modem_model &modem, char const *digits)
 	modem.poll_ncc_link(3.0);
 }
 
+std::uint8_t read_detect_register(millennium_modem_model &modem)
+{
+	// Native SSI read address, active-low read strobe, LSB first.
+	constexpr std::uint8_t active = 0x28U;
+	constexpr std::uint8_t clock = 0x02U;
+	modem.ssi_pio_a_write(active | 0x04U | clock);
+	modem.ssi_pio_a_write(active | clock);
+	std::uint8_t result = modem.ssi_mpd_level() ? 1U : 0U;
+	for (unsigned bit = 1; bit < 8; ++bit) {
+		modem.ssi_pio_a_write(active);
+		modem.ssi_pio_a_write(active | clock);
+		if (modem.ssi_mpd_level())
+			result |= static_cast<std::uint8_t>(1U << bit);
+	}
+	modem.ssi_pio_a_write(active | 0x04U | clock);
+	return result;
+}
+
 } // namespace
 
 int main()
@@ -128,8 +146,16 @@ int main()
 	modem.poll_ncc_link(3.5);
 	if (ready(code_call.value, 20))
 		return fail("NCC fixture bytes leaked into the code-server call");
+	if (read_detect_register(modem) != 0x02U || modem.dcd())
+		return fail("Code-server call did not expose ringback before answer");
+	modem.poll_ncc_link(5.1);
+	if (read_detect_register(modem) != 0x04U || modem.dcd())
+		return fail("Code-server answer-tone phase was not visible on the SSI bus");
+	modem.poll_ncc_link(6.6);
+	if (read_detect_register(modem) != 0x28U || modem.dcd())
+		return fail("Code-server mark phase was not visible before DCD");
 	modem.poll_ncc_link(8.1);
-	if (!modem.dcd())
+	if (!modem.dcd() || read_detect_register(modem) != 0x08U)
 		return fail("Code-server call did not provide carrier");
 
 	std::array<char, 4> const bytes{0x01, 0x00, char(0x80), char(0xff)};

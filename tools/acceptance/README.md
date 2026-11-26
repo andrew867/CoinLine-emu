@@ -55,7 +55,10 @@ the first video frame when observing startup. An independent `--cpu-sample`
 records read-only CPU registers at up to 2,000 video-frame boundaries,
 including when none of the watched instructions execute. Use
 `--modem-trace` to capture the native modem bytes
-without the full boot trace. Keep these diagnostic logs local.
+without the full boot trace. It also records bounded call-progress phase
+transitions, relay and TCP events, and changed SSI detect bytes observed
+by the terminal. SSI read timestamps use the most recent modem polling
+time, not a pin-edge timestamp. Keep these diagnostic logs local.
 
 For later boards with the internal contact-module expansion, the native
 `smartcard_async_probe.py --protocol slots` test runs a synthetic CPU program
