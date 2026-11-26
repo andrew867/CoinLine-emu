@@ -1,5 +1,14 @@
 # Spec — Host bridge
 
+This spec defines the host-bridge transport contract. See [`../docs/modem-uart-host-bridge.md`](../docs/modem-uart-host-bridge.md) for context. The bridge is the GPL/MIT process boundary documented in [`../docs/license-isolation.md`](../docs/license-isolation.md).
+
+Implementation status: the native terminal uses its own raw loopback NCC
+TCP transport and separate central-office line jack. The historical
+generic transport and optional JSON side-band contract below describes a
+test harness, not the running NCC wire protocol. Its TCP helper resides
+under `tests/support/`; WebSocket, named pipe and serial variants are not
+implemented by that helper.
+
 ## Purpose
 
 Move modem UART byte traffic between the emulated terminal and an external endpoint (typically CoinLine Host) without synthesizing any application-layer behavior.
@@ -59,7 +68,7 @@ Negotiation:
 ## Tests
 
 - `tests/integration/test_host_bridge_loopback.cpp`
-- `tests/integration/test_host_bridge_connection_drop.cpp`
+- `tests/devices/test_modem_ncc_tcp.cpp` (live modem transport failure handling)
 - `tests/integration/test_host_bridge_sideband_negotiate.cpp`
 - `tests/integration/test_host_bridge_no_sideband_default.cpp`
 
@@ -76,5 +85,6 @@ The bridge is the only sanctioned cross-process communication channel between `c
 
 ## Cross-references
 
+- [`../docs/license-isolation.md`](../docs/license-isolation.md).
 - [`modem-uart-device.spec.md`](modem-uart-device.spec.md).
 - [`scenario-runner.spec.md`](scenario-runner.spec.md).

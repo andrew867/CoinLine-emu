@@ -18,7 +18,7 @@ Hardware IDs: **HW-IO-001**, **HW-ASCI-001**, **HW-MOD-001**, **HW-HB-001**
 
 ## HW-HB-001
 
-- **Sources:** `millennium_hostbridge_tcp.cpp`.  
-- **Purpose:** TCP framing to CoinLine Host — **not** a high-level terminal mock inside driver.  
-- **Tests:** `test_host_bridge_*.cpp`.  
+- **Sources:** `src/mame/coinline/millennium_modem_model.cpp` (native NCC), `src/mame/coinline/millennium_line.cpp` (central-office line jack), `tests/support/millennium_hostbridge_tcp.cpp` (test-only helper).
+- **Purpose:** Raw byte transport to CoinLine Host, not a high-level terminal mock inside the driver.
+- **Tests:** `test_modem_ncc_tcp.cpp`, `test_modem_ncc_framing.cpp`, `test_host_bridge_*.cpp`.
 - **Acceptance:** Transcript bytes match wire protocol expectations for harness scenarios.
