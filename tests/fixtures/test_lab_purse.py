@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import sqlite3
+import struct
 import sys
 
 import pytest
@@ -83,3 +84,23 @@ def test_history_pagination_and_unrelated_contact(tmp_path):
     contact.insert(); assert not contact.select("unrelated-application") and contact.selected_model is None
     assert contact.select(MODEL)
     contact.reset(); assert store.inspect("lab-one")["balance_units"] == 97
+
+
+def test_readonly_lab_contact_snapshot_is_fixed_and_nonmutating(tmp_path):
+    store = LabPurseStore(tmp_path / "purses.sqlite")
+    store.seed("lab-one")
+    store.begin_spend("lab-one", "reserve", 25)
+    before = store.inspect("lab-one")
+    fixture = store.contact_snapshot("lab-one")
+    assert fixture["application"] == "lab-readonly" and fixture["atr_hex"] == "3B 80 01 81"
+    assert struct.unpack(">4sBBBQQQQ", bytes.fromhex(fixture["memory_hex"])) == (b"LABP", 1, 2, 0, 100, 25, 75, 1)
+    assert store.inspect("lab-one") == before
+    store.complete_spend("lab-one", "reserve")
+    after = store.contact_snapshot("lab-one", "t0")
+    assert after["atr_hex"] == "3B 00"
+    assert struct.unpack(">4sBBBQQQQ", bytes.fromhex(after["memory_hex"])) == (b"LABP", 1, 2, 0, 75, 0, 75, 2)
+    assert fixture["lab_snapshot_revision"] == 1
+    assert store.contact_snapshot("lab-missing")["error"] == "unknown_fixture"
+    assert store.contact_snapshot("lab-one", "other")["error"] == "bad_input"
+    assert "error" not in store.seed("lab-overflow", initial_units=2**64, limit_units=2**64)
+    assert store.contact_snapshot("lab-overflow")["error"] == "contact_value_range"

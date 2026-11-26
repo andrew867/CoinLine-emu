@@ -9,7 +9,9 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -22,10 +24,11 @@ def block(pcb, payload):
     return frame + bytes((check,))
 
 
-def synthetic_program(protocol):
+def synthetic_program(protocol, snapshot=None):
     code = bytearray((0xf3,))  # DI
     errors = []
     inverse = protocol == "t0-inverse"
+    t1 = protocol in ("t1", "purse-snapshot")
     receive_index = 0
 
     def wire(value):
@@ -64,14 +67,19 @@ def synthetic_program(protocol):
             assert_a(wire(value))
 
     def tx(values):
-        for value in values:
+        for index, value in enumerate(values):
             poll(0x04, 0x02, 0x02)  # TDRE
             out(0x06, wire(value))  # TDR0
-            delay(0x0400)
+            # Enforce spacing between terminal characters, but begin polling
+            # the receive FIFO immediately after the final request byte.
+            # The card may start responding while the terminal is otherwise
+            # idle, especially after a higher-rate PPS exchange.
+            if index + 1 < len(values):
+                delay(0x0400)
 
     emit(0x16, 0x10)  # stage marker D
     poll(0x40, 6, 6)  # wait for both card insertion switches
-    if protocol == "slots":
+    if protocol in ("slots", "slots-reset"):
         # Independently powered internal laboratory endpoints share ASCI0.
         # Release the actual reset line only after its selected clock starts.
         for slot in range(3):
@@ -99,6 +107,26 @@ def synthetic_program(protocol):
             else:
                 rx((0x3b, 0))
                 tx(select[:5]); rx((0xa4,)); tx(select[5:]); rx((0x90, 0))
+                if protocol == "slots-reset" and slot == 0:
+                    # Consume only the procedure byte, then deselect the
+                    # module while its remaining response is still queued.
+                    # Keep ASCI0 receive enabled to expose any leaked bytes.
+                    emit(0x16, 0x60)
+                    tx(read); rx((0xb0,))
+                    out(0xc0, 0xf8)
+                    delay(0x1000)
+                    emit(0xed, 0x38, 0x04, 0xe6, 0xf0); assert_a(0)
+                    # Reselecting with reset held high is not a fresh reset.
+                    out(0xc0, 0xf0)
+                    delay(0x1000)
+                    emit(0xed, 0x38, 0x04, 0xe6, 0xf0); assert_a(0)
+                    out(0x43, 0xf0)
+                    delay(0x1000)
+                    out(0x43, 0xf1)
+                    rx((0x3b, 0))
+                    # Application selection is volatile; it must not survive.
+                    tx(read); rx((0x69, 0x85))
+                    tx(select[:5]); rx((0xa4,)); tx(select[5:]); rx((0x90, 0))
                 tx(read); rx((0xb0, *data, 0x90, 0))
             out(0x00, 0x06)
             out(0xc0, 0xf8)
@@ -122,7 +150,7 @@ def synthetic_program(protocol):
     emit(0x16, 0x20)
     out(0xc2, 13)    # release external card reset
     rx((0x3b, 0x10, 0x12) if protocol == "t0-pps" else
-       (0x3f if inverse else 0x3b, 0) if protocol != "t1" else (0x3b, 0x80, 1, 0x81))
+       (0x3f if inverse else 0x3b, 0) if not t1 else (0x3b, 0x80, 1, 0x81))
     if protocol == "t0-pps":
         pps = (0xff, 0x10, 0x12, 0xfd)
         tx(pps); rx(pps)
@@ -131,10 +159,21 @@ def synthetic_program(protocol):
     emit(0x16, 0x30)
     select = (0x00, 0xa4, 4, 0, 5, 0xf0, 0x4c, 0x41, 0x42, 1)
     read = (0, 0xb0, 0, 0, 4)
-    if protocol != "t1":
+    if not t1:
         tx(select[:5]); rx((0xa4,)); tx(select[5:]); rx((0x90, 0))
         emit(0x16, 0x40)
         tx(read); rx((0xb0, ord("T"), ord("E"), ord("S"), ord("T"), 0x90, 0))
+    elif protocol == "purse-snapshot":
+        assert snapshot is not None and 32 < len(snapshot) < 254
+        tx(block(0, select)); rx(block(0, (0x90, 0)))
+        emit(0x16, 0x70)
+        tx(block(0x40, (0, 0xb0, 0, 0, len(snapshot))))
+        rx(block(0x60, snapshot[:32])); tx(block(0x80, ()))
+        rx(block(0, (*snapshot[32:], 0x90, 0)))
+        # This invented contact object is read-only; no command on the wire
+        # can turn the independent ledger snapshot into a payment approval.
+        tx(block(0, (0, 0xd6, 0, 0, 1, 0)))
+        rx(block(0x40, (0x6d, 0)))
     else:
         tx(block(0, select)); rx(block(0, (0x90, 0)))
         tx(block(0xc1, (3,))); rx(block(0xe1, (3,)))
@@ -172,7 +211,8 @@ end, "synthetic native smart-card UART")
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mame", required=True, type=Path)
-    parser.add_argument("--protocol", choices=("t0", "t1", "t0-inverse", "t0-pps", "slots", "all"), default="all")
+    protocols = ("t0", "t1", "t0-inverse", "t0-pps", "slots", "slots-reset", "purse-snapshot")
+    parser.add_argument("--protocol", choices=(*protocols, "all"), default="all")
     parser.add_argument("--pps-spacing-us", type=int, default=1500, help="declared synthetic PPS card inter-character delay")
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
@@ -180,12 +220,23 @@ def main():
     args = parser.parse_args()
     root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     root.mkdir(parents=True)
-    for protocol in ("t0", "t1", "t0-inverse", "t0-pps", "slots") if args.protocol == "all" else (args.protocol,):
+    for protocol in protocols if args.protocol == "all" else (args.protocol,):
         out = root / protocol
         out.mkdir()
         shutil.copytree(ROOT / "fixtures", out / "fixtures")
+        snapshot = None
+        if protocol == "purse-snapshot":
+            sys.path.insert(0, str(ROOT / "tools"))
+            from lab_purse import LabPurseStore
+            store = LabPurseStore(out / "synthetic-purse.sqlite")
+            store.seed("lab-contact-probe")
+            store.begin_spend("lab-contact-probe", "reserve", 25)
+            before = store.inspect("lab-contact-probe")
+            contact = store.contact_snapshot("lab-contact-probe")
+            snapshot = struct.pack(">4sBBBQQQQ", b"LABP", 1, 2, 0, 100, 25, 75, 1)
+            assert bytes.fromhex(contact["memory_hex"]) == snapshot
         image = bytearray(b"\xff" * 1048576)
-        program = synthetic_program(protocol)
+        program = synthetic_program(protocol, snapshot)
         image[0xc0000:0xc0000 + len(program)] = program
         seed = out / "flash.bin"
         seed.write_bytes(image)
@@ -193,6 +244,9 @@ def main():
                  "sha256_hex": hashlib.sha256(image).hexdigest(), "size_bytes": len(image), "motherboard": "later"}
         (out / "fixtures/firmware/firmware-hashes.json").write_text(json.dumps({"entries": [entry]}))
         fixture = ROOT / f"fixtures/cards/smartcard-async-{protocol}-lab.json"
+        if protocol == "purse-snapshot":
+            fixture = out / "lab-contact-snapshot.json"
+            fixture.write_text(json.dumps(contact), encoding="ascii")
         if protocol in ("t0-inverse", "t0-pps"):
             inverse = json.loads((ROOT / "fixtures/cards/smartcard-async-t0-lab.json").read_text())
             inverse["atr_hex"] = "3F 00" if protocol == "t0-inverse" else "3B 10 12"
@@ -207,7 +261,7 @@ def main():
                    COINLINE_BOARD=str(ROOT / "fixtures/board/board-profile-2line-vfd.json"), COINLINE_FIRMWARE=str(seed),
                    COINLINE_DIAGNOSTICS="0", COINLINE_TP8048_ROM=str(args.controller.resolve()),
                    COINLINE_SMART_CARD=str(fixture), COINLINE_SMART_CARD_TRACE="1", COINLINE_SMART_CARD_LAB_TRACE="1")
-        if protocol == "slots":
+        if protocol in ("slots", "slots-reset"):
             customer = ROOT / "fixtures/cards/smartcard-async-t0-lab.json"
             env["COINLINE_SMART_CARD"] = str(customer)
             env["COINLINE_SAM_PIN_TRACE"] = "1"
@@ -229,6 +283,8 @@ def main():
         (out / "mame.log").write_text(log, encoding="utf-8")
         if result.returncode or "SMARTCARD_ASYNC_PROBE marker=A5" not in log:
             raise RuntimeError(f"Native {protocol} contact UART probe failed: {out}")
+        if protocol == "purse-snapshot" and store.inspect("lab-contact-probe") != before:
+            raise RuntimeError("Native read-only contact exchange mutated the independent lab ledger")
         print(f"Native {protocol} contact UART passed: {out}", flush=True)
 
 

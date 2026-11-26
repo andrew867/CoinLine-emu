@@ -40,6 +40,27 @@ separate volatile, invented application-selection demonstration; reset
 does not change persisted units. The utility does not listen on a socket
 or translate these results into historical commands or approval codes.
 
+### Read-only contact snapshot
+
+The `contact_snapshot` request exports a point-in-time, invented laboratory
+contact fixture. It uses the existing generic read-only T=0 or T=1 application,
+not a historical purse application. It contains no authorization state and
+cannot change the SQLite ledger. For example, after creating `lab-example`,
+save the output of a request with this content to a local fixture file:
+
+```json
+{"operation":"contact_snapshot","fixture_id":"lab-example","protocol":"t1"}
+```
+
+The 39-byte object starts with ASCII `LABP`, a version byte, minor-unit
+precision, a lifecycle code, and four big-endian unsigned 64-bit values:
+balance, reserved, available and snapshot revision. Out-of-range values
+are rejected, not truncated. The fixture is immutable until explicitly
+exported again. The native `smartcard_async_probe.py --protocol purse-snapshot`
+reads all 39 bytes across chained T=1 blocks, rejects an update command,
+and verifies that the separate ledger remains unchanged. This is a contact
+transport qualification only, not terminal payment acceptance.
+
 The [machine-readable vectors](../fixtures/cards/lab-purse-vectors.json)
 cover balance, reservation, completion, event idempotency, cancellation,
 reload limit, uncertain restart, inactive/empty fixtures, invalid input,

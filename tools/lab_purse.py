@@ -8,10 +8,13 @@ import json
 from pathlib import Path
 import re
 import sqlite3
+import struct
 
 MODEL = "coinline-demo-purse-v1"
 LIFECYCLES = {"available", "blocked", "expired", "retired"}
 DISPOSITIONS = {"pending", "committed", "cancelled", "declined", "uncertain"}
+CONTACT_SNAPSHOT = struct.Struct(">4sBBBQQQQ")
+CONTACT_LIFECYCLES = {"available": 0, "blocked": 1, "expired": 2, "retired": 3}
 
 
 class InvalidSnapshot(ValueError):
@@ -149,6 +152,25 @@ class LabPurseStore:
 
     def inspect(self, fixture_id):
         return self._operate(fixture_id, lambda s, db: ({}, False))
+
+    def contact_snapshot(self, fixture_id, protocol="t1"):
+        """Export an immutable, invented LAB contact object, never an authorization."""
+        if protocol not in ("t0", "t1"):
+            return {"error": "bad_input"}
+        result = self.inspect(fixture_id)
+        if "error" in result:
+            return result
+        try:
+            data = CONTACT_SNAPSHOT.pack(b"LABP", 1, result["minor_digits"],
+                CONTACT_LIFECYCLES[result["lifecycle"]], result["balance_units"],
+                result["reserved_units"], result["available_units"], result["revision"])
+        except struct.error:
+            return {"error": "contact_value_range"}
+        return {"type": "smartcard", "protocol": "async", "application": "lab-readonly",
+                "reset_policy": "external", "atr_hex": "3B 00" if protocol == "t0" else "3B 80 01 81",
+                "memory_hex": data.hex().upper(), "atr_delay_us": 4000,
+                "apdu_response_delay_us": 1000, "lab_snapshot_revision": result["revision"],
+                "lab_snapshot_format": "LABP-v1-nonredeemable"}
 
     def history(self, fixture_id, after_sequence=0, limit=100):
         def action(s, db):
@@ -310,7 +332,7 @@ def main():
     try:
         request = json.loads(args.request.read_text(encoding="utf-8"))
         operation = request.pop("operation")
-        allowed = {"seed", "inspect", "history", "begin_spend", "complete_spend", "cancel_spend", "mark_uncertain",
+        allowed = {"seed", "inspect", "contact_snapshot", "history", "begin_spend", "complete_spend", "cancel_spend", "mark_uncertain",
                    "record_local_outcome", "reconcile_local", "reload_fixture"}
         result = getattr(LabPurseStore(args.store), operation)(**request) if operation in allowed else {"error": "bad_input"}
     except sqlite3.Error:
