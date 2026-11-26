@@ -269,3 +269,14 @@ phase. Evidence: `build/firmware-acceptance/flash-bus-probe/20261126T024018.9641
 Live qualification still requires an isolated NCC assignment and code-server
 listener, an approved compatible target image, and observation of the
 firmware-initiated transfer, resulting flash state and actual reboot.
+
+The next full graphical retry remains held at normal schedule cancellation.
+A native Craft refresh completed all 18 assigned records and the terminal
+then returned its pending special callback on the same NCC connection. The
+manager acknowledged the callback but did not deliver the separately queued
+disabled MT94 because its ordinary install-dialogue guard was still active.
+The manager-side focused regression now passes; deployment into the isolated
+test environment is pending. The terminal is offline, with its retained
+state preserved. No replacement schedule, modem-table change or image
+transfer has occurred. The component-level V.22bis training result does not
+establish native carrier or download success.

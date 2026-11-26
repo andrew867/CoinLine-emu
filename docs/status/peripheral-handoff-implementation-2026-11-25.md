@@ -224,7 +224,13 @@ occurred during the card-present or removal interval.
 This establishes the visual reminder on this exact image, but not audible
 reminder activation or recovery after removal. The latter two remain open;
 the previous graphical image's removal result is not transferable to this
-one. No application response, alarm output or service state was forced.
+one. Independent read-only inspection of the retained state confirmed
+that the terminal itself saw both sensors clear, classified the card as
+out, and returned the reader to idle; its validation state was still
+pending. The configured alarm duration was nonzero. This separates the
+physical removal path from the application/UI cleanup and does not prove
+that this generic contact fixture is eligible for an audible alarm.
+No application response, alarm output or service state was forced.
 The contact presence trace is opt-in and otherwise leaves the device
 behavior unchanged.
 
