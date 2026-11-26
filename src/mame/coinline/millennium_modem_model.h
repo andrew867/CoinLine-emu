@@ -108,6 +108,7 @@ private:
 	void ncc_maybe_lab_hello();
 	void flush_ncc_tx();
 	void poll_call_progress(double now_sec);
+	void poll_code_training(double now_sec);
 	void refresh_detect_register();
 	void trace_call_progress(char const *event, double sampled_sec, int value = -1) noexcept;
 
@@ -139,10 +140,24 @@ private:
 		ringback,
 		answer_tone,
 		carrier_mark,
+		answer_gap,
+		training_carrier,
+		unscrambled_mark,
+		s1_pattern,
+		scrambled_mark,
+		qam_training,
 		carrier,
 	};
+	void set_call_phase(cp_phase phase, double now_sec);
 	cp_phase m_cp = cp_phase::idle;
 	double m_ncc_connected_at = -1.0;
+	bool m_code_training = false;
+	double m_code_phase_started = -1.0;
+	double m_guest_s1_since = -1.0;
+	double m_guest_s1_end = -1.0;
+	double m_guest_mark_since = -1.0;
+	double m_guest_qam_since = -1.0;
+	bool m_code_qam = false;
 	// Optional, bounded observations only; never feed back into line state.
 	bool m_call_trace = false;
 	unsigned m_call_trace_count = 0;

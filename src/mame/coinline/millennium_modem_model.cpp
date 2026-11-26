@@ -153,6 +153,10 @@ void millennium_modem_model::reset()
 	m_ssi_write_bits = 0;
 	m_cp = cp_phase::idle;
 	m_ncc_connected_at = -1.0;
+	m_code_training = false;
+	m_code_phase_started = -1.0;
+	m_guest_s1_since = m_guest_s1_end = m_guest_mark_since = m_guest_qam_since = -1.0;
+	m_code_qam = false;
 	char const *const trace = std::getenv("COINLINE_MODEM_TRACE");
 	m_call_trace = trace && trace[0] == '1';
 	m_call_trace_count = 0;
@@ -433,6 +437,22 @@ void millennium_modem_model::refresh_detect_register()
 	case cp_phase::carrier_mark:
 		dr = 0x28;
 		break;
+	case cp_phase::answer_gap:
+		dr = 0;
+		break;
+	case cp_phase::training_carrier:
+		dr = 0x08;
+		break;
+	case cp_phase::unscrambled_mark:
+		dr = 0x38;
+		break;
+	case cp_phase::s1_pattern:
+		dr = 0x48;
+		break;
+	case cp_phase::scrambled_mark:
+	case cp_phase::qam_training:
+		dr = 0x28;
+		break;
 	case cp_phase::carrier:
 		dr = 0x08;
 		break;
@@ -468,17 +488,116 @@ void millennium_modem_model::trace_call_progress(char const *event, double sampl
 	case cp_phase::ringback: phase = "ringback"; break;
 	case cp_phase::answer_tone: phase = "answer_tone"; break;
 	case cp_phase::carrier_mark: phase = "carrier_mark"; break;
+	case cp_phase::answer_gap: phase = "answer_gap"; break;
+	case cp_phase::training_carrier: phase = "training_carrier"; break;
+	case cp_phase::unscrambled_mark: phase = "unscrambled_mark"; break;
+	case cp_phase::s1_pattern: phase = "s1_pattern"; break;
+	case cp_phase::scrambled_mark: phase = "scrambled_mark"; break;
+	case cp_phase::qam_training: phase = "qam_training"; break;
 	case cp_phase::carrier: phase = "carrier"; break;
 	case cp_phase::idle: break;
 	}
-	std::fprintf(stderr, "modem progress sampled_s=%.6f event=%s phase=%s dr=%02X dcd=%d value=%d\n",
-		sampled_sec, event, phase, unsigned(m_ssi_dr), int(m_dcd), value);
+	std::fprintf(stderr, "modem progress sampled_s=%.6f event=%s phase=%s dr=%02X dcd=%d value=%d cr0=%02X cr1=%02X cr2=%02X tr=%02X\n",
+		sampled_sec, event, phase, unsigned(m_ssi_dr), int(m_dcd), value,
+		unsigned(m_ssi_cr0), unsigned(m_ssi_cr1), unsigned(m_ssi_cr2), unsigned(m_ssi_tr));
+}
+
+void millennium_modem_model::set_call_phase(cp_phase next, double now_sec)
+{
+	if (next == m_cp)
+		return;
+	m_cp = next;
+	m_code_phase_started = now_sec;
+	refresh_detect_register();
+	if (m_cp == cp_phase::carrier) {
+		m_dcd = true;
+		m_state = millennium_modem_state::connected;
+		std::fprintf(stderr, "modem carrier (SSI) dcd=1\n");
+	}
+	trace_call_progress("phase", now_sec);
+}
+
+void millennium_modem_model::poll_code_training(double now_sec)
+{
+	// Register-level counterpart of a V.25 answering V.22bis peer. The
+	// analogue waveform is represented by its independent detector states;
+	// there is no carrier completion until the guest programs real training.
+	// V.25 (11/88) §4.4; V.22bis (11/88) §6.3.1; 73K324L pp. 10-11, 20.
+	double const elapsed = now_sec - m_ncc_connected_at;
+	if (elapsed < 2.0) { set_call_phase(cp_phase::ringback, now_sec); return; }
+	// Nominal 3.3 s answer, 75 ms turn-off gap, 25 ms detector hold,
+	// 12 ms DPSK carrier / 25 ms unscrambled-mark detector acquisition.
+	if (elapsed < 5.325) { set_call_phase(cp_phase::answer_tone, now_sec); return; }
+	if (elapsed < 5.387) { set_call_phase(cp_phase::answer_gap, now_sec); return; }
+	if (elapsed < 5.400) { set_call_phase(cp_phase::training_carrier, now_sec); return; }
+	if (m_cp == cp_phase::ringback || m_cp == cp_phase::answer_tone || m_cp == cp_phase::answer_gap ||
+		m_cp == cp_phase::training_carrier || m_cp == cp_phase::post_dial)
+		set_call_phase(cp_phase::unscrambled_mark, now_sec);
+
+	bool const originate_tx = (m_ssi_cr0 & 0x03U) == 0x03U && !(m_ssi_tr & 0x10U);
+	bool const dpsk = (m_ssi_cr0 & 0xe0U) == 0;
+	bool const qam = (m_ssi_cr0 & 0xe0U) == 0x40U;
+	bool const local_s1 = originate_tx && dpsk && (m_ssi_cr1 & 0xc0U) == 0x40U && (m_ssi_cr2 & 0x10U);
+	bool const local_scrambled_mark = originate_tx && (m_ssi_cr1 & 0xd0U) == 0x80U;
+	if (m_cp == cp_phase::unscrambled_mark) {
+		if (local_s1) {
+			if (m_guest_s1_since < 0.0) m_guest_s1_since = now_sec;
+			m_guest_mark_since = -1.0;
+		} else if (m_guest_s1_since >= 0.0) {
+			// A complete nominal 100 ms S1 burst (allowing its specified
+			// tolerance) triggers the remote response, not the TCP connect.
+			if (now_sec - m_guest_s1_since >= 0.097)
+				m_guest_s1_end = now_sec;
+			m_guest_s1_since = -1.0;
+		}
+		if (m_guest_s1_end >= 0.0) {
+			if (now_sec - m_guest_s1_end >= 0.025) {
+				m_code_qam = true;
+				set_call_phase(cp_phase::s1_pattern, now_sec);
+			}
+			return;
+		}
+		// A remote V.22-compatible peer may instead detect scrambled
+		// marks at the initial rate, with no S1 exchange.
+		if (local_scrambled_mark && dpsk) {
+			if (m_guest_mark_since < 0.0) m_guest_mark_since = now_sec;
+			if (now_sec - m_guest_mark_since >= 0.270) {
+				m_code_qam = false;
+				set_call_phase(cp_phase::scrambled_mark, now_sec);
+			}
+		} else {
+			m_guest_mark_since = -1.0;
+		}
+	} else if (m_cp == cp_phase::s1_pattern) {
+		if (now_sec - m_code_phase_started >= 0.100)
+			set_call_phase(cp_phase::scrambled_mark, now_sec);
+	} else if (m_cp == cp_phase::scrambled_mark) {
+		if (m_code_qam) {
+			if (now_sec - m_guest_s1_end >= 0.600)
+				set_call_phase(cp_phase::qam_training, now_sec);
+		} else if (now_sec - m_code_phase_started >= 0.765) {
+			set_call_phase(cp_phase::carrier, now_sec);
+		}
+	} else if (m_cp == cp_phase::qam_training) {
+		if (qam && local_scrambled_mark) {
+			if (m_guest_qam_since < 0.0) m_guest_qam_since = now_sec;
+		} else {
+			m_guest_qam_since = -1.0;
+		}
+		if (m_guest_qam_since >= 0.0 && now_sec - m_guest_qam_since >= 32.0 / 2400.0 &&
+			now_sec - m_code_phase_started >= 0.200)
+			set_call_phase(cp_phase::carrier, now_sec);
+	}
 }
 
 void millennium_modem_model::poll_call_progress(double now_sec)
 {
 	if (!m_r1 || !m_ncc_up)
 		return;
+	if (m_code_training) {
+		poll_code_training(now_sec);
+		return;
+	}
 	double const elapsed = now_sec - m_ncc_connected_at;
 	cp_phase next = cp_phase::ringback;
 	if (elapsed >= 5.0)
@@ -487,16 +606,7 @@ void millennium_modem_model::poll_call_progress(double now_sec)
 		next = cp_phase::carrier_mark;
 	else if (elapsed >= 2.0)
 		next = cp_phase::answer_tone;
-	if (next == m_cp)
-		return;
-	m_cp = next;
-	refresh_detect_register();
-	if (m_cp == cp_phase::carrier) {
-		m_dcd = true;
-		m_state = millennium_modem_state::connected;
-		std::fprintf(stderr, "modem carrier (SSI) dcd=1\n");
-	}
-	trace_call_progress("phase", now_sec);
+	set_call_phase(next, now_sec);
 }
 
 void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
@@ -509,6 +619,10 @@ void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 	m_ncc_attempted = false;
 	m_ncc_retry_after = 0.0;
 	m_dcd = false;
+	m_code_training = false;
+	m_code_phase_started = -1.0;
+	m_guest_s1_since = m_guest_s1_end = m_guest_mark_since = m_guest_qam_since = -1.0;
+	m_code_qam = false;
 	if (r1_active) {
 		m_call_trace_count = 0;
 		m_call_trace_last_dr = -1;
@@ -551,6 +665,7 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a, bool extended_a
 		}
 	};
 	auto store_reg = [&](unsigned a, std::uint8_t v) {
+		bool const changed = reg_value(a) != v;
 		if (char const *trace = std::getenv("COINLINE_ADSI_TRACE"); trace && *trace == '1')
 			std::fprintf(stderr, "ADSI SSI register write %u=%02X\n", a, unsigned(v));
 		switch (a) {
@@ -562,6 +677,8 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a, bool extended_a
 		case 5: m_ssi_cr3 = v; break;
 		default: break;
 		}
+		if (changed && m_code_training && m_r1 && a != 2)
+			trace_call_progress("ssi_control_write", m_call_trace_poll_sec, int((a << 8) | v));
 	};
 
 	// RD/ falling edge presents bit 0. The following clocks advance the read.
@@ -703,6 +820,7 @@ bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port,
 	m_ncc_attempted = true;
 	m_ncc_up = true;
 	m_ncc_connected_at = now_sec;
+	m_code_training = code_server;
 	// A code-server call is a transparent modem link, not an NCC dialogue.
 	m_ncc_lab_hello_sent = code_server;
 	m_ncc_lab_hello_at = code_server ? -1.0 : now_sec + 0.4;
