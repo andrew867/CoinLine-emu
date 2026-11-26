@@ -169,6 +169,29 @@ No fabricated module response, terminal memory patch or host timing change
 was introduced. Evidence:
 `build/firmware-acceptance/nla1x09-corrected-ncc-install/20261126T041328.461310Z/`.
 
+A second INSTALL from the previous run's normally flushed, incomplete
+battery state repeated both line checks and all 18 table acknowledgements.
+The three optional SAM menu entries could be traversed with `*`; `#`
+returned normally to the customer-contact test. Inserting the existing
+synchronous test fixture produced native contact selector, supply, clock
+and reset transitions but no asynchronous ATR. The display remained at
+`Please wait` after more than 60 emulated seconds and after card removal.
+The installed feature combination expects an asynchronous contact in this
+maintenance test. A subsequent cold trial will use the generic asynchronous
+read-only fixture rather than a historical card application.
+Evidence: `build/firmware-acceptance/nla1x09-warm-partial-restart/20261126T042541.821099Z/`.
+
+A third cold attempt used the ordinary generic asynchronous T=0 read-only
+fixture with ATR `3B 00`. It again passed CO, answer, all 18 download records,
+keypad and magnetic reader, and normally quit the unpopulated SAM menu.
+At the customer-contact prompt, the native contact serial device activated
+and transmitted both ATR characters. The terminal then shut down the card
+clock and reset outputs; within the six-second post-insertion interval its
+display returned to `Not installed`. No application command or transaction
+was involved. The cause of the apparent restart remains unresolved; full
+INSTALL and in-service acceptance are not established for this digest.
+Evidence: `build/firmware-acceptance/nla1x09-full-async-install/20261126T044125.177678Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.
