@@ -75,6 +75,10 @@ INPUT_PORTS_START(millennium)
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Insert dime") PORT_CODE(KEYCODE_B)
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("Insert quarter") PORT_CODE(KEYCODE_M)
 
+	PORT_START("CASHBOXUI")
+	PORT_BIT(0x01, 0x00, IPT_OTHER) PORT_NAME("Cash box removed") PORT_TOGGLE
+	PORT_BIT(0x02, 0x00, IPT_OTHER) PORT_NAME("Cash box full sensor") PORT_TOGGLE
+
 	PORT_START("LINECTRL")
 	// terminal_21_user_io: LINE_CONNECTION (0x66) vs LINE_INTERRUPTION (0x64); LINE_REVERSAL_0 (0x68) / LINE_REVERSAL_1 (0x6A).
 	// terminal_21 line_supervision_gating: when bit 3 set, reversal pulses are suppressed (relay/switching model).

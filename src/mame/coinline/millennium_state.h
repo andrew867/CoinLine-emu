@@ -197,6 +197,7 @@ private:
 
 	required_ioport m_cardui;
 	required_ioport m_coinui;
+	required_ioport m_cashboxui;
 	required_ioport m_keymatrix_io;
 	required_ioport m_secmask_io;
 	required_ioport m_linectrl_io;
@@ -745,6 +746,7 @@ private:
 	std::vector<std::uint8_t> m_vfd_last_drawn_dots;
 	std::uint8_t m_vfd_last_drawn_luminance = 0;
 	std::uint8_t m_panel_security_state = 0xffU;
+	std::uint8_t m_panel_cashbox_state = 0xffU;
 	bool m_vfd_render_prepared = false;
 	bool m_vfd_use_gfxfont_fallback = true;
 	coinline::z180::boot_init_model m_boot_init_contract{};

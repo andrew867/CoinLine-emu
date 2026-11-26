@@ -18,12 +18,13 @@ std::uint32_t millennium_mach_flash_address(std::uint8_t mach_port_h_shadow, std
 	return phys;
 }
 
-std::uint8_t millennium_mach_pio_combine_port_h_read(std::uint8_t shadow, std::uint8_t smartcard_lines_low2)
+std::uint8_t millennium_mach_pio_combine_port_h_read(std::uint8_t shadow, std::uint8_t smartcard_lines_low2,
+	bool cover_open, bool box_removed)
 {
-	// Clear vault/cover bits 2–3 on read (nominal “OK” for polls). Low **two** bits overlap the RAM latch;
-	// OR in smart-card presence lines — matches keypad-loop shadows (\c 0x06 / \c 0x07) when SC lines are idle.
+	// The read-only cover/removal inputs do not change the bank-selection latch.
 	std::uint8_t const cleared = static_cast<std::uint8_t>(shadow & ~millennium_cashbox_hw::k_mach_port_h_vault_status_mask);
-	return static_cast<std::uint8_t>(cleared | (smartcard_lines_low2 & 0x03U));
+	return static_cast<std::uint8_t>(cleared | (smartcard_lines_low2 & 0x03U) |
+		(cover_open ? 0x04U : 0U) | (box_removed ? 0x08U : 0U));
 }
 
 millennium_mach_phys_ram_decode millennium_mach_decode_phys_ram(std::uint8_t mach_port_h_shadow,

@@ -62,7 +62,14 @@ public:
 	unsigned protocol_reset_pulse_count() const noexcept { return m_protocol_reset_pulse_count; }
 	bool uart_active() const noexcept { return m_uart_active; }
 	std::vector<std::uint8_t> uart_command(std::uint8_t byte, std::uint64_t now_ms = 0);
-	std::optional<std::uint8_t> uart_insert(int cents);
+	std::optional<std::uint8_t> uart_insert(int cents, std::uint64_t now_ms = 0);
+	void set_cashbox_state(bool present, bool full) noexcept;
+	void advance_uart(std::uint64_t now_ms) noexcept;
+	struct physical_contents { std::uint64_t escrow = 0, cashbox = 0, refunded = 0, removed = 0; };
+	physical_contents contents() const noexcept { return {m_uart_escrow_cents, m_cashbox_cents, m_refunded_cents, m_removed_cents}; }
+	void restore_contents(physical_contents const &value) noexcept;
+	bool cashbox_present() const noexcept { return m_cashbox_present; }
+	bool cashbox_full() const noexcept { return m_cashbox_full; }
 
 private:
 	int pulses_for_valid_denom(int cents) const;
@@ -84,7 +91,11 @@ private:
 	std::uint16_t m_uart_windows = 0xffffU;
 	std::uint8_t m_uart_pending_command = 0U;
 	unsigned m_uart_address_bytes = 0U;
-	int m_uart_escrow_cents = 0;
+	std::uint64_t m_uart_escrow_cents = 0;
+	std::uint64_t m_cashbox_cents = 0, m_refunded_cents = 0, m_removed_cents = 0;
+	bool m_cashbox_present = true, m_cashbox_full = false, m_uart_escrow_fault = false;
+	enum class gate_motion { idle, collect, refund, neutral };
+	gate_motion m_uart_motion = gate_motion::idle;
 	std::uint64_t m_uart_escrow_motion_end_ms = 0;
 	bool m_uart_active = false;
 	bool m_uart_awake = true;

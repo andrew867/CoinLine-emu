@@ -37,8 +37,10 @@ void millennium_coin_model::reset()
 	m_uart_windows = 0xffffU;
 	m_uart_pending_command = 0;
 	m_uart_address_bytes = 0;
-	m_uart_escrow_cents = 0;
+	// A controller reset does not physically empty the escrow or cashbox.
 	m_uart_escrow_motion_end_ms = 0;
+	m_uart_motion = gate_motion::idle;
+	m_uart_escrow_fault = false;
 	m_uart_active = false;
 	m_uart_awake = true;
 	m_uart_accepting = false;
@@ -220,6 +222,7 @@ void millennium_coin_model::protocol_note_timeout() noexcept
 
 std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte, std::uint64_t now_ms)
 {
+	advance_uart(now_ms);
 	m_uart_active = true;
 	if (m_uart_address_bytes) {
 		--m_uart_address_bytes;
@@ -248,8 +251,8 @@ std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte,
 	switch (byte) {
 	case 'r':
 		// The position sensor is obstructed while the escrow gate travels.
-		return {'B', std::uint8_t(m_jam_latched ? 0x40 : 0),
-			std::uint8_t(now_ms < m_uart_escrow_motion_end_ms ? 0x08 : 0)};
+		return {'B', std::uint8_t((m_jam_latched ? 0x40 : 0) | (m_uart_escrow_fault ? 0x02 : 0)),
+			std::uint8_t((m_uart_motion != gate_motion::idle ? 0x08 : 0) | (m_cashbox_full ? 0x40 : 0))};
 	case 'x':
 	case 'a':
 		m_uart_accepting = true;
@@ -266,17 +269,22 @@ std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte,
 		break;
 	case 'f':
 	case 'c':
-		m_uart_escrow_motion_end_ms = now_ms + k_escrow_travel_ms;
-		m_uart_escrow_cents = 0;
+		if (m_uart_motion == gate_motion::idle) {
+			m_uart_motion = byte == 'c' ? gate_motion::collect : gate_motion::refund;
+			m_uart_escrow_motion_end_ms = now_ms + k_escrow_travel_ms;
+		}
 		break;
 	case 'n':
-		m_uart_escrow_motion_end_ms = now_ms + 250;
-		m_uart_escrow_cents = 0;
+		if (m_uart_motion == gate_motion::idle) {
+			m_uart_motion = gate_motion::neutral;
+			m_uart_escrow_motion_end_ms = now_ms + 250;
+		}
 		break;
 	case 'l':
-		m_uart_escrow_cents = 0;
+		m_uart_motion = gate_motion::idle;
 		m_uart_escrow_motion_end_ms = 0;
 		m_jam_latched = false;
+		m_uart_escrow_fault = false;
 		break;
 	case 'k':
 		break;
@@ -290,9 +298,44 @@ std::vector<std::uint8_t> millennium_coin_model::uart_command(std::uint8_t byte,
 	return {};
 }
 
-std::optional<std::uint8_t> millennium_coin_model::uart_insert(int cents)
+void millennium_coin_model::set_cashbox_state(bool present, bool full) noexcept
 {
-	if (!m_uart_awake || !m_uart_accepting || m_jam_latched || !denom_allowed(cents))
+	if (m_cashbox_present && !present) {
+		m_removed_cents += m_cashbox_cents;
+		m_cashbox_cents = 0;
+	}
+	m_cashbox_present = present;
+	m_cashbox_full = present && full;
+}
+
+void millennium_coin_model::advance_uart(std::uint64_t now_ms) noexcept
+{
+	if (m_uart_motion == gate_motion::idle || now_ms < m_uart_escrow_motion_end_ms) return;
+	if (m_uart_motion == gate_motion::collect) {
+		// Do not invent a transfer into an unavailable physical container.
+		// Retain escrow and expose an explicit obstruction fault for this lab model.
+		if (!m_cashbox_present || m_cashbox_full)
+			m_uart_escrow_fault = m_uart_escrow_cents != 0;
+		else { m_cashbox_cents += m_uart_escrow_cents; m_uart_escrow_cents = 0; m_uart_escrow_fault = false; }
+	} else if (m_uart_motion == gate_motion::refund) {
+		m_refunded_cents += m_uart_escrow_cents; m_uart_escrow_cents = 0; m_uart_escrow_fault = false;
+	}
+	m_uart_motion = gate_motion::idle;
+}
+
+void millennium_coin_model::restore_contents(physical_contents const &value) noexcept
+{
+	m_uart_escrow_cents = value.escrow; m_cashbox_cents = value.cashbox;
+	m_refunded_cents = value.refunded; m_removed_cents = value.removed;
+	m_uart_motion = gate_motion::idle;
+	m_uart_escrow_motion_end_ms = 0;
+}
+
+std::optional<std::uint8_t> millennium_coin_model::uart_insert(int cents, std::uint64_t now_ms)
+{
+	advance_uart(now_ms);
+	if (!m_uart_awake || !m_uart_accepting || m_jam_latched || m_uart_escrow_fault ||
+		m_uart_motion != gate_motion::idle || !denom_allowed(cents))
 		return std::nullopt;
 	for (std::size_t slot = 0; slot < m_cfg.denominations_cents.size() && slot < 16U; ++slot) {
 		if (m_cfg.denominations_cents[slot] != cents || (m_uart_windows & (1U << slot)) == 0U)

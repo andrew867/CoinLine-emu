@@ -15,6 +15,9 @@ int main()
 	// UPPER_RAM_ENABLE 0x07 — after cash-bit masking low status bits 2-3 clear -> 0x03
 	if (millennium_mach_pio_combine_port_h_read(0x07U, 0x00U) != 0x03U)
 		return 1;
+	if (millennium_mach_pio_combine_port_h_read(0x07U, 0, true, false) != 0x07U ||
+		millennium_mach_pio_combine_port_h_read(0x07U, 0, false, true) != 0x0bU ||
+		millennium_mach_pio_combine_port_h_read(0xb7U, 0, true, true) != 0xbfU) return 7;
 
 	constexpr std::size_t cap = 0x80000U;
 	// Port H 0x07: bank 0 from high nibble 0; upper window enabled (low three bits set).

@@ -7,6 +7,7 @@ local security = assert(ports[":SECMASK"])
 local softkeys = assert(ports[":TERMINAL21_SOFTKEYS"])
 local card = assert(ports[":CARDUI"])
 local coins = assert(ports[":COINUI"])
+local cashbox = ports[":CASHBOXUI"]
 local power = ports[":POWERUI"]
 local power_test = os.getenv("COINLINE_BOARD_SUPERVISION_PROFILE")
 local offline_line = os.getenv("COINLINE_GRAPHIC_OFFLINE_LINE") == "1" and assert(ports[":LINECTRL"]) or nil
@@ -140,9 +141,21 @@ local function execute(line)
         next_frame = frame + 30
         log("input", action)
     elseif action == "coin" then
-        pulse(assert(coins:field(assert(({nickel=8, dime=16, quarter=32})[arg]))), frame + 3)
+        pulse(assert(coins:field(assert(({nickel=8, dime=16, quarter=32, reject=2, jam=4})[arg]))), frame + 3)
         next_frame = frame + 30
         log("input", "coin " .. arg)
+    elseif action == "cashbox" then
+        assert(cashbox, "cashbox controls require compatible emulator")
+        local mask = assert(({present=1, removed=1, clear=2, full=2})[arg])
+        local active = arg == "removed" or arg == "full"
+        if ((cashbox:read() & mask) ~= 0) ~= active then pulse(assert(cashbox:field(mask)), frame + 3) end
+        next_frame = frame + 30
+        log("input", "cashbox " .. arg)
+    elseif action == "vault" then
+        assert(arg == "open" or arg == "close")
+        if ((security:read() & 4) ~= 0) ~= (arg == "open") then pulse(assert(security:field(4)), frame + 3) end
+        next_frame = frame + 30
+        log("input", "vault " .. arg)
     elseif action == "soft" then
         local position = assert(tonumber(arg))
         assert(position >= 1 and position <= 12 and position % 1 == 0)
