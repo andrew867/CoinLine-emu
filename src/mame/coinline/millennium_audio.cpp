@@ -175,6 +175,8 @@ std::uint64_t millennium_audio_device::emulated_ns() const
 
 void millennium_audio_device::emit_alerter_ready()
 {
+	if (!millennium_audio_trace_enabled("COINLINE_ALERTER_TRACE"))
+		return;
 	std::string const j = millennium_audio_trace_alerter_ready_json(emulated_ns(), 0ULL, 0U);
 	millennium_audio_trace_emit_alerter_row(j);
 }
@@ -182,6 +184,8 @@ void millennium_audio_device::emit_alerter_ready()
 void millennium_audio_device::emit_alerter_gpio(std::uint16_t port, std::uint8_t data, std::uint64_t cpu_cycle,
 	std::uint16_t pc)
 {
+	if (!millennium_audio_trace_enabled("COINLINE_ALERTER_TRACE"))
+		return;
 	std::string const j =
 		millennium_audio_trace_alerter_gpio_json(emulated_ns(), cpu_cycle, pc, port, data);
 	millennium_audio_trace_emit_alerter_row(j);
@@ -227,15 +231,14 @@ TIMER_CALLBACK_MEMBER(millennium_audio_device::cadence_edge_tick)
 	unsigned const idx = m_cadence_edge_next;
 	bool const is_start = (idx % 2U) == 0U;
 	unsigned const edge_ms = m_cadence_edges_storage[idx];
-	char const *tcls = cadence_kind_label(m_cadence_kind);
-	std::uint64_t const cy = m_maincpu->total_cycles();
-	std::uint16_t const pc_now = static_cast<std::uint16_t>(m_maincpu->pc() & 0xffffU);
-
-	std::string line = is_start ? millennium_audio_trace_alerter_tone_start_json(emulated_ns(), cy, pc_now, tcls,
-						   edge_ms, idx)
-				    : millennium_audio_trace_alerter_tone_end_json(emulated_ns(), cy, pc_now, tcls, edge_ms,
-						  idx);
-	millennium_audio_trace_emit_alerter_row(line);
+	if (millennium_audio_trace_enabled("COINLINE_ALERTER_TRACE")) {
+		char const *tcls = cadence_kind_label(m_cadence_kind);
+		std::uint64_t const cy = m_maincpu->total_cycles();
+		std::uint16_t const pc_now = static_cast<std::uint16_t>(m_maincpu->pc() & 0xffffU);
+		std::string line = is_start ? millennium_audio_trace_alerter_tone_start_json(emulated_ns(), cy, pc_now, tcls,
+			edge_ms, idx) : millennium_audio_trace_alerter_tone_end_json(emulated_ns(), cy, pc_now, tcls, edge_ms, idx);
+		millennium_audio_trace_emit_alerter_row(line);
+	}
 
 	m_cadence_edge_next++;
 	if (m_cadence_edge_next >= m_cadence_edge_count) {

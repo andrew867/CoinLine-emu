@@ -45,6 +45,7 @@ private:
 	optional_device<speaker_device> m_vwspk;
 
 	bool m_reset_asserted = false;
+	bool m_reset_pin_known = false;
 	bool m_bank_latched = false;
 	std::uint8_t m_bank = 0;
 	std::uint8_t m_last_phrase = 0;

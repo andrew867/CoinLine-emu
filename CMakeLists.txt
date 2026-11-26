@@ -9,6 +9,7 @@ project(coinline_terminal_emulator LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+find_package(Threads REQUIRED)
 
 add_library(coinline_support STATIC
 	src/mame/coinline/millennium_sha256.cpp
@@ -19,6 +20,7 @@ add_library(coinline_support STATIC
 	src/mame/coinline/millennium_debug.cpp
 	src/mame/coinline/millennium_board_profile.cpp
 	src/mame/coinline/millennium_board_hwinit.cpp
+	src/mame/coinline/millennium_battery_writer.cpp
 	src/mame/coinline/millennium_nvram_model.cpp
 	src/mame/coinline/millennium_microwire_93c66.cpp
 	src/mame/coinline/millennium_mach_pio.cpp
@@ -46,6 +48,7 @@ add_library(coinline_support STATIC
 target_include_directories(coinline_support PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/src/mame/coinline
 )
+target_link_libraries(coinline_support PUBLIC Threads::Threads)
 
 enable_testing()
 
@@ -78,6 +81,7 @@ coinline_add_test(test_z180_prt z180 tests/devices/test_z180_prt.cpp)
 coinline_add_test(test_z180_int z180 tests/devices/test_z180_int.cpp)
 coinline_add_test(test_z180_dma z180 tests/devices/test_z180_dma.cpp)
 coinline_add_test(test_flash_model boot tests/devices/test_flash_model.cpp)
+coinline_add_test(test_battery_writer boot tests/devices/test_battery_writer.cpp)
 coinline_add_test(test_z180_refresh z180 tests/devices/test_z180_refresh.cpp)
 coinline_add_test(test_z180_wait_states z180 tests/devices/test_z180_wait_states.cpp)
 coinline_add_test(test_z180_internal_register_readback z180 tests/devices/test_z180_internal_register_readback.cpp)
@@ -104,10 +108,13 @@ coinline_add_test(test_modem_code_server telephony tests/devices/test_modem_code
 	src/mame/coinline/millennium_modem_model.cpp)
 coinline_add_test(test_modem_ncc_tcp telephony tests/devices/test_modem_ncc_tcp.cpp
 	src/mame/coinline/millennium_modem_model.cpp)
+coinline_add_test(test_line_jack_pcm telephony tests/devices/test_line_jack_pcm.cpp
+	src/mame/coinline/millennium_line.cpp)
 if(WIN32)
 	target_link_libraries(test_modem_ssi PRIVATE ws2_32)
 	target_link_libraries(test_modem_code_server PRIVATE ws2_32)
 	target_link_libraries(test_modem_ncc_tcp PRIVATE ws2_32)
+	target_link_libraries(test_line_jack_pcm PRIVATE ws2_32)
 endif()
 coinline_add_test(test_terminal_peripherals_vectors telephony tests/devices/test_terminal_peripherals_vectors.cpp)
 coinline_add_test(test_voiceware_runtime_vectors telephony tests/devices/test_voiceware_runtime_vectors.cpp)

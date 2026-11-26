@@ -39,6 +39,9 @@ std::uint64_t millennium_audio_route_device::machine_cycle_approx() const
 
 void millennium_audio_route_device::emit_route_change(std::uint64_t cycle, std::uint16_t pc, char const *reason)
 {
+	if (!millennium_audio_trace_enabled("COINLINE_AUDIO_ROUTE_TRACE") &&
+		!millennium_audio_trace_enabled("COINLINE_MUTE_ROUTE_TRACE"))
+		return;
 	std::string cur_route, cur_mute;
 	coinline::audio_route::snapshot_route_string(m_st, cur_route);
 	coinline::audio_route::snapshot_mute_json(m_st, cur_mute);
@@ -58,6 +61,9 @@ void millennium_audio_route_device::emit_route_change(std::uint64_t cycle, std::
 
 void millennium_audio_route_device::emit_mute_change(std::uint64_t cycle, std::uint16_t pc)
 {
+	if (!millennium_audio_trace_enabled("COINLINE_MUTE_ROUTE_TRACE") &&
+		!millennium_audio_trace_enabled("COINLINE_AUDIO_ROUTE_TRACE"))
+		return;
 	std::string cur_route, cur_mute;
 	coinline::audio_route::snapshot_route_string(m_st, cur_route);
 	coinline::audio_route::snapshot_mute_json(m_st, cur_mute);
@@ -77,6 +83,8 @@ void millennium_audio_route_device::emit_mute_change(std::uint64_t cycle, std::u
 
 void millennium_audio_route_device::maybe_emit_route_conflict(std::uint64_t cycle, std::uint16_t pc)
 {
+	if (!millennium_audio_trace_enabled("COINLINE_AUDIO_ROUTE_TRACE"))
+		return;
 	if (!m_voice_active)
 		return;
 	if (!coinline::audio_route::call_state_established(m_st.call))

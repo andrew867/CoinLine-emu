@@ -9,6 +9,8 @@
 void millennium_audio_trace_append_voiceware(std::string const &line);
 void millennium_audio_trace_append_superset(std::string const &line);
 void millennium_audio_trace_emit_voiceware_row(std::string const &line);
+// Check the actual sink before constructing diagnostic strings on hot paths.
+bool millennium_audio_trace_enabled(char const *specific_sink) noexcept;
 
 /// Build one JSON object (no trailing newline) for a voiceware row.
 std::string millennium_audio_trace_voiceware_json(std::uint64_t emulated_time_ns, std::uint64_t cycle, std::uint16_t pc,

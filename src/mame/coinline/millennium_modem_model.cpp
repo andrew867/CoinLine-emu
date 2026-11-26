@@ -210,12 +210,14 @@ void millennium_modem_model::goto_idle()
 
 void millennium_modem_model::append_tx(std::uint8_t b)
 {
-	m_transcript.push_back({'t', b});
+	if (m_transcript_enabled)
+		m_transcript.push_back({'t', b});
 }
 
 void millennium_modem_model::append_rx(std::uint8_t b)
 {
-	m_transcript.push_back({'r', b});
+	if (m_transcript_enabled)
+		m_transcript.push_back({'r', b});
 }
 
 void millennium_modem_model::ncc_send_bytes(std::uint8_t const *data, std::size_t n)
@@ -248,10 +250,8 @@ void millennium_modem_model::flush_ncc_tx(double now_sec)
 void millennium_modem_model::note_tx(std::uint8_t b)
 {
 	append_tx(b);
-	if (char const *tr = std::getenv("COINLINE_MODEM_TRACE")) {
-		if (tr[0] == '1')
-			std::fprintf(stderr, "modem tx 0x%02X ncc_up=%d\n", unsigned(b), int(m_ncc_up));
-	}
+	if (m_call_trace)
+		std::fprintf(stderr, "modem tx 0x%02X ncc_up=%d\n", unsigned(b), int(m_ncc_up));
 	if (m_dcd)
 		ncc_send_bytes(&b, 1);
 }

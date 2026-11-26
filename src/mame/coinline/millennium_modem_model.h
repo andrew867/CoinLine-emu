@@ -70,6 +70,9 @@ public:
 	bool replay_fixture_text(std::string const &text, std::string &error_out);
 
 	std::vector<millennium_modem_transcript_entry> const &transcript() const noexcept { return m_transcript; }
+	// Standalone fixture tests can retain wire bytes. The running device does
+	// not need an unbounded copy of each serial transfer.
+	void set_transcript_enabled(bool enabled) { m_transcript_enabled = enabled; if (!enabled) m_transcript.clear(); }
 
 	static char const *state_cstr(millennium_modem_state s) noexcept;
 	static void declared_states(std::vector<millennium_modem_state> &out_states);
@@ -90,6 +93,7 @@ private:
 	bool m_m8_latched = false;
 
 	std::vector<millennium_modem_transcript_entry> m_transcript{};
+	bool m_transcript_enabled = true;
 	unsigned m_clean_connect_line = 0;
 	bool m_in_clean_connect_replay = false;
 
