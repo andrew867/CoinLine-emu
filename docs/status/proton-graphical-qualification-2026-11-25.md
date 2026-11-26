@@ -76,6 +76,19 @@ the modem-task/relay sequencing in the full feature combination.
 Evidence: `build/firmware-acceptance/nla1x09-pins-full/20261126T022915.972523Z/`
 and `build/firmware-acceptance/nla1x09-pins-focused/20261126T022957.579944Z/`.
 
+A repeat with native telephony transaction traces narrows this further.
+Both images received the same controller handset transition bytes
+`62 6E`. The focused image subsequently sent CO status query `37` and
+received connected status `84`, released the internal modem relay,
+and completed the dial-tone check. The full image never issued `37`
+and retained R1 through the end of the test. The full build therefore
+stalls before the CO status reply or SSI dial-tone detector stage.
+Investigation should first establish whether the relay-sequence task
+receives and dispatches the communications-suspended event; no missing
+CO voltage or detector response has been established at this boundary.
+Evidence: `build/firmware-acceptance/nla1x09-tp-full/20261126T024423.170982Z/`
+and `build/firmware-acceptance/nla1x09-tp-focused/20261126T024456.422902Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.
