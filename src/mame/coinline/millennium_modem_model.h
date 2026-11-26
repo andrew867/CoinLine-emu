@@ -105,15 +105,13 @@ private:
 	bool ncc_connect_dialed(double now_sec);
 	bool ncc_connect_host(std::uint32_t host, unsigned port, double now_sec, bool code_server);
 	void ncc_send_bytes(std::uint8_t const *data, std::size_t n);
-	void ncc_maybe_lab_hello();
-	void flush_ncc_tx();
+	void flush_ncc_tx(double now_sec);
+	void lose_ncc_link(char const *event, double now_sec, int error = -1) noexcept;
 	void poll_call_progress(double now_sec);
 	void poll_code_training(double now_sec);
 	void refresh_detect_register();
 	void trace_call_progress(char const *event, double sampled_sec, int value = -1) noexcept;
 
-	bool m_ncc_lab_hello_sent = false;
-	double m_ncc_lab_hello_at = -1.0;
 	std::vector<std::uint8_t> m_ncc_tx_pending{};
 
 	// SSI modem registers selected through the port A serial interface.

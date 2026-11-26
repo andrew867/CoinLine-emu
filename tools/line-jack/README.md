@@ -127,7 +127,6 @@ Sends one terminal-matched hello to `COINLINE_NCC_PORT` (default 4000) so the
 API shows `lastFrameSampleHex` and `terminalMatched`. Use after a management
 dial has already proven TCP connect, or alone as a listener smoke.
 
-Emulator path: dial `2130706433` with `COINLINE_NCC_LAB_HELLO=1` (deferred +0.4 s
-frame on the same socket). Do not set `COINLINE_OUTBOUND` to that IPv4 decimal —
-the office skips voice answer for management dials so the terminal is not pulled
-onto the voice-answered path.
+The old `COINLINE_NCC_LAB_HELLO` emulator switch has been retired. The helper
+above is a separate explicit lab tool; a running terminal sends only its own
+serial bytes. Do not expect a synthetic hello on its management socket.

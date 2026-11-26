@@ -6,7 +6,8 @@
 #include <string>
 #include <vector>
 
-// Plain TCP byte pipe + optional length-prefixed JSON side-band frames (host-bridge.spec.md).
+// Test-only loopback byte pipe and optional JSON side-band frames. The native
+// terminal uses millennium_modem_model and millennium_line_jack instead.
 
 class millennium_hostbridge_tcp {
 public:
