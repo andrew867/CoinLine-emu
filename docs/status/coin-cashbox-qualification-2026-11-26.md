@@ -66,3 +66,49 @@ demonstrates a firmware-driven calibration and refund sequence through the
 native validator, not a collection report. A completed-result display was
 not captured during this run.
 Evidence: `build/firmware-acceptance/coin-craft-complete/20261126T041002.483565Z/`.
+
+## Native rated coin call and physical collection
+
+An independently installed graphical reference picked up three selected
+records using normal Craft 369, with native application ACKs for MT50,
+MT73 and MT92 and no unrelated record delivery. The controlled local-only
+rating and CO route required a 25-cent initial deposit for one minute.
+The first quotation expired before the quarter command was serviced and
+the terminal did not outpulse the voice destination. The second quotation
+displayed `$0.25`; one quarter was inserted within the prompt window.
+The terminal outpulsed the exact lab destination, the local office answered,
+and the display showed 56 seconds remaining. A normal handset replacement
+returned to `Please lift receiver`. There was no external voice or payment
+route. After normal exit the separate coin device file contained 0 escrow,
+25 cents cashbox, 25 cents refunded and 0 removed, accounting for both
+physical insertions.
+
+On restart, the terminal sent its own MT42 and then an actual MT53 coin
+call record. The isolated manager persisted exactly one new coin CDR with
+25 cents charged and 25 cents collected, acknowledged the call upload and
+the terminal closed the dialogue normally. The expired first quote had no
+completed voice call. No CDR was inferred from the rating request.
+
+The warm reference subsequently exercised vault open, box removal,
+replacement and vault close. Craft item 732 reported `No call records`
+after the successful upload. A second normal exit recorded 0 escrow,
+0 cashbox, 25 cents refunded, and 25 cents removed, conserving the physical
+amounts. No separate collector credential was requested or entered. The
+isolated manager independently received the terminal's
+standalone MT51 collection record after the physical actions. The persisted
+record reports 25 cents removed, a 25-cent collection, one coin and the
+value-threshold-exceeded condition; the manager returned EOD and the
+terminal acknowledged and cleared normally. The next normal warm contact
+also sent a standalone MT38 reporting zero cents, zero coins, and Normal
+state for the replacement box. The manager linked that box to the actual
+collection, rather than inferring its status. Exactly one collection and
+one CDR were stored, and later contacts produced no duplicate of either.
+The native coin, call-record, collection and replacement-box round trip is
+qualified for this reference; separate collector authentication remains
+unqualified.
+
+Evidence:
+`build/firmware-acceptance/nla1x08-native-paid-coin/20261126T053729.496378Z/`
+and `build/firmware-acceptance/nla1x08-native-cashbox-collection/20261126T054502.721730Z/`,
+with replacement status from the following normal restart in
+`build/firmware-acceptance/nla1x08-native-forgotten-card/20261126T054833.995978Z/`.

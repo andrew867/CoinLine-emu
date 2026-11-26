@@ -49,6 +49,16 @@ stages before selection, zero RMS with the warning muted, 697.42 Hz during
 the selected warning, and 582.84 Hz after restoring the ring source. The
 line jack reported on-hook and ringer enabled, with no off-hook transition.
 Evidence: `build/firmware-acceptance/enclosure-alarm-probe/20261126T032938.161748Z/`.
+
+An installed graphical reference then exercised a normal handset lift,
+generic synchronous card insertion, handset replacement with the card
+still present, and subsequent card removal. The native terminal displayed
+`Please remove your card` after handset replacement and returned to
+`Please lift receiver` after removal. Its captured port F traffic contained
+only the ordinary `00`, `08` and `0A` latch values, with no warning-source
+selection in this trial. This qualifies the real reminder display and
+removal recovery, not an application-triggered audible enclosure warning.
+Evidence: `build/firmware-acceptance/nla1x08-native-forgotten-card/20261126T054833.995978Z/`.
 The ordinary and short-warning checks passed again. This qualifies source
 arbitration with incoming ring energy; application-triggered reminder delay
 and cancellation still require a qualifying native contact application.
