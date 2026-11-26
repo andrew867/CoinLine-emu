@@ -147,6 +147,30 @@ binary passed all later-board native synthetic checks again:
 The earlier real MTR 1.9 runtime contact trace is documented in
 [the contact qualification](smartcard-contact-2026-11-25.md).
 
+## Follow-up UART timing and module reset
+
+The native synthetic program now delays only between outgoing request
+characters, and polls the actual receive FIFO immediately after the final
+request character. This eliminates the artificial blind interval that
+affected the original higher-rate test. At nominal 19,200 baud the PPS
+exchange and subsequent T=0 read passed with zero additional fixture
+spacing. The emulator and independent card clock are unchanged.
+
+A native module reset probe consumed the first response byte, deselected
+the module with receive enabled, and observed no remaining bytes or UART
+errors. Reselecting with reset still high produced no ATR; a fresh reset
+produced the ATR, cleared the volatile application selection, and allowed
+a second read after explicit selection. Subsequent transfers to the other
+module positions and customer contact remained isolated.
+
+The independent laboratory purse can now export a read-only `LABP` snapshot.
+The native probe read all 39 bytes in chained T=1 blocks, rejected an update
+command and observed unchanged independent ledger state. This is not a
+historical application or payment approval. All seven native async variants
+and the 10 ms synthetic synchronous programming/persistence probe passed.
+Evidence: `build/firmware-acceptance/smartcard-async-probe/20261126T033301.425545Z/`
+and `build/firmware-acceptance/smartcard-pin-probe/20261126T033312.843099Z/`.
+
 ## Windows window size
 
 The native window probe measured the default client at 376x886 pixels,

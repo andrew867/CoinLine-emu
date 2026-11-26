@@ -41,6 +41,18 @@ The ordinary 700 Hz source/gate probe passed again in
 not fabricate a qualifying card or claim a native application-triggered
 reminder occurred.
 
+A native incoming-ring overlap probe held the local line-jack ring input
+asserted during the warning-source selection sequence. The actual CPU
+observed the ring detector and wrote the warning latch. Recorded enclosure
+audio was approximately 582.87 Hz averaged over the two alternating ring
+stages before selection, zero RMS with the warning muted, 697.42 Hz during
+the selected warning, and 582.84 Hz after restoring the ring source. The
+line jack reported on-hook and ringer enabled, with no off-hook transition.
+Evidence: `build/firmware-acceptance/enclosure-alarm-probe/20261126T032938.161748Z/`.
+The ordinary and short-warning checks passed again. This qualifies source
+arbitration with incoming ring energy; application-triggered reminder delay
+and cancellation still require a qualifying native contact application.
+
 ## External data jack
 
 - A later-board opt-in hardware monitor models external connector presence
