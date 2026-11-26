@@ -421,3 +421,32 @@ and `build/firmware-acceptance/nla1x09-selector-clock-warm-slot1/20261126T082024
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.
+
+## Full demo table-set download teardown, 2026-11-26
+
+Two operator-observed graphical INSTALL attempts reported status 23 after
+downloading the expanded 43-record table set. Independent host session
+records show all 43 distinct application acknowledgements in each attempt,
+with no missing record, retry or invalid record. Both terminal dialogues
+completed the end-of-data and link ACK exchange and sent their own clear
+packet. The first stored host closure timestamp followed receipt of that
+clear by 15.307 ms. This is a host timestamp, not a native carrier timing
+measurement. Status 23 indicates loss of established modem carrier.
+
+Earlier successful 18-record installs used a different 36-byte MT33
+record, whose carrier-loss timeout monitoring was disabled. The current
+full configuration enables the monitor and uses different debounce
+settings. The normal terminal-clear completion also includes a native
+post-transmit delay. A retained successful native trace recorded TCP EOF
+at emulated 753.866800 s, the subsequent raw detector read at 753.873800 s,
+and relay release at 754.072661 s (205.861 ms after EOF). It tolerated this
+ordering with the earlier configuration.
+
+This supports, but does not yet prove, a close-timing interaction with the
+enabled carrier-loss monitor rather than a bad downloaded table. The
+recommended host control is to complete protocol handling at the terminal
+clear, allow the terminal to release its modem and close the transport
+normally, and retain a bounded cleanup timeout for abandoned peers. This
+does not require changing the table, suppressing an actual carrier event,
+or fabricating an acknowledgement. A shorter isolated native control and
+host integration regression are needed before declaring the issue fixed.
