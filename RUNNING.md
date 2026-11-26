@@ -94,7 +94,7 @@ visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
 passed on the later Multi-pay board; funded chip-card applications and
 several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
-and [firmware results catalog](../docs/uat/firmware-acceptance-catalog.md).
+and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
 
 An optional graphical voice-service route is available with `--adsi`. Set
 the exact local aliases, target and UDP port under `[adsi]` in `coinline.ini`.
