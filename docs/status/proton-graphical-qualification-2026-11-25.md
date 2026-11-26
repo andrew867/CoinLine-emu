@@ -103,6 +103,20 @@ next cold INSTALL. No CPU instruction, memory value or scheduler result
 was overridden. Evidence:
 `build/firmware-acceptance/nla1x09-co-register-watch/20261126T030534.818592Z/`.
 
+A separately linked full-feature candidate with the corrected service
+return has mapped-image SHA-256
+`187b47bac50be9fb195dac686a938ffbf837bf7435727be41592a8619b98a22f`.
+An unmodified emulator started it with blank battery storage and an
+isolated NCC endpoint. The CO check and answer-supervision check both
+displayed `Completed: 00`; the internal modem relay released after each
+check. The controller received normal hook transitions, the modem
+outpulsed the configured decimal loopback number, and the local office
+provided answer supervision. The firmware reached `Press * to start NCC
+download` and the session exited normally without requesting a download.
+This confirms the corrected firmware resolves the original CO-check
+blocker. Full NCC transfer and subsequent INSTALL remain to be observed.
+Evidence: `build/firmware-acceptance/nla1x09-service-return-fix/20261126T031230.374819Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.
