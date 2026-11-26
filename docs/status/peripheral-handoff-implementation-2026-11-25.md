@@ -276,3 +276,38 @@ Evidence under `build/firmware-acceptance/oem-card-controls/`:
 - `NQA1X01-async/20261126T131601.353426Z/`
 - `NKA1X02-async/20261126T131916.227881Z/`
 - `full-removal-watch/20261126T132021.270191Z/`
+
+### Startup routing discriminator
+
+A further warm control used the same full graphical image and its own
+installed storage, without lifting the handset or inserting a customer
+card. The display reached `Please lift receiver`, but an opt-in bounded
+read-only trace captured the following task sequence:
+
+| Emulated frame | Observed event |
+| --- | --- |
+| 129 | Service card subsystem and router initialization |
+| 182 | Initial generic handler transmit |
+| 211 | Router receive and response-destination lookup; first error log entry |
+| 212 | Second destination lookup, rejected transmit, serious-error recovery and subsystem reinitialization |
+| 219 | Another service initialization transmit |
+
+The 15-second control captured 82 serious-error entries, 164 router task
+entries, 164 response-destination lookups, and 410 error-log calls. The
+retained circular log independently showed repeated no-command-flow,
+invalid-destination and transmit-failure errors followed by recovery.
+The dedicated reminder start, cancellation and cadence task entry points
+were not observed. The entire condition is therefore present before card
+use and is not a consequence of the card switch or reminder timer.
+
+The upstream review identified incorrect index width in shared router
+command and response relationship bookkeeping as a concrete defect
+consistent with this observed sequence. The recommended correction is
+limited to normal relationship bookkeeping and response routing; do not
+alter the alarm timer, payment validation or physical input behavior to
+conceal the failure. Acceptance requires an idle startup with no recurring
+router errors, normal rejection and removal of an unsupported test card,
+separate audible alarm qualification on an eligible reference fixture, and
+cold/warm service regression. This remains a diagnosis, not a tested fix.
+
+Evidence: `build/firmware-acceptance/oem-card-controls/router-startup-watch/20261126T134617.195210Z/`.
