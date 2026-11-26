@@ -71,9 +71,22 @@ it is not a funded payment card. The optional `smartcard-async-t0-lab.json`
 and `smartcard-async-t1-lab.json` fixtures use the actual later-board ASCI0
 pin path and a read-only synthetic application. They are intended for a
 compatible transport test, not recognition by historical payment firmware.
+Later-board profiles also accept independent internal module fixtures under
+`[cards]` as `sam_slot0`, `sam_slot1`, and `sam_slot2`, or through the respective
+`--sam-slot0`, `--sam-slot1` and `--sam-slot2` arguments. Leave them blank for
+unpopulated contact positions. The included `smartcard-async-module-lab.json`
+is a generic read-only contact test, not a payment authorization module.
+The package also includes `app/lab_purse.py` for the independent LAB ledger
+and its read-only snapshot export. See [lab purse](docs/lab-purse.md).
 Use `--local` for simulated calls. The explicit writable synchronous lab
 fixture persists only its bounded one-way test memory in a separate smart-card
 NVRAM device file; it does not modify the terminal's own battery data.
+
+The optional later-board data-jack monitor/relay profile can be selected
+with `--data-jack downloaded` (or `desktop` / `universal`) and the matching
+`data_jack_profile` in `[hardware]`. Leave it disabled for ordinary use.
+This enables the independent equipment and loop inputs in MAME; it does
+not yet provide a transparent external modem PCM/data connection.
 
 | Preset | Typical firmware | I/O mapping | Magnetic reader DMA |
 | --- | --- | --- | --- |

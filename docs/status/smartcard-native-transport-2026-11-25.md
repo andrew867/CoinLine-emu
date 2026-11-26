@@ -171,6 +171,14 @@ and the 10 ms synthetic synchronous programming/persistence probe passed.
 Evidence: `build/firmware-acceptance/smartcard-async-probe/20261126T033301.425545Z/`
 and `build/firmware-acceptance/smartcard-pin-probe/20261126T033312.843099Z/`.
 
+The portable launcher now accepts three independently configured internal
+contact fixtures for later boards. Package staging includes the generic
+module fixture, the independent ledger utility and its documentation.
+The staged utility successfully created an isolated ledger and exported
+the 39-byte snapshot; earlier-board selection and invalid fixture paths
+are rejected during preflight. Evidence:
+`build/firmware-acceptance/portable-card-stage/20261126T034531.710975Z/`.
+
 ## Windows window size
 
 The native window probe measured the default client at 376x886 pixels,

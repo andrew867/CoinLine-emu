@@ -123,6 +123,15 @@ earlier repeated service-task return pattern. The display again reached
 `Completed: 00`. Evidence:
 `build/firmware-acceptance/nla1x09-co-corrected-register-watch/20261126T031828.600347Z/`.
 
+The current full image, SHA-256
+`8c7aa5129b2c752e2f45d8de578432cdf0fcf4b5c8f3c3671627b994241dc38e`,
+also independently passed both cold pre-NCC checks from blank battery storage.
+Both `Completed: 00` screenshots matched the earlier candidate byte for byte;
+the local office observed real answer supervision and relay release. The
+terminal reached the NCC-ready prompt and exited without a download attempt.
+This digest is the current full-image acceptance target. Evidence:
+`build/firmware-acceptance/nla1x09-current-full-cold/20261126T033538.139211Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.

@@ -38,6 +38,8 @@ def main():
     parser.add_argument("--dtmf-trace", action="store_true", help="trace controller dial-pad tone gating and genuine tone events")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--coin-trace", action="store_true", help="capture the later-board validator UART register activity")
+    parser.add_argument("--data-jack", choices=("downloaded", "desktop", "universal"), help="select an optional later-board data-jack monitor/relay profile")
+    parser.add_argument("--data-jack-trace", action="store_true", help="trace raw data-jack monitor and relay transitions")
     parser.add_argument("--io-trace", action="store_true", help="capture compact native I/O trace for a bounded diagnostic run")
     parser.add_argument("--enclosure-trace", action="store_true", help="capture the native enclosure warning latch transitions")
     parser.add_argument("--sam-pin-trace", action="store_true", help="capture bounded internal contact selector and latch transitions")
@@ -76,6 +78,8 @@ def main():
         parser.error("Read-watch sampling options require --read-watch")
     if args.actions and not args.actions.is_file():
         parser.error("--actions requires an existing local command file")
+    if args.data_jack_trace and not args.data_jack:
+        parser.error("--data-jack-trace requires a data-jack profile")
     sam_slots = {slot: getattr(args, f"sam_slot{slot}") for slot in range(3) if getattr(args, f"sam_slot{slot}") is not None}
     if any(not path.is_file() for path in sam_slots.values()):
         parser.error("Each configured internal contact fixture must be an existing local file.")
@@ -170,6 +174,10 @@ def main():
         env["COINLINE_SMART_CARD_TRACE"] = "1"
     if args.coin_trace:
         env["COINLINE_EXTERNAL_UART_TRACE"] = str(out / "external-uart.jsonl")
+    if args.data_jack:
+        env["COINLINE_DATA_JACK_PROFILE"] = args.data_jack
+    if args.data_jack_trace:
+        env["COINLINE_DATA_JACK_TRACE"] = "1"
     if args.io_trace:
         env["COINLINE_IO_TRACE"] = str(out / "io.jsonl")
     if args.enclosure_trace:

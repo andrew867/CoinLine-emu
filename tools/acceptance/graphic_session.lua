@@ -8,6 +8,7 @@ local softkeys = assert(ports[":TERMINAL21_SOFTKEYS"])
 local card = assert(ports[":CARDUI"])
 local coins = assert(ports[":COINUI"])
 local cashbox = ports[":CASHBOXUI"]
+local data_jack = ports[":DATAJACKUI"]
 local power = ports[":POWERUI"]
 local power_test = os.getenv("COINLINE_BOARD_SUPERVISION_PROFILE")
 local offline_line = os.getenv("COINLINE_GRAPHIC_OFFLINE_LINE") == "1" and assert(ports[":LINECTRL"]) or nil
@@ -171,6 +172,12 @@ local function execute(line)
         if ((security:read() & 4) ~= 0) ~= (arg == "open") then pulse(assert(security:field(4)), frame + 3) end
         next_frame = frame + 30
         log("input", "vault " .. arg)
+    elseif action == "datajack" then
+        assert(data_jack and os.getenv("COINLINE_DATA_JACK_PROFILE"), "data-jack profile is not enabled")
+        local mask = assert(({plug=1, unplug=1, seize=2, release=2})[arg])
+        schedule(frame + 3, assert(data_jack:field(mask)), (arg == "plug" or arg == "seize") and 1 or 0)
+        next_frame = frame + 30
+        log("input", "datajack " .. arg)
     elseif action == "soft" then
         local position = assert(tonumber(arg))
         assert(position >= 1 and position <= 12 and position % 1 == 0)

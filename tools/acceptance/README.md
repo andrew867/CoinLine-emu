@@ -53,6 +53,12 @@ changed selection/latch observations. The optional `--sam-slot0`,
 async fixtures; absent paths leave the respective sockets unpopulated.
 These tests do not provide or qualify historical payment authentication.
 
+Use `graphic_session.py --data-jack downloaded --data-jack-trace` to observe
+the selected later-board connector monitor and raw relay output profile.
+The command file accepts `datajack plug`, `datajack seize`, `datajack release`
+and `datajack unplug` as separate physical inputs. These do not change the
+handset or provide a modem session.
+
 ## Independent analogue hardware probes
 
 Generate a single deterministic CAS/CONNECT line stimulus and run the installed
