@@ -54,6 +54,8 @@ def main():
     parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
     parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
     parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
+    parser.add_argument("--read-watch-registers", action="store_true", help="include CPU register snapshots with read watches")
+    parser.add_argument("--read-watch-per-frame", type=int, default=0, help="limit samples per watch address per frame (0: existing global cap only)")
     parser.add_argument("--artwork", action="store_true", help="use the graphical artwork view")
     parser.add_argument("--video", choices=("gdi", "d3d", "opengl") if os.name == "nt" else ("auto", "soft", "opengl", "bgfx"),
                         default="opengl" if os.name == "nt" else "auto", help="renderer when artwork is enabled")
@@ -68,6 +70,10 @@ def main():
         parser.error("Use the dedicated offline CO controls for deterministic PCM tests")
     if args.snapshot_interval < 0:
         parser.error("--snapshot-interval cannot be negative")
+    if not 0 <= args.read_watch_per_frame <= 2000:
+        parser.error("--read-watch-per-frame must be between 0 and 2000")
+    if (args.read_watch_registers or args.read_watch_per_frame) and not args.read_watch:
+        parser.error("Read-watch sampling options require --read-watch")
     if args.actions and not args.actions.is_file():
         parser.error("--actions requires an existing local command file")
     sam_slots = {slot: getattr(args, f"sam_slot{slot}") for slot in range(3) if getattr(args, f"sam_slot{slot}") is not None}
@@ -188,6 +194,10 @@ def main():
             parser.error("--read-watch must be a local file")
         env.update(COINLINE_GRAPHIC_READ_WATCH=str(args.read_watch.resolve()),
                    COINLINE_GRAPHIC_READ_WATCH_OUT=str(out / "read-watch.tsv"))
+        if args.read_watch_registers:
+            env["COINLINE_GRAPHIC_READ_WATCH_REGISTERS"] = "1"
+        if args.read_watch_per_frame:
+            env["COINLINE_GRAPHIC_READ_WATCH_PER_FRAME"] = str(args.read_watch_per_frame)
     if args.telephony_trace:
         env.update(COINLINE_TP_CSIO_RAW_TRACE=str(out / "csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(out / "csio-qualified.jsonl"),

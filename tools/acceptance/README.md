@@ -37,6 +37,11 @@ label, a physical hexadecimal address, and optionally a whitespace-separated
 list of physical RAM byte addresses to snapshot. Watch output is restricted
 to off-hook activity and at most 2,000 samples. The option is disabled by
 default and never changes the observed data, CPU state, or installation.
+Use `--read-watch-registers` to append the CPU register values at each
+sample, and `--read-watch-per-frame 2` to limit each watch address to two
+samples per video frame. The global limit is still enforced. This is
+particularly useful when a frequently dispatched routine would otherwise
+exhaust the diagnostic sample budget before another task can run.
 
 For later boards with the internal contact-module expansion, the native
 `smartcard_async_probe.py --protocol slots` test runs a synthetic CPU program

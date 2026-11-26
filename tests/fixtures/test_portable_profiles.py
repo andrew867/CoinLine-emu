@@ -86,7 +86,8 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
     registry.parent.mkdir(parents=True)
     entries = []
     states = []
-    for firmware_id, variant in (("NLA1X08", "original"), ("NLA1X09", "focused"), ("NLA1X09", "full")):
+    for firmware_id, variant in (("NLA1X08", "original"), ("NLA1X09", "focused"),
+                                 ("NLA1X09", "full"), ("NLA1X09", "full-service-fix")):
         image = f"<{firmware_id}V1.3>{variant}".encode().ljust(0x100000, b"\xff")
         path = tmp_path / "firmware" / f"{firmware_id}-{variant}.bin"
         path.parent.mkdir(exist_ok=True)
