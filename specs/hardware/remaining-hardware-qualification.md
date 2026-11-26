@@ -26,7 +26,7 @@ Preserve the normal serial controller's framing, declared frame length and check
 
 ## Multiple internal contact-module sockets
 
-The revised board contains three distinct internal asynchronous module selector positions in addition to the customer card. Independent supply, reset, clock and ASCI0 routing passed native synthetic transport tests, including all three module positions and the separate customer contact. Native scheme initialization and authorized application qualification remain open; do not infer the actual security-module part number or application from a selector. See [contact smart-card hardware](smartcard-contact-black-box-handoff.md).
+The revised board contains three distinct internal asynchronous module selector positions in addition to the customer card. Independent supply, reset, clock and ASCI0 routing passed native synthetic transport tests, including all three module positions and the separate customer contact. The corrected full graphical image now passes the generic customer-contact self-test, full cold installation and retained warm service. Native internal-module self-tests, scheme initialization and authorized application qualification remain separate; do not infer the actual security-module part number or application from a selector. See [contact smart-card hardware](smartcard-contact-black-box-handoff.md) and [full-image qualification](../../docs/status/proton-graphical-qualification-2026-11-25.md).
 
 ## Power, persistent memory and board supervision
 

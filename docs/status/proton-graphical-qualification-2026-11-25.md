@@ -298,6 +298,58 @@ two ROM-dependent tests skipped), all 46 Python fixture tests, and a native
 Windows build. This verifies the emulator regressions independently of the
 remaining image-specific service qualification.
 
+## Corrected full image: cold and warm service qualification
+
+SHA-256 `0974cea06aaa2f83af007a4b0785929774be362770ff9813c79e3dc8e7a58526`
+was independently installed on the corrected common-SRAM model, starting
+with a blank battery directory. The two line checks returned 00, the
+terminal acknowledged all 18 assigned records and cleared the dialogue
+normally. The keypad and magnetic-reader tests passed. The
+generic asynchronous customer contact produced `Smart Card Test Okay`,
+using an unfunded contact-only fixture. The optional internal module tests
+were skipped. Coin calibration required one normal retry; escrow, refund
+and collection checks then reached `Install is complete. Close terminal
+now`.
+
+After closing and locking the cabinet the display showed `Please lift
+receiver`; the named 3, 6, 12 and 30 second snapshots were identical.
+The normal emulator exit saved the firmware-written battery, including
+both intact memory-check markers. A separate restart of the same image
+using its own saved battery repeated the idle display at 5, 10, 15, 20
+and 30 emulated seconds. Actual handset pickup advanced through the card
+prompt to `Deposit coin, insert card or dial number`; handset replacement
+restored `Please lift receiver`, still present after 15 further emulated
+seconds. Bounded read-only observation recorded only the normal startup
+reset, not the previously recurring runtime reset. The independent warm
+session exited normally. Both memory-check markers remained intact; the
+persisted flash file had the same digest before and after the warm test.
+
+Cold installation, retained service across restart, and the generic
+customer-contact diagnostic are qualified for this exact digest. Optional
+internal module diagnostics, application-level purse transactions and
+end-to-end remote firmware transfer remain independent gates. No terminal
+memory contents or validity flags were supplied or modified by the bench.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-queue-corrected-cold/20261126T071808.450976Z/`
+and `build/firmware-acceptance/nla1x09-queue-corrected-warm/20261126T073042.309922Z/`.
+
+On a separate copy of its installed state, Craft item 778 reached the
+internal socket diagnostic and selected socket 01. Three generic contact
+fixtures were configured, with no issuer application. The pin trace records
+two activations of physical selector 0 and three transmitted ATR characters
+per activation. The display remained at `Please wait` for more than 75
+emulated seconds. A second instrumented trial recorded the terminal's
+contact-completion and menu-result routines executing, but the display
+still remained pending at 20 seconds. Both trials returned to the normal
+idle display when the cabinet was closed. This is not a successful module
+self-test; the remaining native menu and completion sequencing requires
+qualification independently of the synthetic socket transport tests.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-queue-sam-craft/20261126T073413.349187Z/`
+and `build/firmware-acceptance/nla1x09-queue-sam-readwatch/20261126T073806.855289Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.
