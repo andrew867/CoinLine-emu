@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+from concurrent.futures import ThreadPoolExecutor
+import json
+from pathlib import Path
+import sqlite3
+import sys
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+from lab_purse import LabPurseStore, LabContactSession, MODEL
+
+VECTORS = json.loads((ROOT / "fixtures/cards/lab-purse-vectors.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("scenario", VECTORS["scenarios"], ids=lambda s: s["id"])
+def test_published_lab_vectors(tmp_path, scenario):
+    path = tmp_path / "purses.sqlite"
+    store = LabPurseStore(path)
+    fixtures = scenario.get("fixture_ids", ["lab-fixture"])
+    defaults = {**VECTORS["defaults"], **scenario.get("override", {})}
+    for fixture in fixtures:
+        assert "error" not in store.seed(fixture, **defaults)
+    session = LabContactSession(); session.insert(); assert session.select(MODEL)
+    for step in scenario["steps"]:
+        request = {k: v for k, v in step.items() if k not in {"operation", "expect"}}
+        fixture = request.pop("fixture_id", fixtures[0]); operation = step["operation"]
+        if operation == "restart":
+            store = LabPurseStore(path); result = store.inspect(fixture)
+        elif operation == "contact_reset":
+            session.reset(); assert not session.contact_present and session.selected_model is None
+            result = store.inspect(fixture)
+        elif operation == "restart_with_invalid_snapshot":
+            with sqlite3.connect(path) as db:
+                raw = db.execute("SELECT snapshot FROM fixtures WHERE id=?", (fixture,)).fetchone()[0]
+                snapshot = json.loads(raw); snapshot["purse"]["balance_units"] += 1
+                corrupted = json.dumps(snapshot)
+                db.execute("UPDATE fixtures SET snapshot=? WHERE id=?", (corrupted, fixture))
+            store = LabPurseStore(path); result = store.inspect(fixture)
+            with sqlite3.connect(path) as db:
+                assert db.execute("SELECT snapshot FROM fixtures WHERE id=?", (fixture,)).fetchone()[0] == corrupted
+        else:
+            result = getattr(store, operation)(fixture, **request)
+        assert all(result.get(key) == value for key, value in step["expect"].items()), (step, result)
+
+
+def test_uncertainty_reconciles_only_from_immutable_local_journal(tmp_path):
+    store = LabPurseStore(tmp_path / "purses.sqlite")
+    assert store.seed("lab-one")["revision"] == 0
+    assert store.begin_spend("lab-one", "s1", 30)["reserved_units"] == 30
+    assert store.mark_uncertain("lab-one", "s1", "local interruption")["disposition"] == "uncertain"
+    assert store.complete_spend("lab-one", "s1")["error"] == "invalid_transition"
+    assert store.reconcile_local("lab-one", "s1", "missing")["reserved_units"] == 30
+    assert store.record_local_outcome("lab-one", "s1", "journal1", "committed")["journal_ref"] == "journal1"
+    assert store.record_local_outcome("lab-one", "s1", "journal1", "cancelled")["error"] == "conflict"
+    store = LabPurseStore(store.path)
+    result = store.reconcile_local("lab-one", "s1", "journal1")
+    assert result["balance_units"] == 70 and result["reserved_units"] == 0
+    assert result["balance_display"] == "0.70 LAB" and result["available_display"] == "0.70 LAB"
+    assert store.reconcile_local("lab-one", "s1", "journal1")["revision"] == result["revision"]
+    assert store.seed("lab-one")["error"] == "conflict"
+
+
+def test_concurrent_spends_reserve_atomically(tmp_path):
+    store = LabPurseStore(tmp_path / "purses.sqlite")
+    store.seed("lab-one")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda eid: store.begin_spend("lab-one", eid, 75), ["a", "b"]))
+    assert sorted(r["disposition"] for r in results) == ["declined", "pending"]
+    assert store.inspect("lab-one")["reserved_units"] == 75
+
+
+def test_history_pagination_and_unrelated_contact(tmp_path):
+    store = LabPurseStore(tmp_path / "purses.sqlite")
+    store.seed("lab-one")
+    for event in ("a", "b", "c"):
+        store.begin_spend("lab-one", event, 1); store.complete_spend("lab-one", event)
+    first = store.history("lab-one", limit=2)
+    assert first["committed_event_ids"] == ["a", "b"]
+    assert store.history("lab-one", after_sequence=first["next_cursor"])["committed_event_ids"] == ["c"]
+    contact = LabContactSession(); assert not contact.select(MODEL)
+    contact.insert(); assert not contact.select("unrelated-application") and contact.selected_model is None
+    assert contact.select(MODEL)
+    contact.reset(); assert store.inspect("lab-one")["balance_units"] == 97

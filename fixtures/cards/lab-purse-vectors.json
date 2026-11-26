@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "scope": "Independent simulated-value model; not a native smart-card or payment protocol fixture",
+  "defaults": {
+    "model_id": "coinline-demo-purse-v1",
+    "unit": "LAB",
+    "minor_digits": 2,
+    "initial_units": 100,
+    "limit_units": 200,
+    "lifecycle": "available"
+  },
+  "scenarios": [
+    {
+      "id": "read-spend-idempotence",
+      "steps": [
+        {"operation": "inspect", "expect": {"balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "begin_spend", "event_id": "s1", "units": 25, "expect": {"disposition": "pending", "balance_units": 100, "reserved_units": 25, "available_units": 75}},
+        {"operation": "complete_spend", "event_id": "s1", "expect": {"disposition": "committed", "balance_units": 75, "reserved_units": 0, "available_units": 75}},
+        {"operation": "complete_spend", "event_id": "s1", "expect": {"disposition": "committed", "balance_units": 75, "reserved_units": 0, "available_units": 75}},
+        {"operation": "history", "expect": {"committed_event_ids": ["s1"]}},
+        {"operation": "restart", "expect": {"balance_units": 75, "reserved_units": 0, "available_units": 75}}
+      ]
+    },
+    {
+      "id": "reserve-cancel-insufficient-conflict",
+      "steps": [
+        {"operation": "begin_spend", "event_id": "s1", "units": 60, "expect": {"disposition": "pending", "balance_units": 100, "reserved_units": 60, "available_units": 40}},
+        {"operation": "begin_spend", "event_id": "s2", "units": 41, "expect": {"error": "insufficient_units", "disposition": "declined", "balance_units": 100, "reserved_units": 60, "available_units": 40}},
+        {"operation": "begin_spend", "event_id": "s1", "units": 61, "expect": {"error": "conflict", "balance_units": 100, "reserved_units": 60, "available_units": 40}},
+        {"operation": "cancel_spend", "event_id": "s1", "expect": {"disposition": "cancelled", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "complete_spend", "event_id": "s1", "expect": {"error": "invalid_transition", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "history", "expect": {"committed_event_ids": []}}
+      ]
+    },
+    {
+      "id": "reload-limit-idempotence",
+      "steps": [
+        {"operation": "reload_fixture", "event_id": "r1", "units": 100, "expect": {"disposition": "committed", "balance_units": 200, "reserved_units": 0, "available_units": 200}},
+        {"operation": "reload_fixture", "event_id": "r1", "units": 100, "expect": {"disposition": "committed", "balance_units": 200, "reserved_units": 0, "available_units": 200}},
+        {"operation": "reload_fixture", "event_id": "r2", "units": 1, "expect": {"error": "limit_exceeded", "balance_units": 200, "reserved_units": 0, "available_units": 200}},
+        {"operation": "history", "expect": {"committed_event_ids": ["r1"]}}
+      ]
+    },
+    {
+      "id": "uncertain-restart",
+      "steps": [
+        {"operation": "begin_spend", "event_id": "s1", "units": 35, "expect": {"disposition": "pending", "balance_units": 100, "reserved_units": 35, "available_units": 65}},
+        {"operation": "mark_uncertain", "event_id": "s1", "reason": "interrupted simulator operation", "expect": {"disposition": "uncertain", "balance_units": 100, "reserved_units": 35, "available_units": 65}},
+        {"operation": "contact_reset", "expect": {"balance_units": 100, "reserved_units": 35, "available_units": 65}},
+        {"operation": "restart", "expect": {"balance_units": 100, "reserved_units": 35, "available_units": 65}},
+        {"operation": "history", "expect": {"committed_event_ids": []}}
+      ]
+    },
+    {
+      "id": "blocked-fixture",
+      "override": {"lifecycle": "blocked"},
+      "steps": [
+        {"operation": "inspect", "expect": {"lifecycle": "blocked", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "begin_spend", "event_id": "s1", "units": 1, "expect": {"error": "inactive", "disposition": "declined", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "history", "expect": {"committed_event_ids": []}}
+      ]
+    },
+    {
+      "id": "expired-fixture",
+      "override": {"lifecycle": "expired"},
+      "steps": [
+        {"operation": "inspect", "expect": {"lifecycle": "expired", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "begin_spend", "event_id": "s1", "units": 1, "expect": {"error": "inactive", "disposition": "declined", "balance_units": 100, "reserved_units": 0, "available_units": 100}}
+      ]
+    },
+    {
+      "id": "empty-purse",
+      "override": {"initial_units": 0},
+      "steps": [
+        {"operation": "inspect", "expect": {"balance_units": 0, "reserved_units": 0, "available_units": 0}},
+        {"operation": "begin_spend", "event_id": "s1", "units": 1, "expect": {"error": "insufficient_units", "disposition": "declined", "balance_units": 0, "reserved_units": 0, "available_units": 0}}
+      ]
+    },
+    {
+      "id": "reject-invalid-amount",
+      "steps": [
+        {"operation": "begin_spend", "event_id": "s1", "units": 0, "expect": {"error": "bad_input", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "begin_spend", "event_id": "s2", "units": -1, "expect": {"error": "bad_input", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "begin_spend", "event_id": "s3", "units": 1.5, "expect": {"error": "bad_input", "balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "history", "expect": {"committed_event_ids": []}}
+      ]
+    },
+    {
+      "id": "fixture-isolation",
+      "fixture_ids": ["lab-01", "lab-02"],
+      "steps": [
+        {"operation": "begin_spend", "fixture_id": "lab-01", "event_id": "s1", "units": 10, "expect": {"disposition": "pending", "balance_units": 100, "reserved_units": 10, "available_units": 90}},
+        {"operation": "complete_spend", "fixture_id": "lab-01", "event_id": "s1", "expect": {"disposition": "committed", "balance_units": 90, "reserved_units": 0, "available_units": 90}},
+        {"operation": "inspect", "fixture_id": "lab-02", "expect": {"balance_units": 100, "reserved_units": 0, "available_units": 100}},
+        {"operation": "history", "fixture_id": "lab-02", "expect": {"committed_event_ids": []}}
+      ]
+    },
+    {
+      "id": "invalid-persisted-snapshot",
+      "steps": [
+        {"operation": "restart_with_invalid_snapshot", "fault": "committed balance inconsistent with event history", "expect": {"error": "persistence_error", "replacement_fixture_created": false}}
+      ]
+    }
+  ]
+}
