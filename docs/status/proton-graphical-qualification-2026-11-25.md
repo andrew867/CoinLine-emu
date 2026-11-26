@@ -227,6 +227,77 @@ clock, card selection or serial framing. No callback, register, memory,
 or device response was modified by the observation.
 Evidence: `build/firmware-acceptance/nla1x09-contact-rx-readwatch/20261126T055118.206108Z/`.
 
+A further corrected image, SHA-256
+`b625f7a13fb8a85ced8d8a5bff1321ba97b0a7e5c9948e40894d1b9a1445653e`,
+passed the cold CO and answer-supervision checks, all 18 NCC records, the
+keypad and magnetic reader. After normally quitting the optional module
+menu, the customer generic asynchronous test produced `Smart Card Test
+Okay`. The read-only trace independently verified nonzero receive, error
+and protocol-state addresses before RX enable, actual first ATR reception,
+and entry into the expected contact parser without reset. No payment
+application or authentication was involved.
+
+The same instance completed the coin calibration and escrow/refund test
+using two nickels and a dime after a normal retry, then displayed `Install
+is complete. Close terminal now`. The normally saved independent coin
+file recorded 20 cents refunded and zero escrow. Closing the cabinet
+blanked the display. Separate warm trials from the same normally
+flushed firmware-written storage remained blank, including with the
+optional module fixtures absent. Physical hook transitions occurred but
+no display response or normal telephony initialization was observed.
+Startup CPU sampling shows continued instruction execution and graphical
+key scans, while the normal application scheduler watch points did not
+execute. Cold INSTALL completion is qualified; in-service startup and
+warm service persistence remain unresolved. The persistent flash file
+was byte-identical across the cold and warm trials.
+Evidence: `build/firmware-acceptance/nla1x09-contact-initializer-fix/20261126T060420.601313Z/`,
+`build/firmware-acceptance/nla1x09-full-warm-service/20261126T061729.623190Z/`,
+`build/firmware-acceptance/nla1x09-warm-no-modules/20261126T061942.269431Z/`,
+and `build/firmware-acceptance/nla1x09-warm-cpu-sample/20261126T062331.317777Z/`.
+
+## Later-board common SRAM and repeat warm INSTALL
+
+The warm loader failure was reproduced as a physical bus mapping error.
+The transition from latch F9 to 07 changed the backing slice at the common
+SRAM address, so the CPU fetched erased bytes rather than continuing the
+RAM-resident transfer. The later-board model now keeps common SRAM fixed
+across ROM selections and handles upper-window SRAM selection separately.
+No bytes, checksum tables, or installation flags are copied or synthesized.
+The same saved flash and battery state can now transfer into the main
+application; the two window remaps and the linear RAM bounds are covered by
+the native regression test.
+
+Two fresh, blank-battery INSTALL trials on the corrected model passed both
+line checks, all 18 NCC records, keypad, magnetic reader, and the normal
+coin calibration and escrow checks. Both reached `Install is complete.
+Close terminal now`. The optional module checks in the first trial reported
+`SAM Socket Not Resp`; the customer generic contact test reported failure.
+The second trial skipped the optional module tests; its customer generic
+contact test also reported failure without restarting. Neither result
+supersedes the earlier successful contact evidence for this image.
+
+The first trial retained an installed marker but failed the terminal's own
+memory checks on warm startup and consequently restricted service. The
+second trial retained valid memory-check markers and its installed tables.
+It displayed `Please lift receiver` in a genuine screenshot, but then
+restarted repeatedly at approximately 3.5-second intervals. Read-only
+execution observations reproduced the reset during a runtime application
+reinitialization sequence. Stable warm service, native module application
+behavior and another successful generic customer contact check on the
+corrected memory model remain outstanding. No persistent memory or runtime
+CPU state was altered during this diagnosis.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-common-sram-cold/20261126T064016.543674Z/`,
+`build/firmware-acceptance/nla1x09-common-sram-cold-customer/20261126T065517.311843Z/`,
+`build/firmware-acceptance/nla1x09-common-sram-warm-customer/20261126T070831.640594Z/warm-10s.png`,
+and `build/firmware-acceptance/nla1x09-warm-buffer-watch/20261126T071500.921474Z/`.
+
+The corrected emulator passed its full available CTest suite (65 passed,
+two ROM-dependent tests skipped), all 46 Python fixture tests, and a native
+Windows build. This verifies the emulator regressions independently of the
+remaining image-specific service qualification.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.

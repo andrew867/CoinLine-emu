@@ -37,6 +37,9 @@ label, a physical hexadecimal address, and optionally a whitespace-separated
 list of physical RAM byte addresses to snapshot. Watch output is restricted
 to off-hook activity and at most 2,000 samples. The option is disabled by
 default and never changes the observed data, CPU state, or installation.
+Each sample also records the observed bus byte. Prefix an entry label with
+`write:` to observe the value presented on a write bus access instead;
+the observer never replaces that value or performs a memory write.
 Use `--read-watch-registers` to append the CPU register values at each
 sample, and `--read-watch-per-frame 2` to limit each watch address to two
 samples per video frame. The global limit is still enforced. This is
@@ -47,7 +50,11 @@ the specified CPU register value. The filter is also read-only and does not
 consume the sample budget when the register does not match.
 For an on-hook dialogue, use `--read-watch-manual` and issue `watch on` /
 `watch off` in the action file; the same 2,000-sample cap applies across
-the entire run. Use `--modem-trace` to capture the native modem bytes
+the entire run. Add `--read-watch-start` to arm the manual watch before
+the first video frame when observing startup. An independent `--cpu-sample`
+records read-only CPU registers at up to 2,000 video-frame boundaries,
+including when none of the watched instructions execute. Use
+`--modem-trace` to capture the native modem bytes
 without the full boot trace. Keep these diagnostic logs local.
 
 For later boards with the internal contact-module expansion, the native
