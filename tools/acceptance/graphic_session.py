@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 
-from run import ROOT, central_office, port, validate_data_routes
+from run import ROOT, central_office, normalize_manager_settings, port, validate_data_routes
 from hardware import PRESETS, program_tag, select_hardware
 
 
@@ -101,10 +101,7 @@ def main():
     settings = {**settings, **settings.get("firmware_overrides", {}).get(firmware_id, {})}
     if args.adsi_offline_pcm and not str(settings.get("free_call", "")).isdigit():
         parser.error("--adsi-offline-pcm requires a numeric local free_call in the lab settings")
-    if "line" not in settings and "wireId" in settings:
-        settings["line"] = settings["wireId"]
-    if "ncc_port" not in settings and "nccPort" in settings:
-        settings["ncc_port"] = settings["nccPort"]
+    settings = normalize_manager_settings(settings)
     validate_data_routes(settings)
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)

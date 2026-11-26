@@ -421,6 +421,15 @@ def attempt_install(args, settings, library, row, verified, program, board, hard
     return result
 
 
+def normalize_manager_settings(settings):
+    """Accept canonical lab fields or the equivalent Manager export fields."""
+    result = dict(settings)
+    for canonical, exported in (("line", "wireId"), ("ncc_port", "nccPort"), ("pin", "craftPin")):
+        if canonical not in result and exported in result:
+            result[canonical] = result[exported]
+    return result
+
+
 def validate_data_routes(settings):
     """Validate the same loopback routes in cold and interactive sessions."""
     settings.setdefault("ncc_port", 4000)
@@ -436,6 +445,7 @@ def validate_data_routes(settings):
 
 
 def validate_terminal(settings, test_call):
+    settings = normalize_manager_settings(settings)
     for key, pattern in (("line", r"[0-9]{10}"), ("serial", r"[0-9]{10}"), ("pin", r"[0-9]{5}")):
         if not isinstance(settings.get(key), str) or not re.fullmatch(pattern, settings[key]):
             raise ValueError(f"Set {key} in the local settings JSON as digits in a string")

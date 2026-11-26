@@ -7,7 +7,17 @@ import pytest
 ACCEPTANCE = Path(__file__).resolve().parents[2] / "tools/acceptance"
 sys.path.insert(0, str(ACCEPTANCE))
 from firmware_upgrade_evidence import BLOCK_BYTES, IMAGE_BYTES, digest, persisted, summarize
-from run import validate_data_routes
+from run import normalize_manager_settings, validate_data_routes
+
+
+def test_manager_export_settings_aliases_and_explicit_precedence():
+    exported = {"wireId": "2025550100", "nccPort": 44100, "craftPin": "00000"}
+    normalized = normalize_manager_settings(exported)
+    assert (normalized["line"], normalized["ncc_port"], normalized["pin"]) == ("2025550100", 44100, "00000")
+    assert "pin" not in exported
+    explicit = normalize_manager_settings({**exported, "pin": "11111", "ncc_port": 4000})
+    assert explicit["pin"] == "11111"
+    assert explicit["ncc_port"] == 4000
 
 
 def test_upgrade_block_comparison_and_seed_binding(tmp_path):
