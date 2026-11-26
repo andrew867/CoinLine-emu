@@ -350,6 +350,19 @@
       "dla_version": "1.3",
       "friendly_name": "NLA1X09 full-feature graphical Multi-Pay (qualified contact selectors and clock)",
       "contact_test": "generic-async-t0"
+    },
+    {
+      "version_id": "nla1x09-full-routing-candidate",
+      "sha256_hex": "cb6be6c988bf57818bd25ed4cc0922f23c45429cba2fc81919203decb5fe603d",
+      "size_bytes": 1048576,
+      "motherboard": "later",
+      "firmware_id": "NLA1X09",
+      "display": "11line",
+      "terminal_type": 40,
+      "firmware_release": "2.12-based",
+      "dla_version": "1.3",
+      "friendly_name": "NLA1X09 full-feature graphical Multi-Pay (routing correction, retained-state qualified)",
+      "contact_test": "generic-async-t0"
     }
   ]
 }

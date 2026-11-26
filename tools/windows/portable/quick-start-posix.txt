@@ -29,8 +29,8 @@ NCC address is 127.0.0.1 and TCP port 4000. Copy coinline.example.ini to
 coinline.ini to configure a different NCC port. For operator instructions and
 front-panel controls, see docs/Running.md.
 
-The qualified full graphical image (SHA-256 prefix 996a8ac5e81d) uses the
-generic asynchronous contact fixture for its INSTALL diagnostic; other
+The full graphical images (SHA-256 prefixes 996a8ac5e81d and cb6be6c988bf)
+use the generic asynchronous contact fixture for contact diagnostics; other
 images retain their synchronous default. You can override smart_fixture
 in the appropriate INI. Later-board profiles accept optional read-only internal contact fixtures
 under [cards], using sam_slot0, sam_slot1 and sam_slot2. The included generic

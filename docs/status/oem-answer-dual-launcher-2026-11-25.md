@@ -60,3 +60,18 @@ exited normally. Evidence:
 
 All 49 Python fixture and CO tests passed, including the early manager
 relay-release cases and isolated profile defaults.
+
+The next local package retains the same qualified native executable and
+standard OEM image, but registers and bundles the full graphical routing
+candidate `cb6be6c988bf`. Its default is the same generic async contact
+fixture; its launcher state remains isolated by the full image digest.
+The quick start documents carrying the previous installed battery, EEPROM
+and coin state to the new digest directory without copying old program flash.
+All seven portable-profile tests passed. Both packaged launcher input checks
+passed, all 168 manifest entries and ZIP integrity were verified, and no
+recordings or saved terminal state were included. A separate actual packaged
+graphical launch using byte-identical copies of the prior installed state
+connected its local CO jack, displayed `Please lift receiver` and exited
+normally. The fresh INSTALL gate for this image remains separate.
+
+Evidence: `build/firmware-acceptance/routing-portable-smoke/20261126T163713.991759Z/`.

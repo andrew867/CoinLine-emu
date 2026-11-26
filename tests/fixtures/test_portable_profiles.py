@@ -130,7 +130,7 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
     states = []
     for firmware_id, variant in (("NLA1X08", "original"), ("NLA1X09", "focused"),
                                  ("NLA1X09", "full"), ("NLA1X09", "full-service-fix"),
-                                 ("NLA1X09", "full-current")):
+                                 ("NLA1X09", "full-current"), ("NLA1X09", "full-routing")):
         image = f"<{firmware_id}V1.3>{variant}".encode().ljust(0x100000, b"\xff")
         path = tmp_path / "firmware" / f"{firmware_id}-{variant}.bin"
         path.parent.mkdir(exist_ok=True)
@@ -138,7 +138,7 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
         entry = {"version_id": firmware_id + "-" + variant, "firmware_id": firmware_id,
                  "motherboard": "later", "display": "11line",
                  "sha256_hex": hashlib.sha256(image).hexdigest()}
-        if variant == "full-current":
+        if variant in ("full-current", "full-routing"):
             entry["contact_test"] = "generic-async-t0"
         entries.append(entry)
         registry.write_text(json.dumps({"entries": entries}), encoding="utf-8")
@@ -148,7 +148,7 @@ def test_proton_variant_hardware_and_distinct_battery(tmp_path, monkeypatch):
         assert env["COINLINE_HARDWARE_PRESET"] == "multipay-v1.3"
         assert env["COINLINE_CARD_DMA_CHANNEL"] == "1"
         assert env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
-        default = launcher.ASYNC_CONTACT_FIXTURE if variant == "full-current" else launcher.SYNC_CONTACT_FIXTURE
+        default = launcher.ASYNC_CONTACT_FIXTURE if variant in ("full-current", "full-routing") else launcher.SYNC_CONTACT_FIXTURE
         assert env["COINLINE_SMART_CARD"] == str(tmp_path / default)
         assert launcher.select_hardware("auto", image) == ("multipay-v1.3", "program tag")
         states.append(state)
