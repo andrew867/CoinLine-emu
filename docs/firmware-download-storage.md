@@ -52,10 +52,13 @@ block protection remain unqualified.
 The later board's low 64 KiB address window selects flash sectors C through F
 for latch selections 0 through 3, with the resident bootstrap at C and the
 download-application banks at D and E. Selections 6 and 7 select the main
-program. Selection 7 also enables the upper SRAM window. The SRAM windows
-retain their own bank selection. The model wraps the two bank-address bits
-in that upper window, an inference consistent with the 512 KiB SRAM capacity
-and the observed bootstrap behavior.
+program. Selection 7 also enables the upper SRAM window. Common SRAM
+remains fixed while the lower ROM window changes. The upper SRAM window
+exposes the next linear physical area; further addressing of the remaining
+capacity of the 512 KiB device is unqualified. Native loader traces exposed
+the earlier incorrect high-latch-bit bank assumption: after the F9 to 07
+remap, the same transfer-instruction addresses returned erased bytes.
+The decode correction restores continuity without preloading any RAM.
 The emulator exposes the bootstrap and writable flash through normal
 memory-bus transactions. The initial images are validated by SHA-256 and
 are retained as read-only input files.
@@ -88,16 +91,58 @@ The host integration is still required for the end-to-end tests. The
 historical extended staging fixture lies outside the processor's 20-bit
 physical address space. It is retained for existing synthetic storage tests.
 
+### Native schedule pickup
+
+An independently installed graphical MTR 2.12-based reference was restarted
+from its own firmware-written battery and persistent flash. Normal Craft
+item 369 initiated a full MT44 refresh and completed all 18 assigned tables;
+it did not deliver the separate pending code-download job. The persisted
+flash file had the same SHA-256 before and after the refresh. The isolated
+manager then prepared a distinct code-only schedule and special callback.
+On another normal warm restart, the terminal acknowledged MT19, initiated
+its own MT9 callback return, received a single 100-byte MT94 record and
+acknowledged it with MT14. The host closed the ordinary NCC call normally,
+without delivering unrelated tables or any code-image payload.
+Evidence: `build/firmware-acceptance/nla1x08-code-observation-ready/20261126T045324.769020Z/`
+and `build/firmware-acceptance/nla1x08-code-callback/20261126T050301.898610Z/`.
+Schedule pickup is thereby qualified for this reference. At the scheduled
+time, the terminal seized its modem relay, outpulsed the distinct configured
+code-server alias, and the native modem opened the separate TCP connection.
+The observation endpoint accepted that connection and received and sent zero
+bytes. The native trace records relay release before an explicit SSI carrier
+assertion; a subsequent separate NCC contact did reach carrier. The current
+modem's shared five-second call-progress carrier interval is longer than
+the observed code-server TCP connection lifetime. This does not establish
+the expected physical modem timing or application handshake, which need
+separate observation rather than an assumed successful connection.
+
+The session was ended normally after the first observation. The persisted
+flash file remained byte-identical to the pre-schedule reference. Native
+schedule pickup and separate dialing/routing are qualified; carrier,
+application handshake, image delivery and actual flash programming are not.
+
+The observation schedule was safely disabled afterward. A subsequent normal
+warm contact acknowledged a second MT19 callback, returned its own MT9 and
+acknowledged the manager's disabled MT94. The observation endpoint was
+closed, and the terminal returned to ordinary operation. Evidence:
+`build/firmware-acceptance/nla1x08-code-disabled-callback/20261126T052319.695480Z/`.
+
 ## Tests
 
 `test_flash_model` exercises NOR command sequencing, program and erase
 timing, electronic identification, zero-to-one programming restrictions, and
 the later-board low-window address remap.
 
-`test_mach_pio_c0` checks the separate SRAM bank selection and wrap.
+`test_mach_pio_c0` checks common SRAM continuity across the ROM selector,
+upper-window selection and the observed linear address bounds.
 `test_modem_code_server` checks the independent loopback data-call route,
 carrier establishment, unchanged binary data in both directions, relay
-release and ordinary NCC route selection.
+release and ordinary NCC route selection. The test reads the existing
+ringback, answer-tone, mark and carrier status through the SSI pins in
+sequence. The opt-in native modem trace records the corresponding
+call-progress transitions, relay/TCP events and changed SSI detect reads
+without changing the modem timings or generating a successful protocol
+response.
 The native synthetic flash-bus probe starts with non-erased bytes in one
 sector of each chip, erases those sectors, polls the device ready state and
 programs the target bytes with normal Z180 instructions executing from SRAM.

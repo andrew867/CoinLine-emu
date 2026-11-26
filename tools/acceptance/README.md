@@ -37,11 +37,28 @@ label, a physical hexadecimal address, and optionally a whitespace-separated
 list of physical RAM byte addresses to snapshot. Watch output is restricted
 to off-hook activity and at most 2,000 samples. The option is disabled by
 default and never changes the observed data, CPU state, or installation.
+Each sample also records the observed bus byte. Prefix an entry label with
+`write:` to observe the value presented on a write bus access instead;
+the observer never replaces that value or performs a memory write.
 Use `--read-watch-registers` to append the CPU register values at each
 sample, and `--read-watch-per-frame 2` to limit each watch address to two
 samples per video frame. The global limit is still enforced. This is
 particularly useful when a frequently dispatched routine would otherwise
 exhaust the diagnostic sample budget before another task can run.
+An optional `@HL=1234` token on an entry limits that entry's samples to
+the specified CPU register value. The filter is also read-only and does not
+consume the sample budget when the register does not match.
+For an on-hook dialogue, use `--read-watch-manual` and issue `watch on` /
+`watch off` in the action file; the same 2,000-sample cap applies across
+the entire run. Add `--read-watch-start` to arm the manual watch before
+the first video frame when observing startup. An independent `--cpu-sample`
+records read-only CPU registers at up to 2,000 video-frame boundaries,
+including when none of the watched instructions execute. Use
+`--modem-trace` to capture the native modem bytes
+without the full boot trace. It also records bounded call-progress phase
+transitions, relay and TCP events, and changed SSI detect bytes observed
+by the terminal. SSI read timestamps use the most recent modem polling
+time, not a pin-edge timestamp. Keep these diagnostic logs local.
 
 For later boards with the internal contact-module expansion, the native
 `smartcard_async_probe.py --protocol slots` test runs a synthetic CPU program
@@ -52,6 +69,12 @@ changed selection/latch observations. The optional `--sam-slot0`,
 `--sam-slot1` and `--sam-slot2` paths configure separate generic non-payment
 async fixtures; absent paths leave the respective sockets unpopulated.
 These tests do not provide or qualify historical payment authentication.
+
+Use `graphic_session.py --data-jack downloaded --data-jack-trace` to observe
+the selected later-board connector monitor and raw relay output profile.
+The command file accepts `datajack plug`, `datajack seize`, `datajack release`
+and `datajack unplug` as separate physical inputs. These do not change the
+handset or provide a modem session.
 
 ## Independent analogue hardware probes
 

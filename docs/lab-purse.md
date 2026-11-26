@@ -32,6 +32,9 @@ Run the request against an isolated local SQLite store:
 python tools/lab_purse.py --store <local-scratch>/purses.sqlite --request <request.json>
 ```
 
+In a portable package use `app/lab_purse.py` instead of `tools/lab_purse.py`
+with its supplied or system Python runtime.
+
 Other allowed model requests are `inspect`, `history`, `begin_spend`,
 `complete_spend`, `cancel_spend`, `mark_uncertain`, `reload_fixture`,
 `record_local_outcome` and `reconcile_local`. They operate on explicit lab

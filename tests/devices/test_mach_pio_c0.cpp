@@ -20,7 +20,7 @@ int main()
 		millennium_mach_pio_combine_port_h_read(0xb7U, 0, true, true) != 0xbfU) return 7;
 
 	constexpr std::size_t cap = 0x80000U;
-	// Port H 0x07: bank 0 from high nibble 0; upper window enabled (low three bits set).
+	// Port H 0x07: fixed common RAM and upper window enabled.
 	auto d = millennium_mach_decode_phys_ram(0x07U, 0xc0000U, cap);
 	if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0U)
 		return 2;
@@ -35,8 +35,18 @@ int main()
 	if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0x8000U)
 		return 5;
 	d = millennium_mach_decode_phys_ram(0xffU, 0xe0000U, cap);
-	if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0U)
+	if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0x20000U)
 		return 6;
+	// A loader executes from common RAM while changing the low ROM selector.
+	// In particular F9 -> 07 must not discard its stack or transfer code.
+	for (auto const latch : {0xf8U, 0xf9U, 0xfaU, 0xfbU, 0x07U, 0x06U, 0x17U, 0x37U}) {
+		d = millennium_mach_decode_phys_ram(static_cast<std::uint8_t>(latch), 0xc7856U, cap);
+		if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0x7856U)
+			return 8;
+	}
+	d = millennium_mach_decode_phys_ram(0x07U, 0xfffffU, cap);
+	if (d.route != millennium_mach_phys_ram_route::sram_chip || d.chip_byte_index != 0x3ffffU)
+		return 9;
 
 	return 0;
 }

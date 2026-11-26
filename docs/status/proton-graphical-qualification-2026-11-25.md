@@ -123,6 +123,233 @@ earlier repeated service-task return pattern. The display again reached
 `Completed: 00`. Evidence:
 `build/firmware-acceptance/nla1x09-co-corrected-register-watch/20261126T031828.600347Z/`.
 
+The current full image, SHA-256
+`8c7aa5129b2c752e2f45d8de578432cdf0fcf4b5c8f3c3671627b994241dc38e`,
+also independently passed both cold pre-NCC checks from blank battery storage.
+Both `Completed: 00` screenshots matched the earlier candidate byte for byte;
+the local office observed real answer supervision and relay release. The
+terminal reached the NCC-ready prompt and exited without a download attempt.
+This digest is the current full-image acceptance target. Evidence:
+`build/firmware-acceptance/nla1x09-current-full-cold/20261126T033538.139211Z/`.
+
+Two cold INSTALL attempts connected to a separate isolated type-40 host
+with an 18-record assignment. Both passed CO and answer supervision. The
+terminal sent MT36; the host ACKed, sent MT20, and received the terminal
+ACK. The native modem trace independently decodes the 19-byte MT20 with
+valid CRC and eight application bytes. The terminal then entered its
+closing state before accepting the host MT13; no MT44 or table delivery
+occurred. Both attempts displayed `Failed: 24`.
+
+Read-only observations of task execution and saved device state show the
+clock handler was reached. The one-byte packet count was read together
+with its adjacent byte, producing a nonzero high byte in the remaining
+message count after all eight clock-message bytes were consumed. The
+terminal reported invalid message type (error 9) while attempting to
+process data outside that valid payload. This explains the clear without
+implicating host CRC, timing or table contents. No response or memory
+change was made to disguise the result. The next attempt requires a
+corrected candidate image; the isolated assignment is preserved.
+Evidence: `build/firmware-acceptance/nla1x09-full-isolated-install/20261126T035206.324964Z/`
+and `build/firmware-acceptance/nla1x09-full-ncc-trace/20261126T040248.230501Z/`.
+
+The corrected full-feature candidate SHA-256 is
+`7f59977b8e25a790d7cd7d7fd02bb839dd5bead4fd33a6cf373d8ae6f06f2d55`.
+A cold native INSTALL again passed both line checks. This time the clock
+dialogue continued through MT13 and MT44. The independent native CRC-checked
+trace and isolated host both confirm all 18 application acknowledgements:
+21, 26, 31, 62, 50, 73, 92, 93, 72, 134, 135, 136, 30, 33, 49, 131, 132,
+133. The terminal acknowledged the final end-of-data message and alarm
+reply, cleared the connection normally and displayed `Completed: 02`.
+The keypad and magnetic-reader checks advanced to the optional SAM socket
+menu. Testing an empty socket left the display at `Please wait` through
+more than 100 emulated seconds; a quit key did not return it to the menu.
+A normal shutdown preserved the terminal-written battery state; warm restart
+still displayed `Not installed`. The full INSTALL remains incomplete.
+No fabricated module response, terminal memory patch or host timing change
+was introduced. Evidence:
+`build/firmware-acceptance/nla1x09-corrected-ncc-install/20261126T041328.461310Z/`.
+
+A second INSTALL from the previous run's normally flushed, incomplete
+battery state repeated both line checks and all 18 table acknowledgements.
+The three optional SAM menu entries could be traversed with `*`; `#`
+returned normally to the customer-contact test. Inserting the existing
+synchronous test fixture produced native contact selector, supply, clock
+and reset transitions but no asynchronous ATR. The display remained at
+`Please wait` after more than 60 emulated seconds and after card removal.
+The installed feature combination expects an asynchronous contact in this
+maintenance test. A subsequent cold trial will use the generic asynchronous
+read-only fixture rather than a historical card application.
+Evidence: `build/firmware-acceptance/nla1x09-warm-partial-restart/20261126T042541.821099Z/`.
+
+A third cold attempt used the ordinary generic asynchronous T=0 read-only
+fixture with ATR `3B 00`. It again passed CO, answer, all 18 download records,
+keypad and magnetic reader, and normally quit the unpopulated SAM menu.
+At the customer-contact prompt, the native contact serial device activated
+and transmitted both ATR characters. The terminal then shut down the card
+clock and reset outputs; within the six-second post-insertion interval its
+display returned to `Not installed`. No application command or transaction
+was involved. The cause of the apparent restart remains unresolved; full
+INSTALL and in-service acceptance are not established for this digest.
+Evidence: `build/firmware-acceptance/nla1x09-full-async-install/20261126T044125.177678Z/`.
+
+The next corrected candidate, SHA-256
+`e2250aae2755b288f40f75c8b3e60e1bc33a55c8fbc30813fef7f6d56bb7aafc`,
+was independently started from blank battery storage. CO and answer checks
+again returned 00, all 18 assigned NCC records were acknowledged, and the
+keypad and magnetic-reader tests passed. Three generic read-only asynchronous
+module fixtures were configured. Selecting the optional socket 01 test
+activated the contact serial transmitter; two ATR characters were sent
+before the display returned to `Not installed` within the six-second
+post-selection interval. No historical application, card authorization,
+or transaction was involved. The separate customer-contact test was not
+reached in this run. The cause of this second apparent restart remains open.
+Evidence: `build/firmware-acceptance/nla1x09-corrected-contact-install/20261126T051137.390007Z/`.
+
+The same digest repeated all 18 table ACKs in a separate cold run, normally
+quit the optional module menu, and exercised the customer-contact fixture
+with a valid generic T=0 ATR containing one historical byte. Bounded,
+read-only CPU observations captured execution of the reset path eight
+video frames after the physical insertion. The instrumented ATR parser and
+completion points were not reached; the card serial device had transmitted
+only the first two characters. This establishes a genuine early reset,
+rather than a display-only transition or payment application rejection.
+Evidence: `build/firmware-acceptance/nla1x09-contact-readwatch/20261126T052745.147574Z/`.
+
+A second bounded trace captured the actual UART receive path. The contact
+initialization and receive-enable routines executed, but the receive and
+error callback addresses remained zero. The first ATR character, `3B`,
+arrived with receive-ready status and no reported UART error. The serial
+dispatch entered the common indirect-call path with target zero and then
+executed the reset vector, all in the same video frame. No ATR parser or
+application response was involved. This locates the remaining fault in
+the terminal's callback initialization rather than the emulated contact
+clock, card selection or serial framing. No callback, register, memory,
+or device response was modified by the observation.
+Evidence: `build/firmware-acceptance/nla1x09-contact-rx-readwatch/20261126T055118.206108Z/`.
+
+A further corrected image, SHA-256
+`b625f7a13fb8a85ced8d8a5bff1321ba97b0a7e5c9948e40894d1b9a1445653e`,
+passed the cold CO and answer-supervision checks, all 18 NCC records, the
+keypad and magnetic reader. After normally quitting the optional module
+menu, the customer generic asynchronous test produced `Smart Card Test
+Okay`. The read-only trace independently verified nonzero receive, error
+and protocol-state addresses before RX enable, actual first ATR reception,
+and entry into the expected contact parser without reset. No payment
+application or authentication was involved.
+
+The same instance completed the coin calibration and escrow/refund test
+using two nickels and a dime after a normal retry, then displayed `Install
+is complete. Close terminal now`. The normally saved independent coin
+file recorded 20 cents refunded and zero escrow. Closing the cabinet
+blanked the display. Separate warm trials from the same normally
+flushed firmware-written storage remained blank, including with the
+optional module fixtures absent. Physical hook transitions occurred but
+no display response or normal telephony initialization was observed.
+Startup CPU sampling shows continued instruction execution and graphical
+key scans, while the normal application scheduler watch points did not
+execute. Cold INSTALL completion is qualified; in-service startup and
+warm service persistence remain unresolved. The persistent flash file
+was byte-identical across the cold and warm trials.
+Evidence: `build/firmware-acceptance/nla1x09-contact-initializer-fix/20261126T060420.601313Z/`,
+`build/firmware-acceptance/nla1x09-full-warm-service/20261126T061729.623190Z/`,
+`build/firmware-acceptance/nla1x09-warm-no-modules/20261126T061942.269431Z/`,
+and `build/firmware-acceptance/nla1x09-warm-cpu-sample/20261126T062331.317777Z/`.
+
+## Later-board common SRAM and repeat warm INSTALL
+
+The warm loader failure was reproduced as a physical bus mapping error.
+The transition from latch F9 to 07 changed the backing slice at the common
+SRAM address, so the CPU fetched erased bytes rather than continuing the
+RAM-resident transfer. The later-board model now keeps common SRAM fixed
+across ROM selections and handles upper-window SRAM selection separately.
+No bytes, checksum tables, or installation flags are copied or synthesized.
+The same saved flash and battery state can now transfer into the main
+application; the two window remaps and the linear RAM bounds are covered by
+the native regression test.
+
+Two fresh, blank-battery INSTALL trials on the corrected model passed both
+line checks, all 18 NCC records, keypad, magnetic reader, and the normal
+coin calibration and escrow checks. Both reached `Install is complete.
+Close terminal now`. The optional module checks in the first trial reported
+`SAM Socket Not Resp`; the customer generic contact test reported failure.
+The second trial skipped the optional module tests; its customer generic
+contact test also reported failure without restarting. Neither result
+supersedes the earlier successful contact evidence for this image.
+
+The first trial retained an installed marker but failed the terminal's own
+memory checks on warm startup and consequently restricted service. The
+second trial retained valid memory-check markers and its installed tables.
+It displayed `Please lift receiver` in a genuine screenshot, but then
+restarted repeatedly at approximately 3.5-second intervals. Read-only
+execution observations reproduced the reset during a runtime application
+reinitialization sequence. Stable warm service, native module application
+behavior and another successful generic customer contact check on the
+corrected memory model remain outstanding. No persistent memory or runtime
+CPU state was altered during this diagnosis.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-common-sram-cold/20261126T064016.543674Z/`,
+`build/firmware-acceptance/nla1x09-common-sram-cold-customer/20261126T065517.311843Z/`,
+`build/firmware-acceptance/nla1x09-common-sram-warm-customer/20261126T070831.640594Z/warm-10s.png`,
+and `build/firmware-acceptance/nla1x09-warm-buffer-watch/20261126T071500.921474Z/`.
+
+The corrected emulator passed its full available CTest suite (65 passed,
+two ROM-dependent tests skipped), all 46 Python fixture tests, and a native
+Windows build. This verifies the emulator regressions independently of the
+remaining image-specific service qualification.
+
+## Corrected full image: cold and warm service qualification
+
+SHA-256 `0974cea06aaa2f83af007a4b0785929774be362770ff9813c79e3dc8e7a58526`
+was independently installed on the corrected common-SRAM model, starting
+with a blank battery directory. The two line checks returned 00, the
+terminal acknowledged all 18 assigned records and cleared the dialogue
+normally. The keypad and magnetic-reader tests passed. The
+generic asynchronous customer contact produced `Smart Card Test Okay`,
+using an unfunded contact-only fixture. The optional internal module tests
+were skipped. Coin calibration required one normal retry; escrow, refund
+and collection checks then reached `Install is complete. Close terminal
+now`.
+
+After closing and locking the cabinet the display showed `Please lift
+receiver`; the named 3, 6, 12 and 30 second snapshots were identical.
+The normal emulator exit saved the firmware-written battery, including
+both intact memory-check markers. A separate restart of the same image
+using its own saved battery repeated the idle display at 5, 10, 15, 20
+and 30 emulated seconds. Actual handset pickup advanced through the card
+prompt to `Deposit coin, insert card or dial number`; handset replacement
+restored `Please lift receiver`, still present after 15 further emulated
+seconds. Bounded read-only observation recorded only the normal startup
+reset, not the previously recurring runtime reset. The independent warm
+session exited normally. Both memory-check markers remained intact; the
+persisted flash file had the same digest before and after the warm test.
+
+Cold installation, retained service across restart, and the generic
+customer-contact diagnostic are qualified for this exact digest. Optional
+internal module diagnostics, application-level purse transactions and
+end-to-end remote firmware transfer remain independent gates. No terminal
+memory contents or validity flags were supplied or modified by the bench.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-queue-corrected-cold/20261126T071808.450976Z/`
+and `build/firmware-acceptance/nla1x09-queue-corrected-warm/20261126T073042.309922Z/`.
+
+On a separate copy of its installed state, Craft item 778 reached the
+internal socket diagnostic and selected socket 01. Three generic contact
+fixtures were configured, with no issuer application. The pin trace records
+two activations of physical selector 0 and three transmitted ATR characters
+per activation. The display remained at `Please wait` for more than 75
+emulated seconds. A second instrumented trial recorded the terminal's
+contact-completion and menu-result routines executing, but the display
+still remained pending at 20 seconds. Both trials returned to the normal
+idle display when the cabinet was closed. This is not a successful module
+self-test; the remaining native menu and completion sequencing requires
+qualification independently of the synthetic socket transport tests.
+
+Evidence:
+`build/firmware-acceptance/nla1x09-queue-sam-craft/20261126T073413.349187Z/`
+and `build/firmware-acceptance/nla1x09-queue-sam-readwatch/20261126T073806.855289Z/`.
+
 The [independent simulated-value purse](../lab-purse.md) implements its
 own durable local ledger and invented application state. It supplies no
 historical SAM association or native card authorization.

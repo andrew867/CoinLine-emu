@@ -12,6 +12,12 @@ The native detector samples every 20 ms. Starting in idle or a ring-off interval
 
 Acceptance: feed actual line ring intervals into the detector, verify native sampling, first valid ring, inter-ring pause, abandoned ring, answering and restoration of idle. Assert that the handset hook remains unchanged until the handset actually moves. Test ring during/after the reminder alarm and during a data-jack call. Measure the enclosure output separately from handset audio. See [forgotten-card alarm](forgotten-card-alarm-black-box-handoff.md).
 
+Native register-driven warning, cadence, and ring-source overlap probes pass.
+An installed terminal also displayed the real forgotten-card prompt on
+handset replacement and returned to service after removal. The audible
+application-triggered alarm remains a separate qualification gate. See
+[native peripheral evidence](../../docs/status/peripheral-handoff-implementation-2026-11-25.md).
+
 ## Telephony and modem ownership
 
 The hardware supports independent handset state, line loop/supervision, internal modem isolation, external data-jack loop, and the telephony processor's serial command link. A modem management session releasing its relay is not a handset-release event. A connected local voice call is not evidence of payment collection or CDR creation. Live qualification has already exposed these distinctions.
@@ -20,7 +26,7 @@ Preserve the normal serial controller's framing, declared frame length and check
 
 ## Multiple internal contact-module sockets
 
-The revised board contains three distinct internal asynchronous module selector positions in addition to the customer card. Independent supply, reset, clock and ASCI0 routing passed native synthetic transport tests, including all three module positions and the separate customer contact. Native scheme initialization and authorized application qualification remain open; do not infer the actual security-module part number or application from a selector. See [contact smart-card hardware](smartcard-contact-black-box-handoff.md).
+The revised board contains three distinct internal asynchronous module selector positions in addition to the customer card. Independent supply, reset, clock and ASCI0 routing passed native synthetic transport tests, including all three module positions and the separate customer contact. The corrected full graphical image now passes the generic customer-contact self-test, full cold installation and retained warm service. Native internal-module self-tests, scheme initialization and authorized application qualification remain separate; do not infer the actual security-module part number or application from a selector. See [contact smart-card hardware](smartcard-contact-black-box-handoff.md) and [full-image qualification](../../docs/status/proton-graphical-qualification-2026-11-25.md).
 
 ## Power, persistent memory and board supervision
 
@@ -44,14 +50,15 @@ Useful acceptance cases:
 | Board clock profiles | The later controller and its conventional-display variant require the later oscillator rate. Display type, CPU clock, DMA timing and peripheral map are independent profile attributes, not one graphical boolean. Regression-test timing for both board families. |
 | Modem and external service | Ordinary management data and ADSI share applicable modem resources. Exercise arbitration and teardown using separate native sessions. Avoid introducing direct protocol injection as a replacement for missing analog hardware. |
 | Serial peripheral health | Native coin and telephony link health reporting, timeout, reset and restoration should be validated using genuine disconnect/reconnect conditions. Fault recovery must not masquerade as a successful valid transaction. |
-| Enclosure and cash-box status | Distinct physical switches produce distinct status and maintenance reports. Opening the cover is not itself evidence of a local siren; the normal reminder speaker is separate. Exercise ordinary authorized opening/closing and reporting without altering alarm policy or bypassing access controls. |
+| Enclosure and cashbox status | An actual local quarter-rated call produced a coin CDR, followed by native MT51 collection and MT38 replacement-box reports matching separately persisted physical contents; no duplicates were observed. Separate collector authentication, physical sensor calibration, and other board variants remain open. See [cashbox qualification](../../docs/status/coin-cashbox-qualification-2026-11-26.md). |
+| Remote firmware upgrade | A native MT19/MT9 callback delivered MT94, and the scheduled terminal dialed the independent code-server route. The connection ended before carrier and application data; a later native disabled MT94 cancelled the job. Image transfer and interrupted recovery remain open. See [download qualification](../../docs/firmware-download-storage.md). |
 
 ## Suggested order
 
 1. Repeat ADSI first-response timing and menu navigation under controlled workloads; a full free-service round trip already passed.
-2. Validate the enclosure output and incoming-ring interaction from actual registers.
+2. Qualify the native application-triggered audible reminder; component enclosure and ring-overlap probes already pass.
 3. Qualify native card and module application behavior independently of the completed generic transport probes.
 4. Implement the external data jack with a local modem endpoint and compare its monitor/relay behavior with actual circuitry; raw logical profiles passed.
-5. Qualify actual firmware interruption and peripheral recovery, including distinct control and telephony power domains. Passive tracing and provisional synthetic reset tests already passed.
+5. Qualify code-server carrier, normal image transfer, actual firmware interruption and peripheral recovery, including distinct control and telephony power domains. Schedule pickup and separate dialing already passed; passive tracing and provisional synthetic reset tests also passed.
 
 Each milestone should include component and native-firmware evidence. A component model may pass while the CPU-visible hardware path remains incomplete. Report those outcomes separately rather than marking a subsystem fully supported solely because a test helper exists.

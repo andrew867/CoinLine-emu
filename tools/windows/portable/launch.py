@@ -65,6 +65,55 @@ def get_line_port():
         return str(probe.getsockname()[1])
 
 
+def module_fixture_environment(args, cards, motherboard):
+    env = {}
+    for slot in range(3):
+        option = f"sam_slot{slot}"
+        value = getattr(args, option, None) or cards.get(option, "").strip()
+        if not value:
+            continue
+        if motherboard != "later":
+            raise ValueError("Internal contact modules require a later motherboard profile.")
+        path = (ROOT / value).resolve()
+        try:
+            fixture = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as error:
+            raise ValueError(f"Internal contact module {slot} fixture is missing or invalid.") from error
+        if (not isinstance(fixture, dict) or fixture.get("protocol") != "async" or
+                fixture.get("application") != "lab-readonly"):
+            raise ValueError(f"Internal contact module {slot} requires a generic read-only async fixture.")
+        try:
+            atr = bytes.fromhex(fixture["atr_hex"])
+            memory = bytes.fromhex(fixture.get("memory_hex", ""))
+            if (not atr or len(memory) > 4096 or fixture.get("reset_policy", "external") not in ("external", "internal") or
+                    any(type(fixture.get(name, default)) is not int or not lower <= fixture.get(name, default) <= upper
+                        for name, default, lower, upper in (("atr_delay_us", 4000, 112, 11175),
+                            ("apdu_response_delay_us", 1000, 0, 1000000), ("inter_character_delay_us", 0, 0, 100000)))
+                    or fixture.get("sync_program_enabled", False)):
+                raise ValueError("fixture parameters")
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(f"Internal contact module {slot} has invalid fixture parameters.") from error
+        env[f"COINLINE_SAM_SLOT{slot}"] = str(path)
+    return env
+
+
+def data_jack_environment(args, settings, motherboard):
+    profile = getattr(args, "data_jack", None) or settings.get("data_jack_profile", "disabled").strip()
+    polarity = settings.get("data_jack_monitor_polarity", "").strip()
+    if profile not in ("disabled", "downloaded", "desktop", "universal"):
+        raise ValueError("Set a valid data_jack_profile under [hardware].")
+    if polarity not in ("", "high", "low"):
+        raise ValueError("Set data_jack_monitor_polarity to high, low or blank.")
+    if profile == "disabled":
+        return {}
+    if motherboard != "later":
+        raise ValueError("The selectable data-jack monitor profiles require a later motherboard.")
+    env = {"COINLINE_DATA_JACK_PROFILE": profile}
+    if polarity:
+        env["COINLINE_DATA_JACK_MONITOR_POLARITY"] = polarity
+    return env
+
+
 def configure_sip(env, settings, profile):
     config_name, _, _, default_port, media_low, media_high = PROFILES[profile]
     for key, suffix in SIP_CREDENTIAL_FIELDS.items():
@@ -200,6 +249,8 @@ def run(args, config, hardware):
     smart_card = ROOT / (args.smart_card or cards.get("smart_fixture", "").strip() or "fixtures/cards/smartcard-sync-test.json")
     if not mag_card.is_file() or not smart_card.is_file():
         raise ValueError("The selected local card fixture file is missing.")
+    module_env = module_fixture_environment(args, cards, hardware_env["COINLINE_MOTHERBOARD"])
+    data_jack_env = data_jack_environment(args, config["hardware"], hardware_env["COINLINE_MOTHERBOARD"])
     adsi = config["adsi"]
     local_voice = None
     if args.adsi or adsi.getboolean("enabled", fallback=False):
@@ -229,6 +280,8 @@ def run(args, config, hardware):
         "COINLINE_TP8048_ROM": str(ROOT / "firmware/tp_pcd3349a_behavioural.rom"),
         "COINLINE_MAG_CARD": str(mag_card),
         "COINLINE_SMART_CARD": str(smart_card),
+        **module_env,
+        **data_jack_env,
         "COINLINE_LINE_PORT": get_line_port(),
         "COINLINE_NCC_PORT": str(port),
         "COINLINE_CO_MODE": mode,
@@ -306,7 +359,11 @@ def main():
     parser.add_argument("--rompath", type=Path, help="directory containing cl_millennium/ Voiceware images")
     parser.add_argument("--mag-card", type=Path, help="local synthetic magnetic-stripe fixture")
     parser.add_argument("--smart-card", type=Path, help="local synthetic contact-card fixture")
+    for slot in range(3):
+        parser.add_argument(f"--sam-slot{slot}", type=Path, help=f"generic read-only contact fixture for internal position {slot}")
     parser.add_argument("--adsi", action="store_true", help="enable the exact local InfoLine voice route")
+    parser.add_argument("--data-jack", choices=("disabled", "downloaded", "desktop", "universal"),
+                        help="select an optional later-board data-jack monitor/relay profile")
     parser.add_argument("--portable-display", choices=("attached", "detached"),
                         help="Coin Basic temporary display connection at power-on")
     calling_mode = parser.add_mutually_exclusive_group()

@@ -153,6 +153,11 @@ void millennium_modem_model::reset()
 	m_ssi_write_bits = 0;
 	m_cp = cp_phase::idle;
 	m_ncc_connected_at = -1.0;
+	char const *const trace = std::getenv("COINLINE_MODEM_TRACE");
+	m_call_trace = trace && trace[0] == '1';
+	m_call_trace_count = 0;
+	m_call_trace_last_dr = -1;
+	m_call_trace_poll_sec = 0.0;
 	m_r1 = false;
 }
 
@@ -451,6 +456,25 @@ void millennium_modem_model::set_adsi_carrier(bool carrier) noexcept
 	}
 }
 
+void millennium_modem_model::trace_call_progress(char const *event, double sampled_sec, int value) noexcept
+{
+	if (!m_call_trace || m_call_trace_count >= 256)
+		return;
+	++m_call_trace_count;
+	char const *phase = "idle";
+	switch (m_cp) {
+	case cp_phase::dial_tone: phase = "dial_tone"; break;
+	case cp_phase::post_dial: phase = "post_dial"; break;
+	case cp_phase::ringback: phase = "ringback"; break;
+	case cp_phase::answer_tone: phase = "answer_tone"; break;
+	case cp_phase::carrier_mark: phase = "carrier_mark"; break;
+	case cp_phase::carrier: phase = "carrier"; break;
+	case cp_phase::idle: break;
+	}
+	std::fprintf(stderr, "modem progress sampled_s=%.6f event=%s phase=%s dr=%02X dcd=%d value=%d\n",
+		sampled_sec, event, phase, unsigned(m_ssi_dr), int(m_dcd), value);
+}
+
 void millennium_modem_model::poll_call_progress(double now_sec)
 {
 	if (!m_r1 || !m_ncc_up)
@@ -472,11 +496,11 @@ void millennium_modem_model::poll_call_progress(double now_sec)
 		m_state = millennium_modem_state::connected;
 		std::fprintf(stderr, "modem carrier (SSI) dcd=1\n");
 	}
+	trace_call_progress("phase", now_sec);
 }
 
 void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 {
-	(void)now_sec;
 	if (r1_active == m_r1)
 		return;
 	m_r1 = r1_active;
@@ -486,6 +510,8 @@ void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 	m_ncc_retry_after = 0.0;
 	m_dcd = false;
 	if (r1_active) {
+		m_call_trace_count = 0;
+		m_call_trace_last_dr = -1;
 		m_cp = cp_phase::dial_tone;
 		m_state = millennium_modem_state::dialing;
 		std::fprintf(stderr, "modem R1 seize\n");
@@ -496,6 +522,8 @@ void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 		std::fprintf(stderr, "modem R1 release\n");
 	}
 	refresh_detect_register();
+	m_call_trace_poll_sec = now_sec;
+	trace_call_progress(r1_active ? "relay_seize" : "relay_release", now_sec);
 }
 
 char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a, bool extended_address)
@@ -543,6 +571,11 @@ char millennium_modem_model::ssi_pio_a_write(std::uint8_t pio_a, bool extended_a
 		m_ssi_write_bits = 0;
 		m_ssi_write_shift = 0;
 		m_ssi_shift = reg_value(addr);
+		// The most recent modem polling timestamp bounds this pin observation.
+		if (m_call_trace && m_r1 && addr == 2 && m_call_trace_last_dr != m_ssi_shift) {
+			m_call_trace_last_dr = m_ssi_shift;
+			trace_call_progress("ssi_detect_read", m_call_trace_poll_sec, m_ssi_shift);
+		}
 		m_ssi_bit = 0;
 		m_ssi_mpd = (m_ssi_shift & 1U) != 0U;
 		return 0;
@@ -674,6 +707,7 @@ bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port,
 	m_ncc_lab_hello_sent = code_server;
 	m_ncc_lab_hello_at = code_server ? -1.0 : now_sec + 0.4;
 	m_ncc_tx_pending.clear();
+	trace_call_progress(code_server ? "code_tcp_connected" : "ncc_tcp_connected", now_sec);
 	unsigned const a = (host >> 24) & 0xffU;
 	unsigned const b = (host >> 16) & 0xffU;
 	unsigned const c = (host >> 8) & 0xffU;
@@ -707,6 +741,8 @@ bool millennium_modem_model::ncc_connect_dialed(double now_sec)
 
 void millennium_modem_model::poll_ncc_link(double now_sec)
 {
+	if (m_call_trace)
+		m_call_trace_poll_sec = now_sec;
 	poll_call_progress(now_sec);
 	if (m_r1 && !m_ncc_up && !m_ncc_attempted && m_last_digit_sec >= 0.0 && (now_sec - m_last_digit_sec) >= 1.2
 		&& m_dialed.size() == 10)
@@ -728,6 +764,7 @@ void millennium_modem_model::poll_ncc_link(double now_sec)
 		m_cp = cp_phase::post_dial;
 		refresh_detect_register();
 		m_state = millennium_modem_state::carrier_lost;
+		trace_call_progress("peer_closed", now_sec);
 	} else if (n > 0) {
 		m_ncc_rx.insert(m_ncc_rx.end(), buf, buf + n);
 	}

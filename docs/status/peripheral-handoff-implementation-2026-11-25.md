@@ -49,6 +49,16 @@ stages before selection, zero RMS with the warning muted, 697.42 Hz during
 the selected warning, and 582.84 Hz after restoring the ring source. The
 line jack reported on-hook and ringer enabled, with no off-hook transition.
 Evidence: `build/firmware-acceptance/enclosure-alarm-probe/20261126T032938.161748Z/`.
+
+An installed graphical reference then exercised a normal handset lift,
+generic synchronous card insertion, handset replacement with the card
+still present, and subsequent card removal. The native terminal displayed
+`Please remove your card` after handset replacement and returned to
+`Please lift receiver` after removal. Its captured port F traffic contained
+only the ordinary `00`, `08` and `0A` latch values, with no warning-source
+selection in this trial. This qualifies the real reminder display and
+removal recovery, not an application-triggered audible enclosure warning.
+Evidence: `build/firmware-acceptance/nla1x08-native-forgotten-card/20261126T054833.995978Z/`.
 The ordinary and short-warning checks passed again. This qualifies source
 arbitration with incoming ring energy; application-triggered reminder delay
 and cancellation still require a qualifying native contact application.
@@ -72,6 +82,14 @@ and cancellation still require a qualifying native contact application.
 
 This qualifies the monitor and raw control decoding only. Analogue switching,
 external DTMF detection and modem handshake/bidirectional data remain open.
+
+The optional later-board profile can now be selected in the portable
+launcher and graphical bench without inherited environment overrides.
+An installed NLA1X08 run observed the native monitor read change on separate
+plug, seize, release and unplug inputs; the office remained connected and
+the handset remained on-hook. No data-call relay transition occurred after
+the input changes, so the result is monitor observation, not a completed
+data call. Evidence: `build/firmware-acceptance/datajack-installed-firmware/20261126T034508.291684Z/`.
 
 ### Connector and profile follow-up
 

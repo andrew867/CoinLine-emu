@@ -8,6 +8,7 @@ local softkeys = assert(ports[":TERMINAL21_SOFTKEYS"])
 local card = assert(ports[":CARDUI"])
 local coins = assert(ports[":COINUI"])
 local cashbox = ports[":CASHBOXUI"]
+local data_jack = ports[":DATAJACKUI"]
 local power = ports[":POWERUI"]
 local power_test = os.getenv("COINLINE_BOARD_SUPERVISION_PROFILE")
 local offline_line = os.getenv("COINLINE_GRAPHIC_OFFLINE_LINE") == "1" and assert(ports[":LINECTRL"]) or nil
@@ -29,6 +30,16 @@ local frame, next_frame, processed = 0, 0, 0
 local snapshot_interval = tonumber(os.getenv("COINLINE_GRAPHIC_SNAPSHOT_INTERVAL")) or 180
 local pending = {}
 local watch_path = os.getenv("COINLINE_GRAPHIC_READ_WATCH")
+local watch_manual = os.getenv("COINLINE_GRAPHIC_READ_WATCH_MANUAL") == "1"
+local watch_enabled = not watch_manual or os.getenv("COINLINE_GRAPHIC_READ_WATCH_START") == "1"
+local cpu_sample_path = os.getenv("COINLINE_GRAPHIC_CPU_SAMPLE")
+local cpu_sample_file, cpu_sample_device
+if cpu_sample_path then
+    cpu_sample_device = assert(machine.devices[":maincpu"])
+    cpu_sample_file = assert(io.open(cpu_sample_path, "w"))
+    cpu_sample_file:write("frame\tregisters\n")
+    coinline_cpu_sample_stop = emu.add_machine_stop_notifier(function() cpu_sample_file:close() end)
+end
 if watch_path then
     local cpu = assert(machine.devices[":maincpu"])
     local space = assert(cpu.spaces["program"])
@@ -37,21 +48,31 @@ if watch_path then
     local taps, samples, reading = {}, 0, false
     local registers = os.getenv("COINLINE_GRAPHIC_READ_WATCH_REGISTERS") == "1"
     local per_frame = tonumber(os.getenv("COINLINE_GRAPHIC_READ_WATCH_PER_FRAME")) or 0
-    output:write("frame\tlabel\tphysical\tpc\tsnapshot", registers and "\tregisters\n" or "\n")
+    output:write("frame\tlabel\tphysical\tpc\tsnapshot", registers and "\tregisters" or "", "\tbus_value\n")
     for line in input:lines() do
         local label, address, fields = line:match("^(%S+)%s+([0-9a-fA-F]+)%s*(.*)$")
         assert(label and address, "invalid read watch entry")
         local location, snapshot = tonumber(address, 16), {}
+        local match_register, match_value
         assert(location < 0x100000, "physical watch address outside bus")
         for field in fields:gmatch("%S+") do
-            local value = assert(tonumber(field, 16), "invalid physical snapshot address")
-            assert(value >= 0 and value < 0x100000, "physical snapshot address outside bus")
-            snapshot[#snapshot + 1] = value
+            local name, expected = field:match("^@([A-Z]+)=([0-9a-fA-F]+)$")
+            if name then
+                assert(not match_register and cpu.state[name], "invalid or duplicate register filter")
+                match_value = assert(tonumber(expected, 16))
+                assert(match_value <= 0xffff, "register filter outside 16-bit range")
+                match_register = name
+            else
+                local value = assert(tonumber(field, 16), "invalid physical snapshot address")
+                assert(value >= 0 and value < 0x100000, "physical snapshot address outside bus")
+                snapshot[#snapshot + 1] = value
+            end
         end
         assert(#taps < 32 and #snapshot <= 32, "read watch exceeds diagnostic bound")
         local last_frame, frame_samples = -1, 0
-        taps[#taps + 1] = space:install_read_tap(location, location, label, function(offset)
-            if reading or samples >= 2000 or keypad:read() & 0x80000 == 0 then return end
+        local callback = function(offset, data)
+            if reading or samples >= 2000 or not watch_enabled or (not watch_manual and keypad:read() & 0x80000 == 0) then return end
+            if match_register and cpu.state[match_register].value ~= match_value then return end
             if last_frame ~= frame then last_frame, frame_samples = frame, 0 end
             if per_frame > 0 and frame_samples >= per_frame then return end
             frame_samples = frame_samples + 1
@@ -65,17 +86,22 @@ if watch_path then
                 table.concat(values, " "))
             if registers then
                 local values = {}
-                for _, name in ipairs({"AF", "BC", "DE", "HL", "IX", "IY", "SP"}) do
+                for _, name in ipairs({"AF", "BC", "DE", "HL", "IX", "IY", "SP", "BBR", "CBR", "CBAR", "IFF1", "IFF2", "IM", "ITC", "IL"}) do
                     local reg = cpu.state[name]
                     if reg then values[#values + 1] = string.format("%s:%04X", name, reg.value) end
                 end
                 output:write("\t", table.concat(values, " "))
             end
-            output:write("\n")
+            output:write("\t", string.format("%02X", data), "\n")
             output:flush()
             reading = false
-            -- No return value: do not modify the hardware read.
-        end)
+            -- No return value: do not modify the bus transaction.
+        end
+        if label:match("^write:") then
+            taps[#taps + 1] = space:install_write_tap(location, location, label, callback)
+        else
+            taps[#taps + 1] = space:install_read_tap(location, location, label, callback)
+        end
     end
     input:close()
     coinline_graphic_watch_stop = emu.add_machine_stop_notifier(function()
@@ -171,6 +197,12 @@ local function execute(line)
         if ((security:read() & 4) ~= 0) ~= (arg == "open") then pulse(assert(security:field(4)), frame + 3) end
         next_frame = frame + 30
         log("input", "vault " .. arg)
+    elseif action == "datajack" then
+        assert(data_jack and os.getenv("COINLINE_DATA_JACK_PROFILE"), "data-jack profile is not enabled")
+        local mask = assert(({plug=1, unplug=1, seize=2, release=2})[arg])
+        schedule(frame + 3, assert(data_jack:field(mask)), (arg == "plug" or arg == "seize") and 1 or 0)
+        next_frame = frame + 30
+        log("input", "datajack " .. arg)
     elseif action == "soft" then
         local position = assert(tonumber(arg))
         assert(position >= 1 and position <= 12 and position % 1 == 0)
@@ -181,6 +213,10 @@ local function execute(line)
         local frames = assert(tonumber(arg))
         assert(frames >= 0 and frames % 1 == 0)
         next_frame = frame + frames
+    elseif action == "watch" then
+        assert(watch_path and watch_manual and (arg == "on" or arg == "off"), "manual read watch is not configured")
+        watch_enabled = arg == "on"
+        log("diagnostic", "watch " .. arg)
     elseif action == "snapshot" then
         assert(arg:match("^[%w_-]+$"), "invalid snapshot name")
         screen:snapshot(arg .. ".png")
@@ -198,6 +234,15 @@ if offline_line then offline_line:field(1):set_value(1) end
 if os.getenv("COINLINE_GRAPHIC_OPEN") == "1" then cabinet(true) end
 emu.register_frame_done(function()
     frame = frame + 1
+    if cpu_sample_file and frame <= 2000 then
+        local values = {}
+        for _, name in ipairs({"PC", "AF", "BC", "DE", "HL", "IX", "IY", "SP", "BBR", "CBR", "CBAR", "IFF1", "IFF2", "IM", "ITC", "IL"}) do
+            local reg = cpu_sample_device.state[name]
+            if reg then values[#values + 1] = string.format("%s:%04X", name, reg.value) end
+        end
+        cpu_sample_file:write(frame, "\t", table.concat(values, " "), "\n")
+        cpu_sample_file:flush()
+    end
     if pending[frame] then
         for _, event in ipairs(pending[frame]) do
             if event[2] == 1 then event[1]:set_value(1) else event[1]:clear_value() end
