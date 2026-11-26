@@ -96,7 +96,9 @@ private:
 	std::string m_dialed{};
 	double m_last_digit_sec = -1.0;
 	bool m_ncc_up = false;
-	bool m_ncc_attempted = false;
+	// A completed TCP handshake consumes this dial attempt, even if the
+	// peer subsequently hangs up. Initial connect failures remain retryable.
+	bool m_ncc_connected_this_dial = false;
 	double m_ncc_retry_after = 0.0;
 	std::intptr_t m_ncc_sock = -1;
 	std::vector<std::uint8_t> m_ncc_rx{};

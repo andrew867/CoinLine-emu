@@ -140,11 +140,31 @@ int main()
 	// not advertise an established NCC transport or carrier.
 	millennium_modem_model modem;
 	dial(modem);
-	modem.poll_ncc_link(12.0);
 	if (modem.ncc_link_up() || modem.dcd())
 		return fail("refused connection counted as connected");
 	if (::listen(server.value, 2) != 0)
 		return fail("loopback listen failed");
+	// The peer becomes available while the same dial and R1 seize remain
+	// active. Refusal must not permanently suppress the retry timer.
+	modem.poll_ncc_link(3.5);
+	if (modem.ncc_link_up() || modem.dcd() || readable(server))
+		return fail("refused connection retried before its deadline");
+	modem.poll_ncc_link(4.01);
+	{
+		socket_handle peer;
+		if (!modem.ncc_link_up() || modem.dcd() || !accept_local(server, peer))
+			return fail("refused connection did not retry after its deadline");
+		modem.poll_ncc_link(9.02);
+		if (!modem.dcd())
+			return fail("retried TCP connection did not establish normal carrier");
+		peer.close_socket();
+		if (!wait_for_loss(modem))
+			return fail("retried connection did not report peer closure");
+		modem.poll_ncc_link(15.0);
+		if (modem.ncc_link_up() || modem.dcd() || readable(server))
+			return fail("established call silently reconnected after peer closure");
+		modem.note_modem_relay(false, 16.0);
+	}
 
 	for (bool reset_peer : {false, true}) {
 		dial(modem);
@@ -199,6 +219,22 @@ int main()
 			return fail(reset_peer ? "hard receive error did not drop carrier" : "EOF did not drop carrier");
 		modem.note_modem_relay(false, 10.0);
 	}
-	std::cout << "NCC TCP refused connect, would-block, EOF and reset passed\n";
+	// Releasing the physical relay must cancel a pending refused-connect
+	// retry, even if the previously unavailable peer comes up afterward.
+	socket_handle canceled_server;
+	unsigned const canceled_port = bind_local(canceled_server);
+	if (!canceled_port)
+		return fail("canceled retry loopback bind failed");
+	configure("COINLINE_NCC_PORT", std::to_string(canceled_port));
+	dial(modem);
+	if (modem.ncc_link_up() || modem.dcd())
+		return fail("second refused connection counted as connected");
+	modem.note_modem_relay(false, 3.5);
+	if (::listen(canceled_server.value, 2) != 0)
+		return fail("canceled retry loopback listen failed");
+	modem.poll_ncc_link(5.0);
+	if (modem.ncc_link_up() || modem.dcd() || readable(canceled_server))
+		return fail("relay release did not cancel pending connect retry");
+	std::cout << "NCC TCP refused connect, timed retry, no silent redial, would-block, EOF and reset passed\n";
 	return 0;
 }
