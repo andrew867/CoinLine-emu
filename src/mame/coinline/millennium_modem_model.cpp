@@ -163,7 +163,7 @@ void millennium_modem_model::reset()
 	m_dialed.clear();
 	m_last_digit_sec = -1.0;
 	m_ncc_up = false;
-	m_ncc_attempted = false;
+	m_ncc_connected_this_dial = false;
 	m_ncc_retry_after = 0.0;
 	m_ncc_rx.clear();
 	m_ncc_tx_pending.clear();
@@ -642,7 +642,7 @@ void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 	m_r1 = r1_active;
 	m_dialed.clear();
 	m_last_digit_sec = -1.0;
-	m_ncc_attempted = false;
+	m_ncc_connected_this_dial = false;
 	m_ncc_retry_after = 0.0;
 	m_dcd = false;
 	m_code_training = false;
@@ -762,7 +762,7 @@ void millennium_modem_model::note_outpulse_digit(char digit, double now_sec)
 		m_state = millennium_modem_state::dialing;
 	if (digit == '#') {
 		if (!m_ncc_up) {
-			m_ncc_attempted = false;
+			m_ncc_connected_this_dial = false;
 			m_ncc_retry_after = 0.0;
 			ncc_connect_dialed(now_sec);
 		}
@@ -785,9 +785,10 @@ bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port,
 {
 	if (m_ncc_up)
 		return true;
-	if (m_ncc_attempted && now_sec < m_ncc_retry_after)
+	if (m_ncc_connected_this_dial || now_sec < m_ncc_retry_after)
 		return false;
-	m_ncc_attempted = true;
+	// Rate-limit failed TCP attempts while the modem relay stays seized.
+	// A refusal is not an established call and must not consume the dial.
 	m_ncc_retry_after = now_sec + 1.0;
 	if (!ncc_net_init())
 		return false;
@@ -868,6 +869,7 @@ bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port,
 	m_ncc_sock = s;
 #endif
 	m_ncc_up = true;
+	m_ncc_connected_this_dial = true;
 	m_ncc_connected_at = now_sec;
 	m_code_training = code_server;
 	// Both routes are transparent; only guest serial TX can submit data.
@@ -884,7 +886,7 @@ bool millennium_modem_model::ncc_connect_host(std::uint32_t host, unsigned port,
 
 bool millennium_modem_model::ncc_connect_dialed(double now_sec)
 {
-	if (m_ncc_up || m_ncc_attempted)
+	if (m_ncc_up || m_ncc_connected_this_dial)
 		return m_ncc_up;
 	if (now_sec < m_ncc_retry_after)
 		return false;
@@ -909,7 +911,8 @@ void millennium_modem_model::poll_ncc_link(double now_sec)
 	if (m_call_trace)
 		m_call_trace_poll_sec = now_sec;
 	poll_call_progress(now_sec);
-	if (m_r1 && !m_ncc_up && !m_ncc_attempted && m_last_digit_sec >= 0.0 && (now_sec - m_last_digit_sec) >= 1.2
+	if (m_r1 && !m_ncc_up && !m_ncc_connected_this_dial && now_sec >= m_ncc_retry_after
+		&& m_last_digit_sec >= 0.0 && (now_sec - m_last_digit_sec) >= 1.2
 		&& m_dialed.size() == 10)
 		ncc_connect_dialed(now_sec);
 	if (!m_ncc_up || m_ncc_sock < 0)
