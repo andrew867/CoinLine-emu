@@ -41,5 +41,10 @@ Copy data/oem/nvram between packages to carry forward an installed terminal.
 Each run saves a display snapshot and logs under data/oem/logs. Use --headless
 --seconds 18 for a bounded boot check and --record for a local handset recording.
 
+The launcher allows automatic artwork frame skipping up to 11; use
+--max-frameskip 4 if you prefer more redraws. --audio-buffer-ms sets the
+host speaker buffer target where supported by the operating system's MAME
+audio backend. The Windows scheduling preference does not apply on POSIX.
+
 Repository releases provide a matching source archive for this package.
 License notices are in licenses/. SHA256SUMS.txt lists the packaged file hashes.

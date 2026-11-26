@@ -29,7 +29,7 @@ ASYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-async-contact-atr-lab.json"
 def config_for_run(profile):
     config = configparser.ConfigParser(interpolation=None)
     config.read(ROOT / PROFILES[profile][0], encoding="utf-8-sig")
-    for section in ("line", "sip", "hardware", "cards", "adsi", "display"):
+    for section in ("line", "sip", "hardware", "cards", "adsi", "display", "audio", "performance"):
         if section not in config:
             config.add_section(section)
     return config
@@ -47,6 +47,26 @@ def window_settings(args, config):
     if maximize:
         return None, True
     return f"{round(360 * scale)}x{round(850 * scale)}", scale != 1.0
+
+
+def performance_settings(args, config):
+    # MAME's output latency is independent of the terminal's analogue sample
+    # clock, UART timing and CO/RTP playout. Automatic frame skipping sheds
+    # artwork work first; no fixed frame skip or emulation speed change.
+    buffer_ms = getattr(args, "audio_buffer_ms", None)
+    if buffer_ms is None:
+        buffer_ms = config["audio"].getint("playback_buffer_ms", 240)
+    max_skip = getattr(args, "max_frameskip", None)
+    if max_skip is None:
+        max_skip = config["display"].getint("max_frameskip", 11)
+    priority = getattr(args, "host_priority", None) or config["performance"].get("host_priority", "above-normal").strip()
+    if not 40 <= buffer_ms <= 500:
+        raise ValueError("Set playback_buffer_ms or --audio-buffer-ms between 40 and 500.")
+    if not 0 <= max_skip <= 11:
+        raise ValueError("Set max_frameskip or --max-frameskip between 0 and 11.")
+    if priority not in ("normal", "above-normal"):
+        raise ValueError("Set host_priority to normal or above-normal.")
+    return buffer_ms, max_skip, priority
 
 
 def check_files(program, rompath, display):
@@ -239,6 +259,7 @@ def run(args, config, hardware):
     state, rompath, hardware_env, description = hardware
     graphical = hardware_env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
     resolution, maximize = window_settings(args, config)
+    buffer_ms, max_skip, priority = performance_settings(args, config)
     port = config["line"].getint("ncc_port", 4000)
     digits = config["line"].get("outbound_digits", "18005551212").strip()
     sip = config["sip"]
@@ -329,7 +350,8 @@ def run(args, config, hardware):
             cmd += ["-view", "Graphical"]
         # Software artwork rendering must be allowed to shed display work
         # rather than slow the physical terminal or audio clock.
-        cmd += ["-window", "-maximize" if maximize else "-nomaximize", "-autoframeskip", "-frameskip", "11" if args.video == "gdi" else "4", "-audio_latency", "6"]
+        cmd += ["-window", "-maximize" if maximize else "-nomaximize", "-autoframeskip", "-frameskip", str(max_skip),
+                "-audio_latency", f"{buffer_ms / 20:g}"]
         if WINDOWS and resolution is not None:
             cmd += ["-resolution", resolution]
     if args.seconds:
@@ -337,14 +359,19 @@ def run(args, config, hardware):
     if args.record:
         cmd += ["-wavwrite", str(run_dir / "handset.wav")]
 
+    # A bounded scheduling preference, not high or real-time priority. Give
+    # the local CO and audio/render worker threads the same Windows preference.
+    scheduling_flags = subprocess.ABOVE_NORMAL_PRIORITY_CLASS if WINDOWS and priority == "above-normal" else 0
+    office_flags = scheduling_flags | (subprocess.CREATE_NO_WINDOW if WINDOWS else 0)
     with (run_dir / "central-office.log").open("wb") as office_log, (run_dir / "emulator.log").open("wb") as mame_log:
         office = subprocess.Popen([sys.executable, "-u", str(ROOT / "app/central_office.py")], cwd=ROOT, env=env,
                                   stdout=office_log, stderr=subprocess.STDOUT,
-                                  creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0)
+                                  creationflags=office_flags)
         try:
             print(f"{args.profile.upper()} emulator, {mode.upper()} calling, hardware {description}. Run logs: {run_dir}",
                   flush=True)
-            result = subprocess.run(cmd, cwd=ROOT, env=env, stdout=mame_log, stderr=subprocess.STDOUT)
+            result = subprocess.run(cmd, cwd=ROOT, env=env, stdout=mame_log, stderr=subprocess.STDOUT,
+                                    creationflags=scheduling_flags)
         finally:
             stop_office(office)
     if result.returncode:
@@ -389,6 +416,9 @@ def main():
     parser.add_argument("--seconds", type=int, metavar="N", help="exit after N emulated seconds")
     parser.add_argument("--scale", type=float, help="initial Windows window size multiplier (0.5 to 4.0)")
     parser.add_argument("--maximize", action="store_true", default=None, help="start with the emulator window maximized")
+    parser.add_argument("--audio-buffer-ms", type=int, help="host speaker buffer target (40 to 500 ms)")
+    parser.add_argument("--max-frameskip", type=int, help="maximum automatic renderer frame skip (0 to 11)")
+    parser.add_argument("--host-priority", choices=("normal", "above-normal"), help="Windows scheduling preference")
     if WINDOWS:
         parser.add_argument("--video", choices=("gdi", "d3d", "opengl"), default="opengl", help="OpenGL by default; use gdi for software rendering")
     else:

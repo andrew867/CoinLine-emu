@@ -29,6 +29,25 @@ def test_independent_profile_config_and_sip_ports(tmp_path, monkeypatch):
     assert int(oem["COINLINE_SIP_RTP_PORT_HIGH"]) < int(graphical["COINLINE_SIP_RTP_PORT_LOW"])
 
 
+def test_host_playback_and_scheduling_settings(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    config = launcher.config_for_run("graphical")
+    args = SimpleNamespace(audio_buffer_ms=None, max_frameskip=None, host_priority=None)
+    assert launcher.performance_settings(args, config) == (240, 11, "above-normal")
+    config["audio"]["playback_buffer_ms"] = "120"
+    config["display"]["max_frameskip"] = "4"
+    config["performance"]["host_priority"] = "normal"
+    assert launcher.performance_settings(args, config) == (120, 4, "normal")
+    args.audio_buffer_ms, args.max_frameskip, args.host_priority = 300, 8, "above-normal"
+    assert launcher.performance_settings(args, config) == (300, 8, "above-normal")
+    with pytest.raises(ValueError, match="playback_buffer_ms"):
+        launcher.performance_settings(SimpleNamespace(audio_buffer_ms=0), config)
+    with pytest.raises(ValueError, match="max_frameskip"):
+        launcher.performance_settings(SimpleNamespace(max_frameskip=12), config)
+    with pytest.raises(ValueError, match="host_priority"):
+        launcher.performance_settings(SimpleNamespace(host_priority="realtime"), config)
+
+
 def test_windows_scale_and_maximize_options(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     (tmp_path / "coinline-graphical.ini").write_text("[display]\nwindow_scale=2\nwindow_maximized=false\n", encoding="utf-8")

@@ -14,6 +14,7 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 - [Independent simulated-value purse](docs/lab-purse.md) for the local nonredeemable ledger, separate from native card authorization.
 - [Interactive and audio milestone status](docs/status/interactive-audio-milestone-status.md) for the native New Call relay and SIP-dialog restart check.
 - [Windows window and artwork timing](docs/status/windows-window-timing-2026-11-25.md) for nonmodal window moves/resizes and native renderer measurements.
+- [Host audio reliability and runtime audit](docs/status/host-audio-reliability-2026-11-26.md) for measured CPU headroom, speaker underruns, persistence and remaining Voiceware tone coverage.
 - [Connected DTMF and ADSI navigation qualification](docs/status/connected-dtmf-adsi-welcome-2026-11-25.md) for live menu navigation and SIP transport verification.
 - [Firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) for the tested terminal families, archive hashes and outstanding gates.
 - [Automated INSTALL runner](tools/acceptance/README.md) for cold installation, hardware selection and restart testing.
