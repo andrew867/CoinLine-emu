@@ -162,3 +162,10 @@ model and an orderly emulator shutdown during a busy operation. A real
 power failure can produce partial physical corruption, which this model
 does not claim to reproduce. The original firmware's recovery logic after
 an interrupted code-server transfer has not yet been exercised.
+
+The interrupted, cold and warm native probes all passed on the subsequent
+coin/cashbox build as well, with no saved seed changes during the interrupted
+phase. Evidence: `build/firmware-acceptance/flash-bus-probe/20261126T024018.964188Z/`.
+Live qualification still requires an isolated NCC assignment and code-server
+listener, an approved compatible target image, and observation of the
+firmware-initiated transfer, resulting flash state and actual reboot.
