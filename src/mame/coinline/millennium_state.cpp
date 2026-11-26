@@ -487,6 +487,7 @@ millennium_state::millennium_state(machine_config const &mconfig, device_type ty
 	, m_telephony(*this, "telephony")
 	, m_cardui(*this, "CARDUI")
 	, m_coinui(*this, "COINUI")
+	, m_cashboxui(*this, "CASHBOXUI")
 	, m_keymatrix_io(*this, "KEYMATRIX")
 	, m_secmask_io(*this, "SECMASK")
 	, m_linectrl_io(*this, "LINECTRL")
@@ -6035,7 +6036,8 @@ u8 millennium_state::mach_pio_r(offs_t offset)
 	u8 r;
 	if (offset == 0) {
 		// Port 0xC0: latch + cash-box status bits.
-		r = millennium_mach_pio_combine_port_h_read(base, 0);
+		r = millennium_mach_pio_combine_port_h_read(base, 0,
+			(m_security->read(cy) & 0x04U) != 0U, (m_cashboxui->read() & 1U) != 0U);
 		r = m_smartcard->merge_data_pin(r, 0x02U, cy);
 		emit_io_trace_line("mach_pio_port_h", u16(0xc0), 'r', r);
 	}
@@ -6168,6 +6170,8 @@ void millennium_state::clock_magstripe()
 
 void millennium_state::poll_coin_ui()
 {
+	u32 const box = m_cashboxui->read();
+	m_coin->set_cashbox_state(!(box & 1U), (box & 2U) != 0U);
 	u32 const v = m_coinui->read();
 	u32 const rise = v & ~m_coin_ui_last;
 	m_coin_ui_last = v;
@@ -6313,6 +6317,8 @@ u8 millennium_state::catch_all_io_r(offs_t offset)
 				r = static_cast<u8>(r & static_cast<u8>(~0x20U));
 			if ((sec & 0x04U) != 0U)
 				r = static_cast<u8>(r & static_cast<u8>(~0x40U));
+			if (m_cashboxui->read() & 1U)
+				r = static_cast<u8>(r & static_cast<u8>(~0x80U));
 			r |= card_reader_signals();
 			emit_io_trace_line("status_port", 0x80, 'r', r);
 			return r;
@@ -7393,6 +7399,12 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 			machine().output().set_value("panel_housing_open", BIT(security, 1));
 			machine().output().set_value("panel_lock_open", BIT(security, 0));
 			machine().output().set_value("panel_vault_open", BIT(security, 2));
+		}
+		u8 const cashbox = m_cashboxui->read() & 3U;
+		if (cashbox != m_panel_cashbox_state) {
+			m_panel_cashbox_state = cashbox;
+			machine().output().set_value("panel_cashbox_removed", BIT(cashbox, 0));
+			machine().output().set_value("panel_cashbox_full", BIT(cashbox, 1));
 		}
 		u64 const cy = m_maincpu->total_cycles();
 		u64 const hz = static_cast<u64>(m_maincpu->unscaled_clock());

@@ -30,6 +30,17 @@ Actual application-triggered forgotten-card delay, cancellation, ring
 interaction and physical acoustic calibration remain separate acceptance
 gates; the synthetic CPU probe does not claim them.
 
+The distinct short-warning cadence also passed a native synthetic CPU
+probe: three selected bursts of approximately 30.057 ms, alternating
+with three muted intervals of approximately 40.076 ms, then restoration
+of the ring source. Actual GPIO frequency was about 1,000.977 Hz; audible
+phases had nonzero RMS and all muted phases had zero RMS. Evidence:
+`build/firmware-acceptance/enclosure-alarm-probe/20261126T022529.239370Z/`.
+The ordinary 700 Hz source/gate probe passed again in
+`20261126T022536.378037Z/`. These are physical output-path tests; they do
+not fabricate a qualifying card or claim a native application-triggered
+reminder occurred.
+
 ## External data jack
 
 - A later-board opt-in hardware monitor models external connector presence

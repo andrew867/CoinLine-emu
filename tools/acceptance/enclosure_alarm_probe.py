@@ -35,6 +35,50 @@ def program():
     return code
 
 
+def burst_program():
+    """Synthetic 1 kHz short-warning profile, distinct from the reminder."""
+    code = bytearray(b"\xf3\x01\xc3\x00")
+    for base, pairs in ((0, 200),) + ((4, 30), (12, 40)) * 3:
+        code.extend((0x11, pairs, 0))
+        at = len(code)
+        for value in (base | 2, base):
+            code.extend((0x3e, value, 0xed, 0x79))
+            code.extend(b"\x21\xae\x00\x2b\x7c\xb5\x20\xfb")
+        code.extend((0x1b, 0x7a, 0xb3, 0x20, (at - len(code) - 5) & 0xff))
+    code.extend(b"\x3e\x00\xed\x79\x76\x18\xfd")
+    return code
+
+
+def analyze_burst(out):
+    rows = [json.loads(line) for line in (out / "gpio.jsonl").read_text().splitlines()]
+    groups = []
+    for row in rows:
+        if row.get("port") != "0x00C3": continue
+        base = int(row["value"], 16) & 12
+        if not groups or groups[-1][0] != base: groups.append((base, []))
+        groups[-1][1].append(row["timestamp_emulated_ns"] / 1e9)
+    if [g[0] for g in groups] != [0, 4, 12, 4, 12, 4, 12, 0]:
+        raise RuntimeError("Short warning did not alternate three times and restore the ring source")
+    with wave.open(str(out / "enclosure.wav"), "rb") as wav:
+        rate, channels = wav.getframerate(), wav.getnchannels()
+        if wav.getsampwidth() != 2: raise RuntimeError("Expected native 16-bit output")
+        data = list(struct.iter_unpack("<" + "h" * channels, wav.readframes(wav.getnframes())))
+    result = []
+    for index, (base, times) in enumerate(groups[1:-1], start=1):
+        duration = groups[index + 1][1][0] - times[0]
+        frequency = 1 / (2 * statistics.median(b - a for a, b in zip(times, times[1:])))
+        segment = data[round((times[0] + .004) * rate):round((groups[index+1][1][0] - .004) * rate)]
+        rms = max(math.sqrt(sum(v*v for v in channel) / len(channel)) for channel in zip(*segment))
+        if abs(duration - (.030 if base == 4 else .040)) > .005 or not 900 <= frequency <= 1100:
+            raise RuntimeError(f"Short warning timing outside synthetic fixture bound: {duration}, {frequency}")
+        result.append({"selector_gate": base, "duration_ms": duration * 1000, "gpio_hz": frequency, "rms": rms})
+    audible = min(r["rms"] for r in result if r["selector_gate"] == 4)
+    if audible < 100 or any(r["rms"] > max(10, audible / 10) for r in result if r["selector_gate"] == 12):
+        raise RuntimeError(f"Short warning audible/muted phases not isolated: {result}")
+    (out / "result.json").write_text(json.dumps({"phases": result, "source_restored": True}, indent=2))
+    print(json.dumps({"phases": result}, indent=2))
+
+
 def analyze(out):
     rows = [json.loads(line) for line in (out / "gpio.jsonl").read_text().splitlines()]
     rows = [row for row in rows if row.get("port") == "0x00C3"]
@@ -79,13 +123,14 @@ def main():
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/enclosure-alarm-probe")
+    parser.add_argument("--short-warning", action="store_true", help="synthetic three-burst data-jack warning, not a paid-call test")
     args = parser.parse_args()
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
     print(out, flush=True)
     shutil.copytree(ROOT / "fixtures", out / "fixtures")
     image = bytearray(b"\xff" * 1048576)
-    code = program()
+    code = burst_program() if args.short_warning else program()
     image[0xc0000:0xc0000 + len(code)] = code
     seed = out / "flash.bin"
     seed.write_bytes(image)
@@ -105,7 +150,7 @@ def main():
     (out / "mame.log").write_bytes(result.stdout)
     if result.returncode:
         raise RuntimeError(f"Native enclosure probe failed: {out}")
-    analyze(out)
+    (analyze_burst if args.short_warning else analyze)(out)
 
 
 if __name__ == "__main__":

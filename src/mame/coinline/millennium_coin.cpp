@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "millennium_coin.h"
+#include <algorithm>
+#include <array>
 
 DEFINE_DEVICE_TYPE(MILLENNIUM_COIN, millennium_coin_device, "millennium_coin", "CoinLine Millennium coin validator")
 
 millennium_coin_device::millennium_coin_device(machine_config const &mconfig, char const *tag,
 	device_t *owner, u32 clock)
 	: device_t(mconfig, MILLENNIUM_COIN, tag, owner, clock)
+	, device_nvram_interface(mconfig, *this)
 	, device_buffered_serial_interface(mconfig, *this)
 	, m_txd(*this)
 {
@@ -37,7 +40,7 @@ void millennium_coin_device::apply_config(millennium_coin_board_config const &cf
 bool millennium_coin_device::begin_insert_cents(int cents, std::uint64_t cpu_cycle, std::uint64_t cpu_hz)
 {
 	if (m_model.uart_active()) {
-		auto const code = m_model.uart_insert(cents);
+		auto const code = m_model.uart_insert(cents, machine().time().as_ticks(1000));
 		if (code)
 			transmit_byte(*code);
 		return code.has_value();
@@ -74,4 +77,52 @@ void millennium_coin_device::inject_jam(std::uint64_t cpu_cycle)
 void millennium_coin_device::inject_reject_route(std::uint64_t cpu_cycle)
 {
 	m_model.inject_reject_route(cpu_cycle);
+}
+
+void millennium_coin_device::set_cashbox_state(bool present, bool full)
+{
+	m_model.advance_uart(machine().time().as_ticks(1000));
+	m_model.set_cashbox_state(present, full);
+}
+
+namespace {
+constexpr std::array<u8, 8> coin_header{'C','L','C','O','I','N','1',0};
+}
+
+void millennium_coin_device::nvram_default()
+{
+	m_model.restore_contents({});
+}
+
+bool millennium_coin_device::nvram_can_write() const
+{
+	auto const c = m_model.contents();
+	return c.escrow || c.cashbox || c.refunded || c.removed;
+}
+
+bool millennium_coin_device::nvram_read(util::read_stream &file)
+{
+	std::array<u8, 40> bytes{};
+	auto const [error, size] = util::read(file, bytes.data(), bytes.size());
+	if (error || size != bytes.size() || !std::equal(coin_header.begin(), coin_header.end(), bytes.begin())) return false;
+	std::array<u64, 4> counts{};
+	for (unsigned index = 0; index < counts.size(); ++index)
+		for (unsigned octet = 0; octet < 8; ++octet)
+			counts[index] |= u64(bytes[8 + index * 8 + octet]) << (8 * octet);
+	m_model.restore_contents({counts[0], counts[1], counts[2], counts[3]});
+	return true;
+}
+
+bool millennium_coin_device::nvram_write(util::write_stream &file)
+{
+	m_model.advance_uart(machine().time().as_ticks(1000));
+	auto const c = m_model.contents();
+	std::array<u64, 4> counts{c.escrow, c.cashbox, c.refunded, c.removed};
+	std::array<u8, 40> bytes{};
+	std::copy(coin_header.begin(), coin_header.end(), bytes.begin());
+	for (unsigned index = 0; index < counts.size(); ++index)
+		for (unsigned octet = 0; octet < 8; ++octet)
+			bytes[8 + index * 8 + octet] = u8(counts[index] >> (8 * octet));
+	auto const [error, size] = util::write(file, bytes.data(), bytes.size());
+	return !error && size == bytes.size();
 }

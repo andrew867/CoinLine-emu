@@ -160,6 +160,20 @@ copyright-holders:CoinLine contributors
 			<color red="1.00" green="0.78" blue="0.46" />
 		</text>
 	</element>
+	<element name="indicator_cashbox" defstate="0">
+		<text string="Cash box" align="1"><bounds x="0.03" y="0.12" width="0.39" height="0.76" /><color red="0.85" green="0.89" blue="0.94" /></text>
+		<disk state="0"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="0.25" green="0.93" blue="0.54" /></disk>
+		<disk state="1"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="1.00" green="0.62" blue="0.18" /></disk>
+		<text state="0" string="Present" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="0.63" green="0.94" blue="0.74" /></text>
+		<text state="1" string="Removed" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="1.00" green="0.78" blue="0.46" /></text>
+	</element>
+	<element name="indicator_cashbox_full" defstate="0">
+		<text string="Full sensor" align="1"><bounds x="0.03" y="0.12" width="0.39" height="0.76" /><color red="0.85" green="0.89" blue="0.94" /></text>
+		<disk state="0"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="0.25" green="0.93" blue="0.54" /></disk>
+		<disk state="1"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="1.00" green="0.62" blue="0.18" /></disk>
+		<text state="0" string="Clear" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="0.63" green="0.94" blue="0.74" /></text>
+		<text state="1" string="Full" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="1.00" green="0.78" blue="0.46" /></text>
+	</element>
 	<element name="graphic_bezel">
 		<rect><color red="0.11" green="0.14" blue="0.15" /></rect>
 		<rect><bounds x="0.012" y="0.018" width="0.976" height="0.964" /><color red="0.018" green="0.035" blue="0.037" /></rect>
@@ -296,7 +310,7 @@ copyright-holders:CoinLine contributors
 		</element>
 
 		<element ref="indicator_panel">
-			<bounds left="162" top="1232" right="442" bottom="1366" />
+			<bounds left="162" top="1232" right="442" bottom="1440" />
 		</element>
 		<element ref="indicator_housing" name="panel_housing_open" inputtag="SECMASK" inputmask="0x02">
 			<bounds left="173" top="1243" right="431" bottom="1280" />
@@ -307,6 +321,8 @@ copyright-holders:CoinLine contributors
 		<element ref="indicator_vault" name="panel_vault_open" inputtag="SECMASK" inputmask="0x04">
 			<bounds left="173" top="1317" right="431" bottom="1354" />
 		</element>
+		<element ref="indicator_cashbox" name="panel_cashbox_removed" inputtag="CASHBOXUI" inputmask="0x01"><bounds left="173" top="1354" right="431" bottom="1391" /></element>
+		<element ref="indicator_cashbox_full" name="panel_cashbox_full" inputtag="CASHBOXUI" inputmask="0x02"><bounds left="173" top="1391" right="431" bottom="1428" /></element>
 	</view>
 	<view name="Graphical">
 		<element ref="front">
@@ -436,7 +452,7 @@ copyright-holders:CoinLine contributors
 		</element>
 
 		<element ref="indicator_panel">
-			<bounds left="162" top="1232" right="442" bottom="1366" />
+			<bounds left="162" top="1232" right="442" bottom="1440" />
 		</element>
 		<element ref="indicator_housing" name="panel_housing_open" inputtag="SECMASK" inputmask="0x02">
 			<bounds left="173" top="1243" right="431" bottom="1280" />
@@ -447,5 +463,7 @@ copyright-holders:CoinLine contributors
 		<element ref="indicator_vault" name="panel_vault_open" inputtag="SECMASK" inputmask="0x04">
 			<bounds left="173" top="1317" right="431" bottom="1354" />
 		</element>
+		<element ref="indicator_cashbox" name="panel_cashbox_removed" inputtag="CASHBOXUI" inputmask="0x01"><bounds left="173" top="1354" right="431" bottom="1391" /></element>
+		<element ref="indicator_cashbox_full" name="panel_cashbox_full" inputtag="CASHBOXUI" inputmask="0x02"><bounds left="173" top="1391" right="431" bottom="1428" /></element>
 	</view>
 </mamelayout>

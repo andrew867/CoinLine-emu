@@ -104,15 +104,45 @@ int main()
 		return 14;
 	}
 	m.uart_command('f', 100);
-	if (m.escrow_present()) {
-		std::cerr << "validator refund left coins in escrow\n";
+	if (!m.escrow_present() || m.uart_insert(5, 100)) {
+		std::cerr << "validator lost coins or accepted during gate travel\n";
 		return 15;
 	}
 	if (m.uart_command('r', 1100) != std::vector<std::uint8_t>{'B', 0, 0x08} ||
-		m.uart_command('r', 2100) != std::vector<std::uint8_t>{'B', 0, 0}) {
+		m.uart_command('r', 2100) != std::vector<std::uint8_t>{'B', 0, 0} || m.escrow_present() || m.contents().refunded != 40) {
 		std::cerr << "validator refund position sensor did not show travel and completion\n";
 		return 16;
 	}
+	m.uart_command('a', 2200);
+	if (m.uart_insert(25, 2200) != '3') return 17;
+	m.uart_command('c', 2201);
+	m.uart_command('c', 2202); // repeated command must not restart gate motion
+	if (m.contents().cashbox || m.contents().escrow != 25 ||
+		m.uart_command('r', 4201) != std::vector<std::uint8_t>{'B', 0, 0} || m.contents().cashbox != 25) return 18;
+	m.set_cashbox_state(true, true);
+	if (m.uart_command('r', 4202) != std::vector<std::uint8_t>{'B', 0, 0x40}) return 19;
+	if (m.uart_insert(10, 4203) != '2') return 20;
+	m.uart_command('c', 4204);
+	if (m.uart_command('r', 6204) != std::vector<std::uint8_t>{'B', 0x02, 0x40} ||
+		m.contents().escrow != 10 || m.contents().cashbox != 25) return 21;
+	m.set_cashbox_state(false, true);
+	if (m.cashbox_present() || m.cashbox_full() || m.contents().removed != 25 || m.contents().cashbox != 0) return 22;
+	m.set_cashbox_state(true, false);
+	m.uart_command('f', 6205);
+	m.advance_uart(8205);
+	if (m.contents().refunded != 50 || m.contents().escrow) return 23;
+	m.uart_command('a', 8206);
+	if (m.uart_insert(5, 8206) != '1') return 24;
+	m.uart_command('c', 8207);
+	m.reset(); // interrupted gate motion retains the actual escrow
+	if (m.contents().escrow != 5 || m.contents().cashbox != 0 || m.contents().removed != 25) return 25;
+	millennium_coin_model restarted;
+	restarted.restore_contents(m.contents());
+	if (restarted.contents().escrow != 5 || restarted.contents().refunded != 50) return 26;
+	m.inject_jam(0);
+	if (m.uart_command('g') != std::vector<std::uint8_t>{'I'} || m.uart_insert(5)) return 27;
+	m.uart_command('l');
+	if (m.uart_command('g') != std::vector<std::uint8_t>{'A'} || m.contents().escrow != 5) return 28;
 
 	std::cout << "coin_validator_protocol_vectors ok\n";
 	return 0;

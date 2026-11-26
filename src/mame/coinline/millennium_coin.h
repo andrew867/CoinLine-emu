@@ -8,7 +8,7 @@
 
 DECLARE_DEVICE_TYPE(MILLENNIUM_COIN, millennium_coin_device)
 
-class millennium_coin_device : public device_t, private device_buffered_serial_interface<16> {
+class millennium_coin_device : public device_t, public device_nvram_interface, private device_buffered_serial_interface<16> {
 public:
 	millennium_coin_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock = 0);
 
@@ -23,6 +23,7 @@ public:
 
 	void inject_jam(std::uint64_t cpu_cycle);
 	void inject_reject_route(std::uint64_t cpu_cycle);
+	void set_cashbox_state(bool present, bool full);
 
 	void set_cpu_hz(std::uint64_t hz) noexcept { m_model.set_cpu_hz(hz); }
 	void rxd_w(int state) { rx_w(state); }
@@ -31,6 +32,10 @@ public:
 	millennium_coin_model &model() noexcept { return m_model; }
 
 private:
+	void nvram_default() override;
+	bool nvram_read(util::read_stream &file) override;
+	bool nvram_write(util::write_stream &file) override;
+	bool nvram_can_write() const override;
 	void received_byte(u8 data) override;
 	void tra_callback() override;
 	devcb_write_line m_txd;

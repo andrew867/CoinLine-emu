@@ -14,7 +14,15 @@ Generate coin events the firmware reads as accepted denominations; produce error
 | Status port | Reports validator state: ready, jam, escrow level, return acknowledged. |
 | Control port | Allows firmware to disable the validator, accept pending coins, or reject pending coins. |
 
-For SKUs with serial coin-mech protocol, the pulse interface is replaced by a serial port carrying frames documented in the firmware evidence inventory.
+For SKUs with serial coin-mech protocol, the pulse interface is replaced by a serial port carrying frames documented in [`internal/coin-validator-source-map.md`](internal/coin-validator-source-map.md).
+
+The active serial pin path qualifies wake, acceptance windows, denomination
+slot bytes, collect/refund gate travel and status. The native model retains
+actual synthetic escrow and cashbox contents until movement completes,
+including independent full and removed sensors. Controller reset or
+interrupted gate movement does not silently empty the physical escrow.
+The physical contents persist in a separate device file, not firmware SRAM.
+See [native cashbox qualification](status/coin-cashbox-qualification-2026-11-26.md).
 
 ## State machine
 
@@ -68,3 +76,4 @@ Coin events are injected via the scenario verb `insert_coin`:
 
 - [`../specs/coin-validator-device.spec.md`](../specs/coin-validator-device.spec.md).
 - [`../test-plans/coin-validator-tests.md`](../test-plans/coin-validator-tests.md).
+- [`internal/coin-validator-source-map.md`](internal/coin-validator-source-map.md).

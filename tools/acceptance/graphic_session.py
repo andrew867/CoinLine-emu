@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--hardware", choices=("auto", *PRESETS), default="auto")
     parser.add_argument("--display", choices=("11line", "2line"), default="11line")
     parser.add_argument("--settings", type=Path, help="local lab settings, kept out of reports")
+    parser.add_argument("--actions", type=Path, help="initial local physical-input command file, copied into the isolated run")
     parser.add_argument("--battery", type=Path, help="previous run's complete nvram directory")
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
@@ -36,6 +37,9 @@ def main():
     parser.add_argument("--keypad-trace", action="store_true", help="capture panel inputs and TP command/key transactions without per-edge CSIO logs")
     parser.add_argument("--dtmf-trace", action="store_true", help="trace controller dial-pad tone gating and genuine tone events")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
+    parser.add_argument("--coin-trace", action="store_true", help="capture the later-board validator UART register activity")
+    parser.add_argument("--io-trace", action="store_true", help="capture compact native I/O trace for a bounded diagnostic run")
+    parser.add_argument("--enclosure-trace", action="store_true", help="capture the native enclosure warning latch transitions")
     parser.add_argument("--sam-pin-trace", action="store_true", help="capture bounded internal contact selector and latch transitions")
     parser.add_argument("--board-supervision-trace", action="store_true", help="observe firmware watchdog pulses and telephony power indication")
     supervisor = parser.add_mutually_exclusive_group()
@@ -64,6 +68,8 @@ def main():
         parser.error("Use the dedicated offline CO controls for deterministic PCM tests")
     if args.snapshot_interval < 0:
         parser.error("--snapshot-interval cannot be negative")
+    if args.actions and not args.actions.is_file():
+        parser.error("--actions requires an existing local command file")
     sam_slots = {slot: getattr(args, f"sam_slot{slot}") for slot in range(3) if getattr(args, f"sam_slot{slot}") is not None}
     if any(not path.is_file() for path in sam_slots.values()):
         parser.error("Each configured internal contact fixture must be an existing local file.")
@@ -110,7 +116,10 @@ def main():
     shutil.copyfile(ROOT / "src/mame/layout/millennium.lay", art / "default.lay")
     shutil.copyfile(ROOT / "artwork/millennium-terminal-front.png", art / "millennium-terminal-front.png")
     commands = out / "commands.txt"
-    commands.touch()
+    if args.actions:
+        shutil.copyfile(args.actions, commands)
+    else:
+        commands.touch()
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("COINLINE_")}
     env.update(COINLINE_EMU_ROOT=str(out), COINLINE_MOTHERBOARD="later",
                COINLINE_HARDWARE_PRESET=preset, COINLINE_CARD_DMA_CHANNEL=str(PRESETS[preset].card_dma_channel),
@@ -153,6 +162,12 @@ def main():
         env["COINLINE_GRAPHIC_VFD_TRACE"] = str(out / "bus.jsonl")
     if args.card_trace:
         env["COINLINE_SMART_CARD_TRACE"] = "1"
+    if args.coin_trace:
+        env["COINLINE_EXTERNAL_UART_TRACE"] = str(out / "external-uart.jsonl")
+    if args.io_trace:
+        env["COINLINE_IO_TRACE"] = str(out / "io.jsonl")
+    if args.enclosure_trace:
+        env["COINLINE_ALERTER_TRACE"] = str(out / "enclosure-gpio.jsonl")
     if args.sam_pin_trace:
         env["COINLINE_SAM_PIN_TRACE"] = "1"
     if args.board_supervision_trace or args.board_supervision_test or args.board_power_test:

@@ -9,7 +9,8 @@
 /// and OR in smart-card lines on bits **0–1** (overlap with latch bits — see implementation).
 /// Firmware cash-box **collection** (records, escrow, NMI-guarded updates) is software/NVRAM — not a separate chip.
 /// \p smartcard_lines_low2 uses only bits 0–1.
-std::uint8_t millennium_mach_pio_combine_port_h_read(std::uint8_t shadow, std::uint8_t smartcard_lines_low2);
+std::uint8_t millennium_mach_pio_combine_port_h_read(std::uint8_t shadow, std::uint8_t smartcard_lines_low2,
+	bool cover_open = false, bool box_removed = false);
 
 /// Low 64 KiB flash window on later control boards. The remap latch selects
 /// the bootstrap, either download bank, the upper ROM data bank, or the main application.
