@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -134,11 +135,12 @@ def stage_runtime(bundle, cache, work):
     pth.write_text(pth.read_text(encoding="ascii") + "\nLib/site-packages\n../app\n", encoding="ascii")
 
 
-def stage_files(bundle, mame, rom_input, graphical_rom, windows):
+def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=None):
     sources = {
         "Quick Start.txt": PORTABLE / ("quick-start.txt" if windows else "quick-start-posix.txt"),
         "coinline.example.ini": PORTABLE / "coinline.example.ini",
         "coinline-graphical.example.ini": PORTABLE / "coinline-graphical.example.ini",
+        "adsi-routes.example.ini": PORTABLE / "adsi-routes.example.ini",
         "app/launch.py": PORTABLE / "launch.py",
         "app/hardware.py": PORTABLE / "hardware.py",
         "app/central_office.py": ROOT / "tools/line-jack/central_office.py",
@@ -179,6 +181,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows):
         "docs/status/host-audio-reliability-2026-11-26.md": ROOT / "docs/status/host-audio-reliability-2026-11-26.md",
         "docs/status/voiceware-waveform-2026-11-27.md": ROOT / "docs/status/voiceware-waveform-2026-11-27.md",
         "docs/status/graphical-ad-hook-resume-2026-11-27.md": ROOT / "docs/status/graphical-ad-hook-resume-2026-11-27.md",
+        "docs/status/adsi-direct-lan-routing-2026-11-27.md": ROOT / "docs/status/adsi-direct-lan-routing-2026-11-27.md",
         "docs/Running.md": ROOT / "RUNNING.md",
         "licenses/CoinLine.txt": ROOT / "LICENSE",
         "licenses/MAME.txt": mame / "COPYING",
@@ -187,6 +190,8 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows):
         sources.update({name: rom_input / name for name in PRIVATE_ROMS})
     if graphical_rom:
         sources[GRAPHICAL_ROM] = graphical_rom
+    if adsi_config:
+        sources["adsi-routes.ini"] = adsi_config
     for destination, source in sources.items():
         copy_file(source, bundle / destination)
     for profile, label in (("oem", "OEM"), ("graphical", "Graphical")):
@@ -211,6 +216,15 @@ def pack(args):
                 raise ValueError(f"Supply {name} with exactly {size} bytes under --rom-input.")
     if args.graphical_rom and not args.rom_input:
         raise ValueError("Graphical ROM packaging also requires the local OEM and Voiceware ROM inputs.")
+    if args.adsi_config:
+        if not args.rom_input or os.environ.get("MSYSTEM") != "MINGW64":
+            raise ValueError("A configured ADSI service file belongs only in a local Windows package.")
+        sys.path.insert(0, str(PORTABLE))
+        try:
+            from launch import read_adsi_config, adsi_route_settings
+            adsi_route_settings(SimpleNamespace(adsi=True), read_adsi_config(args.adsi_config))
+        finally:
+            sys.path.pop(0)
     graphical_rom = args.graphical_rom
     if graphical_rom is None and args.rom_input and (args.rom_input / GRAPHICAL_ROM).is_file():
         graphical_rom = args.rom_input / GRAPHICAL_ROM
@@ -242,7 +256,7 @@ def pack(args):
         target = bundle / "bin/coinline-mame"
         copy_file(executable, target)
         target.chmod(0o755)
-    stage_files(bundle, args.mame_root, args.rom_input, graphical_rom, windows)
+    stage_files(bundle, args.mame_root, args.rom_input, graphical_rom, windows, args.adsi_config)
 
     source_pin = args.mame_root / ".coinline-upstream-revision"
     revision = source_pin.read_text(encoding="ascii").strip() if source_pin.is_file() else output(
@@ -251,6 +265,7 @@ def pack(args):
         f"{os_label} {cpu}, OEM and graphical launcher profiles\nNative MAME base revision: {revision}\n"
         f"Local ROM inputs included: {'yes' if args.rom_input else 'no'}\n"
         f"Graphical ROM included: {'yes' if graphical_rom else 'no'}\n"
+        f"Local shared ADSI service configuration included: {'yes' if args.adsi_config else 'no'}\n"
         + ("CPython 3.13.17, pyVoIP 1.6.8, audioop-lts 0.2.2, pylibsrtp 1.0.0\n" if windows
            else "Local CO only. See Quick Start.txt for the system runtime dependencies.\n"),
         encoding="ascii",
@@ -279,12 +294,13 @@ def main():
     parser.add_argument("--mame-exe", type=Path, help="reuse a specific build instead of rebuilding")
     parser.add_argument("--rom-input", type=Path, help="bundle operator-supplied ROMs from the package directory layout")
     parser.add_argument("--graphical-rom", type=Path, help="optional verified graphical ROM to include in the local package")
+    parser.add_argument("--adsi-config", type=Path, help="optional local service-only adsi-routes.ini for both profiles")
     parser.add_argument("--cache", type=Path, default=ROOT / "build/package-cache")
     parser.add_argument("--output", type=Path, default=ROOT / "build/dist")
     args = parser.parse_args()
     if os.environ.get("MSYSTEM") != "MINGW64" and sys.platform not in ("linux", "darwin"):
         parser.error("On Windows, run from MSYS2 MINGW64.")
-    for field in ("mame_root", "mame_exe", "rom_input", "graphical_rom", "cache", "output"):
+    for field in ("mame_root", "mame_exe", "rom_input", "graphical_rom", "adsi_config", "cache", "output"):
         if getattr(args, field) is not None:
             setattr(args, field, getattr(args, field).resolve())
     try:

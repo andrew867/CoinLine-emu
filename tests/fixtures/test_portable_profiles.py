@@ -29,6 +29,32 @@ def test_independent_profile_config_and_sip_ports(tmp_path, monkeypatch):
     assert int(oem["COINLINE_SIP_RTP_PORT_HIGH"]) < int(graphical["COINLINE_SIP_RTP_PORT_LOW"])
 
 
+def test_shared_adsi_routes_preserve_profile_sip_and_validate_exact_mapping(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    (tmp_path / "coinline.ini").write_text("[sip]\nusername=oem\npassword=fixture\n[adsi]\nenabled=false\n", encoding="utf-8")
+    (tmp_path / "coinline-graphical.ini").write_text("[sip]\nusername=graphical\n[adsi]\nenabled=false\n", encoding="utf-8")
+    shared = tmp_path / launcher.ADSI_SHARED_CONFIG
+    shared.write_text("[adsi]\nenabled=true\nhost=10.1.2.3\nport=5070\n[adsi.routes]\n"
+                      "2374=2374,7095550174\n6501=6501,17095550161\n", encoding="utf-8")
+    args = SimpleNamespace(adsi=False)
+    for profile in ("oem", "graphical"):
+        config = launcher.config_for_run(profile)
+        assert config["sip"]["username"] == profile
+        assert launcher.adsi_route_settings(args, config) == [
+            {"digits": ["2374", "7095550174"], "target": "2374", "host": "10.1.2.3", "port": 5070},
+            {"digits": ["6501", "17095550161"], "target": "6501", "host": "10.1.2.3", "port": 5070}]
+    config["adsi.routes"]["6501"] = "2374"
+    with pytest.raises(ValueError, match="unique"):
+        launcher.adsi_route_settings(args, config)
+    config["adsi.routes"]["6501"] = "6501"
+    config["adsi"]["host"] = "8.8.8.8"
+    with pytest.raises(ValueError, match="private IPv4"):
+        launcher.adsi_route_settings(args, config)
+    shared.write_text("[adsi]\nenabled=true\n[sip]\npassword=not-a-service-setting\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="only"):
+        launcher.config_for_run("oem")
+
+
 def test_host_playback_and_scheduling_settings(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     config = launcher.config_for_run("graphical")

@@ -126,6 +126,43 @@ class LoopbackPeer:
 
 @unittest.skipIf(pyVoIP is None, "optional SIP runtime is not installed")
 class ConnectedDtmfLoopbackTest(unittest.TestCase):
+    def test_direct_service_invite_no_registration_and_pcmu(self):
+        peer = LoopbackPeer(send_audio=True)
+        pcm = office.PcmBridge()
+        route = office.LocalVoiceRoute(("6501", "7095550161"), "6501", peer.port)
+        side = office.SipSide(pcm, direct=route)
+        try:
+            side.start()
+            side.dial(route.target)
+            method, headers, body = peer.requests.get(timeout=5)
+            self.assertEqual(method, b"INVITE")  # direct service has no REGISTER/Digest exchange
+            self.assertIn(b"sip:6501@", headers[b"to"])
+            self.assertRegex(body, rb"(?m)^m=audio \d+ RTP/AVP 0\r$")
+            self.assertNotIn(b"telephone-event", body)
+            peer.wait_request(b"ACK")
+            until = time.monotonic() + 2
+            while not side.answered() and time.monotonic() < until:
+                time.sleep(.01)
+            self.assertTrue(side.answered())
+            self.assertEqual(side.send_dtmf("A"), "inband")
+            heard, received = False, False
+            until = time.monotonic() + 2
+            while time.monotonic() < until and not (heard and received):
+                try:
+                    packet, source = peer.rtp.recvfrom(4096)
+                    decoded = office.pcmu_rtp_payload(packet)
+                    if decoded and any(abs(office.mulaw_decode(v)) > 100 for v in decoded[1]):
+                        heard = True
+                except socket.timeout:
+                    pass
+                received = received or any(abs(v) > 100 for v in pcm.take_to_phone_i16(160))
+            self.assertTrue(heard and received)
+            side.hangup()
+            peer.wait_request(b"BYE")
+        finally:
+            side.stop()
+            peer.close()
+
     def run_dialog(self, telephone_event, info, verify):
         peer = LoopbackPeer(telephone_event, info)
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:

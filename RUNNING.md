@@ -114,12 +114,16 @@ visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
 passed on the later Multi-pay board; funded chip-card applications and
 several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
-and [firmware results catalog](../docs/uat/firmware-acceptance-catalog.md).
+and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
 
-An optional graphical voice-service route is available with `--adsi`. Set
-the exact local aliases, target and UDP port under `[adsi]` in `coinline.ini`.
-The corresponding terminal tables must permit the aliases. This route is
-loopback only and has no external SIP fallback. See the
+Optional InfoLine voice-service routes are available with `--adsi`. Set
+the private IPv4 host and UDP port in `[adsi]` and the exact extension-to-alias
+mapping in `[adsi.routes]`. A shared `adsi-routes.ini` (copy the example) can
+configure both portable profiles without altering their normal SIP accounts.
+Legacy single-target settings remain supported. The corresponding terminal
+tables must permit the aliases, preferably with exact no-payment rules.
+Direct routes support loopback or a private LAN endpoint and have no
+external SIP fallback. See the
 [CO bridge instructions](tools/line-jack/README.md#local-adsi-service).
 Live firmware sent real A and D1 tones, decoded the service's FSK CONNECT
 and welcome frame within the deadlines, and displayed the native welcome
