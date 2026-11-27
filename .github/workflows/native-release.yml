@@ -151,6 +151,9 @@ jobs:
           package=(artifacts/*-work/'CoinLine Emulator')
           if [[ "$RUNNER_OS" == macOS ]]; then
             lipo "${package[0]}/bin/coinline-mame" -verify_arch arm64
+            otool -P "${package[0]}/bin/coinline-mame" > "$RUNNER_TEMP/coinline-plist.txt"
+            grep -F '<key>NSMicrophoneUsageDescription</key>' "$RUNNER_TEMP/coinline-plist.txt"
+            grep -F '<string>CoinLine uses the microphone as the simulated telephone handset input.</string>' "$RUNNER_TEMP/coinline-plist.txt"
           fi
           "${package[0]}/bin/coinline-mame" -listfull cl_millennium | grep cl_millennium
           "${package[0]}/start-oem.sh" --help

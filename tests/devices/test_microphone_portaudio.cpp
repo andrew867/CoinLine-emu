@@ -36,6 +36,10 @@ bool unavailable()
 
 int main()
 {
+	setenv("COINLINE_MIC_DISABLED", "1", 1);
+	if (!unavailable())
+		return 8;
+	unsetenv("COINLINE_MIC_DISABLED");
 	unsetenv("COINLINE_MIC_INPUT");
 	unsetenv("COINLINE_PA_FIXTURE_NO_INPUT");
 	if (!captured_voice()) {

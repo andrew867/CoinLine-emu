@@ -188,7 +188,7 @@ then explicitly supported legacy SIP INFO, otherwise in-band G.711 tones.
 Set `dtmf_mode = inband` or `info` only if the peer requires that alternative.
 The exact local ADSI route always uses in-band tones.
 
-The handset uses the default host recording device: WinMM on Windows and PortAudio on Linux/macOS. Set `input_device` under `[audio]` in the selected profile's INI to a unique prefix of a recording device name. A missing or ambiguous device leaves the microphone silent and is reported in the emulator log. Restart after changing the input. On Linux install `libportaudio2` and ensure the desktop audio session permits capture; on macOS install `portaudio` and allow microphone access for the launching app or terminal in System Settings. The host microphone is not required for local installation or terminal-generated voice, tones, or ADSI replies.
+The handset uses the default host recording device: WinMM on Windows and PortAudio on Linux/macOS. Set `input_device` under `[audio]` in the selected profile's INI to a unique prefix of a recording device name. A missing or ambiguous device leaves the microphone silent and is reported in the emulator log. Set `capture_enabled = false` to leave the microphone silent without opening a host input. Restart after changing these settings. On Linux install `libportaudio2` and ensure the desktop audio session permits capture; on macOS install `portaudio` and allow microphone access for the launching app or terminal in System Settings. The host microphone is not required for local installation or terminal-generated voice, tones, or ADSI replies.
 
 ```cmd
 "Start OEM.cmd" --sip

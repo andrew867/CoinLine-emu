@@ -289,6 +289,9 @@ struct mic_capture {
 void *coinline_mic_open()
 {
 #if defined(_WIN32)
+	wchar_t disabled[2]{};
+	if (::GetEnvironmentVariableW(L"COINLINE_MIC_DISABLED", disabled, std::size(disabled)) == 1 && disabled[0] == L'1')
+		return nullptr;
 	auto const device = capture_device();
 	if (!device)
 		return nullptr;
@@ -336,6 +339,9 @@ void *coinline_mic_open()
 	std::fprintf(stderr, "microphone open %s input\n", *device == WAVE_MAPPER ? "default" : "configured");
 	return mic.release();
 #elif defined(__linux__) || defined(__APPLE__)
+	char const *disabled = std::getenv("COINLINE_MIC_DISABLED");
+	if (disabled && std::string_view(disabled) == "1")
+		return nullptr;
 	auto mic = std::make_unique<mic_capture>();
 	return mic->start() ? mic.release() : nullptr;
 #else

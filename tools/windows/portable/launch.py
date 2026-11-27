@@ -255,6 +255,14 @@ def require_sip_runtime(secure):
         raise ValueError(f"SIP runtime is unavailable ({module}); {remedy}.") from error
 
 
+def microphone_environment(settings):
+    if not settings.getboolean("capture_enabled", True):
+        return {"COINLINE_MIC_DISABLED": "1"}
+    if input_device := settings.get("input_device", "").strip():
+        return {"COINLINE_MIC_INPUT": input_device}
+    return {}
+
+
 def stop_office(office):
     try:
         office.wait(timeout=4)
@@ -356,6 +364,7 @@ def run(args, config, hardware):
     module_env = module_fixture_environment(args, cards, hardware_env["COINLINE_MOTHERBOARD"])
     data_jack_env = data_jack_environment(args, config["hardware"], hardware_env["COINLINE_MOTHERBOARD"])
     local_voice = adsi_route_settings(args, config)
+    mic_env = microphone_environment(config["audio"])
     if use_sip or local_voice:
         require_sip_runtime(secure=use_sip)
     if args.check:
@@ -392,8 +401,7 @@ def run(args, config, hardware):
         configure_sip(env, sip, args.profile)
     else:
         env["COINLINE_OUTBOUND"] = digits
-    if input_device := config.get("audio", "input_device", fallback="").strip():
-        env["COINLINE_MIC_INPUT"] = input_device
+    env.update(mic_env)
     if code_number:
         env.update(COINLINE_CODE_SERVER_NUMBER=code_number, COINLINE_CODE_SERVER_PORT=str(code_port))
     if local_voice:

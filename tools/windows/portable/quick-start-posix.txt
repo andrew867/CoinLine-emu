@@ -33,6 +33,7 @@ PortAudio captures audio from the default host microphone. To select an input,
 set input_device under [audio] to a unique prefix of a PortAudio device name.
 The emulator log reports the capture rate/channel count or why capture failed.
 If no usable microphone is available, the handset transmit input is silent.
+Set capture_enabled = false under [audio] to avoid opening a recording device.
 On macOS, allow microphone access for the launching terminal or application;
 on Linux, ensure the desktop audio session can access the recording device.
 Terminal-generated audio continues through MAME's native speaker backend.

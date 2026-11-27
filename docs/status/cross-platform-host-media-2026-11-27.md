@@ -22,15 +22,19 @@
 - The launcher now applies explicit window resolution on POSIX, validates
   SIP registrar ports, and bounds shutdown of the CO sidecar. Explicit local
   service-only routing configurations can be packaged on any supported host.
+- The macOS executable embeds a microphone purpose description for the
+  operating system's permission prompt. The `[audio] capture_enabled` opt-out
+  disables host recording without changing the telephone audio circuit.
 
 The PortAudio callback uses the public [PortAudio v19 API](https://portaudio.com/docs/v19-doxydocs/api_overview.html).
 The Python compatibility packages provide platform-specific wheels for
 [audioop-lts](https://pypi.org/project/audioop-lts/0.2.2/) and
 [pylibsrtp](https://pypi.org/project/pylibsrtp/1.0.0/).
+The macOS capture permission metadata follows [Apple's microphone privacy key](https://developer.apple.com/documentation/bundleresources/information-property-list/nsmicrophoneusagedescription).
 
 ## Verification gates
 
-- Windows fixture suite: 50 passed, including simulated POSIX launch preflight
+- Windows fixture suite: 51 passed, including simulated POSIX launch preflight
   with and without SIP dependencies and direct ADSI routing.
 - Native PCM test under Windows: 48 kHz voice and alias suppression, 44.1 kHz
   and 32 kHz stereo conversion across variable callback blocks, null-input
@@ -40,11 +44,13 @@ The Python compatibility packages provide platform-specific wheels for
   toolchain.
 - Windows embedded Python runtime: 31 CO tests passed, including genuine
   loopback SIP dialogs, connected DTMF and bidirectional RTP.
-- Linux and macOS CI independently run the SIP loopback suite and a native
+- Linux and macOS CI independently passed the 31-test SIP loopback suite and a native
   PortAudio ABI fixture. The fixture presents a 44.1 kHz stereo capture
   endpoint, exercises default and explicit selection, rejects ambiguous or
   output-only devices, and tests close/reopen and silence when unavailable.
-  The native release matrix separately compiles the full MAME executable.
+  Both platforms passed the PCM and PortAudio tests. The native release
+  matrix separately compiles the full MAME executable and checks the macOS
+  embedded microphone permission key.
 
 Physical microphone access and external-provider calls on Linux/macOS are
 independent operator acceptance gates; a synthetic capture fixture is not

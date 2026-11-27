@@ -69,6 +69,16 @@ def test_posix_sip_and_direct_adsi_preflight(tmp_path, monkeypatch):
         launcher.require_sip_runtime(True)
 
 
+def test_microphone_selection_and_opt_out(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    audio = launcher.config_for_run("oem")["audio"]
+    assert launcher.microphone_environment(audio) == {}
+    audio["input_device"] = "Fixture input"
+    assert launcher.microphone_environment(audio) == {"COINLINE_MIC_INPUT": "Fixture input"}
+    audio["capture_enabled"] = "false"
+    assert launcher.microphone_environment(audio) == {"COINLINE_MIC_DISABLED": "1"}
+
+
 def test_shared_adsi_routes_preserve_profile_sip_and_validate_exact_mapping(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     (tmp_path / "coinline.ini").write_text("[sip]\nusername=oem\npassword=fixture\n[adsi]\nenabled=false\n", encoding="utf-8")
