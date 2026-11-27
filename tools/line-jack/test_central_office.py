@@ -151,6 +151,29 @@ class OutboundRoutingTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             office.LocalVoiceRoute.parse(json.dumps({"digits": [office.NCC_LOOPBACK], "target": "2374", "port": 5069}))
 
+    def test_multiple_exact_routes_and_lan_peer_constraints(self):
+        routes = [{"digits": ["2374", "7095550174"], "target": "2374", "port": 5070, "host": "10.1.2.3"},
+                  {"digits": ["6501", "17095550161"], "target": "6501", "port": 5070, "host": "10.1.2.3"}]
+        parsed = office.parse_local_voice_routes(json.dumps(routes))
+        self.assertEqual((parsed["6501"].target, parsed["17095550161"].host), ("6501", "10.1.2.3"))
+        self.assertIs(parsed["6501"], parsed["17095550161"])
+        self.assertNotIn("6504", parsed)
+        for digits, target in (("2374", "2374"), ("17095550161", "6501")):
+            calls, _ = self.run_office("sip", [(0.0, outpulse(digits)), (2.0, None), (2.0, None)],
+                                       route=json.dumps(routes), fail_direct=True)
+            self.assertEqual(calls, [target])  # a failed service must not become a carrier call
+        calls, _ = self.run_office("local", [(0.0, outpulse("2374")), (2.0, None),
+                                     (0.1, b"H0\nX\n"), (0.1, outpulse("6501")), (2.0, None)],
+                                   route=json.dumps(routes))
+        self.assertEqual(calls, ["2374", "6501"])
+        with self.assertRaises(ValueError):
+            office.parse_local_voice_routes(json.dumps(routes + [routes[0]]))
+        with self.assertRaises(ValueError):
+            office.parse_local_voice_routes(json.dumps([{**routes[0], "host": "8.8.8.8"}]))
+        with self.assertRaises(ValueError):
+            office.parse_local_voice_routes(json.dumps([{**routes[0], "host": "127.0.0.1", "digits": [office.NCC_LOOPBACK]}]))
+        self.assertEqual(office.direct_bind_address("127.0.0.1", 5070), "127.0.0.1")
+
     def test_post_answer_dtmf_is_pcm_with_extended_digits(self):
         pcm = office.PcmBridge()
         pcm.queue_line_dtmf("A")

@@ -93,17 +93,26 @@ legacy DTMF body. Each connected digit is sent using exactly one transport.
 
 ### Local ADSI service
 
-The optional `--adsi` launcher switch enables the exact local route in the
-`[adsi]` section of `coinline.ini`. It also works in local CO mode without
-credentials. The aliases must be permitted by the installed terminal tables.
+The optional `--adsi` launcher switch enables the exact local routes in the
+`[adsi]` and `[adsi.routes]` sections of the profile INI. A shared
+`adsi-routes.ini` can replace just these sections for both profiles, without
+altering their SIP accounts or saved terminal data. Copy and edit
+`adsi-routes.example.ini` for the dedicated service. Each key in `[adsi.routes]`
+is the SIP extension, and each comma-separated value is an exact dialed alias.
+The legacy single-target `dial_digits`/`target` settings still work. Aliases
+must be allowed by installed terminal tables (prefer exact no-payment rules).
 The office sends an unauthenticated UDP SIP INVITE to the configured loopback
-service, offers PCMU at 8 kHz, and bridges actual RTP audio. It reserves the
-advertised receive socket before dialing. Post-answer DTMF events from the
+or private IPv4 service, offers PCMU at 8 kHz, and bridges actual RTP audio.
+It binds signaling and the reserved RTP socket to the interface used to reach
+that service. SIP responses, Contact and SDP media must agree with the
+configured host; arbitrary public destinations and route sets are rejected.
+Post-answer DTMF events from the
 terminal, including A through D, are transmitted as 60 ms tones with the
 ADSI interdigit cadence. The direct path delivers full received RTP audio
 frames and uses a small native playout cushion instead of independently
 zero-padding an empty audio queue. A failed local
-route never falls through to the external SIP or PSTN destination.
+route never falls through to the external SIP or PSTN destination. The numeric
+NCC modem destination remains separate and cannot be a voice alias.
 
 The graphical receiver examines the received PCM for the CAS tones and Bell
 202 serial data; neither the CO nor the launcher provides display text or

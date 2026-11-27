@@ -3,10 +3,11 @@ import argparse
 import configparser
 from datetime import datetime, timezone
 import hashlib
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv4Network
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -24,15 +25,66 @@ PROFILES = {
 SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "PASSWORD"}
 SYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-sync-test.json"
 ASYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-async-contact-atr-lab.json"
+ADSI_SHARED_CONFIG = "adsi-routes.ini"
+ADSI_CONFIG_SECTIONS = ("adsi", "adsi.routes")
+ADSI_CONFIG_KEYS = {"enabled", "host", "port", "dial_digits", "target"}
 
 
 def config_for_run(profile):
     config = configparser.ConfigParser(interpolation=None)
     config.read(ROOT / PROFILES[profile][0], encoding="utf-8-sig")
-    for section in ("line", "sip", "hardware", "cards", "adsi", "display", "audio", "performance"):
+    shared = ROOT / ADSI_SHARED_CONFIG
+    if shared.is_file():
+        # This deliberately separate service-only file can be replaced without
+        # overwriting either profile's own SIP credentials or terminal data.
+        service = read_adsi_config(shared)
+        for section in ADSI_CONFIG_SECTIONS:
+            config.remove_section(section)
+        config.read_dict({section: dict(service[section]) for section in service.sections()})
+    for section in ("line", "sip", "hardware", "cards", "adsi", "adsi.routes", "display", "audio", "performance"):
         if section not in config:
             config.add_section(section)
     return config
+
+
+def read_adsi_config(path):
+    service = configparser.ConfigParser(interpolation=None)
+    with Path(path).open(encoding="utf-8-sig") as source:
+        service.read_file(source)
+    if (service.defaults() or "adsi" not in service or
+            any(section not in ADSI_CONFIG_SECTIONS for section in service.sections()) or
+            set(service["adsi"]) - ADSI_CONFIG_KEYS):
+        raise ValueError("adsi-routes.ini may contain only the [adsi] and [adsi.routes] service settings.")
+    return service
+
+
+def adsi_route_settings(args, config):
+    settings = config["adsi"]
+    if not (getattr(args, "adsi", False) or settings.getboolean("enabled", fallback=False)):
+        return None
+    host = IPv4Address(settings.get("host", "127.0.0.1").strip())
+    if not (host.is_loopback or any(host in IPv4Network(network) for network in
+                                    ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))):
+        raise ValueError("Set a private IPv4 host under [adsi].")
+    port = settings.getint("port", fallback=5069)
+    if not 1 <= port <= 65535:
+        raise ValueError("Set a valid UDP port under [adsi].")
+    mapping = config["adsi.routes"] if "adsi.routes" in config else {}
+    pairs = list(mapping.items()) if mapping else [(settings.get("target", "2374"),
+                  settings.get("dial_digits", "2374,7095550174,17095550174"))]
+    if not pairs or len(pairs) > 128:
+        raise ValueError("Set a valid exact local ADSI route list.")
+    routes, seen = [], set()
+    for target, values in pairs:
+        target = target.strip()
+        aliases = [value.strip() for value in values.split(",")]
+        if (not re.fullmatch(r"[0-9]{1,15}", target) or
+                any(not re.fullmatch(r"[0-9]{1,15}", digit) or digit == "2130706433" for digit in aliases) or
+                len(set(aliases)) != len(aliases) or seen.intersection(aliases)):
+            raise ValueError("Set unique, exact numeric aliases and targets under [adsi.routes].")
+        seen.update(aliases)
+        routes.append({"digits": aliases, "target": target, "host": str(host), "port": port})
+    return routes
 
 
 def window_settings(args, config):
@@ -286,18 +338,7 @@ def run(args, config, hardware):
         raise ValueError("The selected local card fixture file is missing.")
     module_env = module_fixture_environment(args, cards, hardware_env["COINLINE_MOTHERBOARD"])
     data_jack_env = data_jack_environment(args, config["hardware"], hardware_env["COINLINE_MOTHERBOARD"])
-    adsi = config["adsi"]
-    local_voice = None
-    if args.adsi or adsi.getboolean("enabled", fallback=False):
-        aliases = [value.strip() for value in adsi.get("dial_digits", "2374,7095550174,17095550174").split(",")]
-        target = adsi.get("target", "2374").strip()
-        voice_port = adsi.getint("port", fallback=5069)
-        if (not aliases or any(not value or len(value) > 15 or not value.isascii() or not value.isdigit()
-                               or value == "2130706433" for value in aliases)
-                or len(set(aliases)) != len(aliases) or not target or len(target) > 15
-                or not target.isascii() or not target.isdigit() or not 1 <= voice_port <= 65535):
-            raise ValueError("Set valid exact dial_digits, target and local UDP port under [adsi].")
-        local_voice = {"digits": aliases, "target": target, "port": voice_port}
+    local_voice = adsi_route_settings(args, config)
     if args.check:
         print(f"{args.profile.upper()} package inputs are ready. Hardware: {description}")
         return 0

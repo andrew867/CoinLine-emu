@@ -17,6 +17,7 @@ CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAM
 - [Host audio reliability and runtime audit](docs/status/host-audio-reliability-2026-11-26.md) for measured CPU headroom, speaker underruns, persistence and remaining Voiceware tone coverage.
 - [Native Voiceware waveform playback](docs/status/voiceware-waveform-2026-11-27.md) for PCM/waveform synthesis, dial tone, attention tone, DTMF and BUSY/INT0 verification.
 - [Graphical advertising resume](docs/status/graphical-ad-hook-resume-2026-11-27.md) for the hook-ordering defect and corrected retained-state qualification.
+- [Exact InfoLine extension routing](docs/status/adsi-direct-lan-routing-2026-11-27.md) for the shared local service configuration and free-call alias contract.
 - [Connected DTMF and ADSI navigation qualification](docs/status/connected-dtmf-adsi-welcome-2026-11-25.md) for live menu navigation and SIP transport verification.
 - [Firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) for the tested terminal families, archive hashes and outstanding gates.
 - [Automated INSTALL runner](tools/acceptance/README.md) for cold installation, hardware selection and restart testing.

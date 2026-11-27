@@ -189,10 +189,17 @@ dtmf_mode = auto prefers negotiated RTP telephone events (RFC 4733), then
 explicitly supported SIP INFO, otherwise in-band audio. Use inband or info
 only when required by your SIP peer. Local ADSI remains in-band.
 
-For the graphical InfoLine bench, configure [adsi] with the local aliases,
-target and UDP port from the running voice-service instance. Enable it or pass
---adsi. The terminal's installed screening tables must allow the aliases.
-This is an exact loopback-only route with no PSTN fallback. Real firmware
+For InfoLine, copy adsi-routes.example.ini to adsi-routes.ini and configure
+the dedicated service's private IPv4 host and UDP port. Each [adsi.routes]
+key is the SIP extension, with a comma-separated list of exact dial aliases.
+If a local package already includes adsi-routes.ini, it is configured for the
+dedicated service and replaces only ADSI settings for both terminal profiles.
+Remove that file to restore each profile's own ADSI settings. Existing
+coinline.ini and coinline-graphical.ini SIP accounts and memory are unchanged.
+The terminal's installed screening/rating tables must permit the exact aliases.
+If four-digit extensions are not accepted by the numbering plan, use their
+listed 10/11-digit equivalents. These routes never fall through to the PSTN.
+Real firmware
 CAS, A, CONNECT, D1 and the welcome menu have been observed within the live
 protocol deadlines. With the service's voice-between-screens profile, real
 keypad News/Back and softkey Exit passed with clean release; see

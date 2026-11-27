@@ -64,27 +64,67 @@ class LocalVoiceRoute:
 	target: str
 	port: int
 	from_user: str = "co"
+	host: str = HOST
 
 	@classmethod
 	def parse(cls, raw: str) -> LocalVoiceRoute | None:
 		if not raw:
 			return None
-		value = json.loads(raw)
+		return cls.from_mapping(json.loads(raw))
+
+	@classmethod
+	def from_mapping(cls, value) -> LocalVoiceRoute:
 		if not isinstance(value, dict):
-			raise ValueError("Invalid exact loopback voice route")
+			raise ValueError("Invalid exact local voice route")
 		digits = value.get("digits")
 		target = value.get("target")
 		port = value.get("port")
+		host = local_voice_host(value.get("host", HOST))
 		if (not isinstance(digits, list) or not digits
 				or not all(isinstance(d, str) and re.fullmatch(r"[0-9]{1,15}", d) and d != NCC_LOOPBACK for d in digits)
 				or len(set(digits)) != len(digits)
 				or not isinstance(target, str) or not re.fullmatch(r"[0-9]{1,15}", target)
 				or type(port) is not int or not 1 <= port <= 65535):
-			raise ValueError("Invalid exact loopback voice route")
-		return cls(tuple(digits), target, port)
+			raise ValueError("Invalid exact local voice route")
+		return cls(tuple(digits), target, port, host=host)
 
 	def matches(self, digits: str) -> bool:
 		return digits in self.digits
+
+
+def local_voice_host(value: str) -> str:
+	"""Direct, no-auth service routes stay within loopback or RFC1918 IPv4."""
+	if not isinstance(value, str):
+		raise ValueError("Local voice host must be a private IPv4 address")
+	address = ipaddress.IPv4Address(value)
+	if not (address.is_loopback or any(address in ipaddress.IPv4Network(network)
+			for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))):
+		raise ValueError("Local voice host must be a private IPv4 address")
+	return str(address)
+
+
+def parse_local_voice_routes(raw: str) -> dict[str, LocalVoiceRoute]:
+	if not raw:
+		return {}
+	value = json.loads(raw)
+	values = value if isinstance(value, list) else [value]
+	if not values or len(values) > 128:
+		raise ValueError("Invalid local voice route list")
+	routes = {}
+	for item in values:
+		route = LocalVoiceRoute.from_mapping(item)
+		for digits in route.digits:
+			if digits in routes:
+				raise ValueError("Duplicate exact local voice alias")
+			routes[digits] = route
+	return routes
+
+
+def direct_bind_address(host: str, port: int) -> str:
+	# UDP connect resolves the local interface without transmitting a call.
+	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+		probe.connect((host, port))
+		return probe.getsockname()[0]
 
 
 def env_mode() -> str:
@@ -197,10 +237,10 @@ def pcmu_rtp_payload(packet: bytes) -> tuple[int, bytes] | None:
 	return int.from_bytes(packet[2:4], "big"), packet[start:end]
 
 
-def run_direct_rtp(stream, udp: socket.socket, pcm) -> None:
+def run_direct_rtp(stream, udp: socket.socket, pcm, expected_host: str = HOST) -> None:
 	"""Clock one real PCMU stream directly, without a second packet-manager queue."""
 	peer = (stream.outIP, stream.outPort)
-	if peer[0] != HOST or not 1 <= peer[1] <= 65535:
+	if peer[0] != expected_host or not 1 <= peer[1] <= 65535:
 		return
 	seq, stamp, ssrc = stream.outSequence, stream.outTimestamp, stream.outSSRC
 	last_rx = None
@@ -891,7 +931,7 @@ class DirectAnswerReversal:
 class SipSide:
 	# Reserved direct-call sockets are consumed by the shared RTP start hook.
 	_reserved_lock = threading.Lock()
-	_reserved_rtp: dict[tuple[str, int], tuple[socket.socket, PcmBridge]] = {}
+	_reserved_rtp: dict[tuple[str, int], tuple[socket.socket, PcmBridge, str]] = {}
 
 	def __init__(self, pcm: PcmBridge, direct: LocalVoiceRoute | None = None) -> None:
 		self.pcm = pcm
@@ -951,10 +991,10 @@ class SipSide:
 			with SipSide._reserved_lock:
 				direct_media = SipSide._reserved_rtp.pop((stream.inIP, stream.inPort), None)
 			if direct_media is not None:
-				udp, pcm = direct_media
+				udp, pcm, expected_host = direct_media
 				udp.setblocking(False)
 				stream.sin = stream.sout = udp
-				threading.Thread(target=run_direct_rtp, args=(stream, udp, pcm), daemon=True).start()
+				threading.Thread(target=run_direct_rtp, args=(stream, udp, pcm, expected_host), daemon=True).start()
 				return
 			udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			try:
@@ -974,8 +1014,9 @@ class SipSide:
 			RTPClient.coinline_hooks_installed = True
 
 		if self.direct is not None:
-			host, user, password = HOST, self.direct.from_user, ""
-			port, local_port, my_ip, media_ip, rtp_port = self.direct.port, 0, HOST, "", 0
+			host, user, password = self.direct.host, self.direct.from_user, ""
+			port, local_port, media_ip, rtp_port = self.direct.port, 0, "", 0
+			my_ip = direct_bind_address(host, port)
 			media_low, media_high = 10000, 20000
 		else:
 			host = os.environ["COINLINE_SIP_HOST"]
@@ -1018,10 +1059,10 @@ class SipSide:
 			client.register = direct_ready
 			def reserve_direct_rtp(blocking=True):
 				udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-				udp.bind((HOST, 0))
-				key = (HOST, udp.getsockname()[1])
+				udp.bind((my_ip, 0))
+				key = (my_ip, udp.getsockname()[1])
 				with SipSide._reserved_lock:
-					SipSide._reserved_rtp[key] = (udp, self.pcm)
+					SipSide._reserved_rtp[key] = (udp, self.pcm, host)
 				self._reserved_keys.add(key)
 				self.phone.assignedPorts.append(key[1])
 				return key[1]
@@ -1197,6 +1238,8 @@ class SipSide:
 			if method == "ACK":
 				if (dialog is not None and dialog.matches(message) and call is not None and message.body.get("m")
 						and dialog.remote_sequence == int(message.headers["CSeq"]["check"])):
+					if self.direct is not None and message.body["c"][0]["address"] != host:
+						return
 					refresh_media(call, message)
 				return
 			if method == "INVITE" and (dialog is not None or message.headers["To"]["tag"]):
@@ -1206,6 +1249,11 @@ class SipSide:
 				sequence = int(message.headers["CSeq"]["check"])
 				if sequence <= dialog.remote_sequence:
 					server_reply(message, "500 Server Internal Error")
+					return
+				if self.direct is not None and ((message.body.get("m") and message.body["c"][0]["address"] != host)
+						or (message.headers.get("Contact") and sip_hop(sip_uri(message.headers["Contact"]))[0] != host)
+						or sip_route_set(message.raw)):
+					server_reply(message, "488 Not Acceptable Here")
 					return
 				dialog.remote_sequence = sequence
 				stream = call.RTPClients[0]
@@ -1230,7 +1278,12 @@ class SipSide:
 			pending_invites.clear()
 			call_id = client.gen_call_id()
 			session_id = client.sessID.next()
-			if self.direct is not None or self.dtmf_mode != "auto":
+			if self.direct is not None:
+				for payloads in media.values():
+					for payload in list(payloads):
+						if int(payload) != 0:
+							del payloads[payload]
+			elif self.dtmf_mode != "auto":
 				for payloads in media.values():
 					payloads.pop(101, None)  # direct ADSI and explicit alternatives are in-band/INFO
 			invite = client.gen_invite(number, str(session_id), media, send_type, client.gen_branch(), call_id)
@@ -1285,8 +1338,8 @@ class SipSide:
 			if 200 <= status < 300:
 				if self.direct is not None:
 					contact_host, _ = sip_hop(sip_uri(message.headers["Contact"]))
-					if contact_host != HOST or message.body["c"][0]["address"] != HOST or sip_route_set(message.raw):
-						print("local SIP response attempted a non-loopback media or dialog route", flush=True)
+					if contact_host != host or message.body["c"][0]["address"] != host or sip_route_set(message.raw):
+						print("local SIP response attempted a different media or dialog endpoint", flush=True)
 						return
 				sequence = int(cseq["check"])
 				if call_id not in dialogs:
@@ -1330,7 +1383,7 @@ class SipSide:
 						pending_infos[key] = (packet, target, now + delay, expiry, delay)
 						client.s.sendto(packet, target)
 				raw, peer = client.s.recvfrom(8192)
-				if self.direct is not None and peer[0] != HOST:
+				if self.direct is not None and peer[0] != host:
 					return
 				if raw in (b"\x00\x00\x00\x00", b"\r\n", b"\r\n\r\n"):
 					return
@@ -1341,6 +1394,9 @@ class SipSide:
 				if kind in (b"INVITE", b"ACK") or (kind == b"SIP/2.0" and re.search(rb"(?m)^CSeq: \d+ INVITE\r$", raw)):
 					try:
 						raw, offer = select_g711_media(raw)
+						if self.direct is not None and offer is not None and (
+								offer.payloads != ((b"0", b"0"),) or offer.crypto is not None):
+							raise MediaOfferError("direct ADSI service requires plain static PCMU")
 						if kind == b"SIP/2.0" and offer is not None and offer.crypto is not None:
 							raise MediaOfferError("secure reply to plain RTP offer")
 					except ValueError as exc:
@@ -1596,7 +1652,7 @@ class SipSide:
 
 def run_local_or_sip() -> None:
 	mode = env_mode()
-	local_route = LocalVoiceRoute.parse(os.environ.get("COINLINE_LOCAL_VOICE_ROUTE", ""))
+	local_routes = parse_local_voice_routes(os.environ.get("COINLINE_LOCAL_VOICE_ROUTE", ""))
 	print(f"co mode {mode}", flush=True)
 	pcm = PcmBridge()
 	sip: SipSide | None = None
@@ -1805,18 +1861,21 @@ def run_local_or_sip() -> None:
 					answer_reversal(sock)
 					answered = True
 					print("manager answer supervision", flush=True)
-			elif local_route is not None and local_route.matches(digits):
-				# An exact loopback route is consumed even if the peer is unavailable;
+			elif (local_route := local_routes.get(digits)) is not None:
+				# An exact local service route is consumed even if the peer is unavailable;
 				# never retry it through the ordinary SIP/PSTN destination logic.
 				outbound_attempted = True
 				try:
+					if direct_sip is not None and direct_sip.direct != local_route:
+						direct_sip.stop()
+						direct_sip = None
 					if direct_sip is None:
 						direct_sip = SipSide(pcm, direct=local_route)
 						direct_sip.start()
 					pcm.reset_voice_queues()
 					active_sip = direct_sip
 					direct_sip.dial(local_route.target)
-					print("local SIP exact voice route selected", flush=True)
+					print(f"local SIP exact voice route selected: extension {local_route.target}", flush=True)
 				except (OSError, ValueError, ImportError, RuntimeError) as exc:
 					if direct_sip is not None:
 						direct_sip.stop()

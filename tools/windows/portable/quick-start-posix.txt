@@ -24,6 +24,10 @@ The emulator includes a simulated central office. SIP audio and host microphone
 capture are currently supported by the Windows build. The Linux and macOS
 builds support the local CO and terminal audio playback.
 
+The Windows direct ADSI service can use the shared adsi-routes.ini file
+without changing either terminal's carrier account. See the example and
+docs/Running.md for exact aliases, private service host and route validation.
+
 Run CoinLine Server separately for OEM INSTALL and downloads. The default
 NCC address is 127.0.0.1 and TCP port 4000. Copy coinline.example.ini to
 coinline.ini to configure a different NCC port. For operator instructions and
