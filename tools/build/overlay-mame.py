@@ -24,7 +24,8 @@ def overlay(mame):
             target = mame / source.relative_to(ROOT)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
-    for name in ("scripts/target/mame/coinline.lua", "src/mame/coinline.cpp", "src/mame/coinline.lst"):
+    for name in ("scripts/target/mame/coinline.lua", "src/mame/coinline.cpp", "src/mame/coinline.lst",
+                 "src/devices/sound/upd7759_waveform.h"):
         target = mame / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / "mame-overlays" / name, target)

@@ -78,6 +78,10 @@ optional input-dependent checks skipped, and all 48 Python fixture checks.
 
 ## Remaining Voiceware tone qualification
 
+Subsequent implementation and native qualification are recorded in
+[native waveform playback](voiceware-waveform-2026-11-27.md). The following
+describes the gap as it existed during the runtime audit.
+
 The terminal's No access path requests the attention tone at bank 0 sample
 `0x14`, then proceeds to the normal announcement. This is not a generated
 modem SIT or a VFD-dependent sound. The sample is one of 38 identified

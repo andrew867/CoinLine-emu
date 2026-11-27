@@ -4,7 +4,7 @@ The runner uses MAME's inputs to follow firmware prompts through INSTALL. Each a
 
 ## Run
 
-Use a built `cl_millennium` executable, the generated telephony controller model, a local Voiceware pair for exploratory runs, and a provisioned lab terminal on CoinLine. The default input and output paths are under `build/firmware-acceptance/`. Prepare the firmware archive and read the candidate order in the [firmware acceptance catalog](../../docs/uat/firmware-acceptance-catalog.md).
+Use a built `cl_millennium` executable, the generated telephony controller model, a local Voiceware pair for exploratory runs, and a provisioned lab terminal on CoinLine. The default input and output paths are under `build/firmware-acceptance/`. Prepare the firmware archive and read the candidate order in the [firmware acceptance catalog](../../../docs/uat/firmware-acceptance-catalog.md).
 
 The bundled [inventory](inventory.json) lists source links at pinned commits,
 file roles, sizes, SHA-256 hashes, and the relative path for each archived
@@ -400,4 +400,17 @@ python tools/acceptance/dialtone_native_probe.py --package <extracted-package> -
 
 Choose `--profile oem` for the standard two-line package, `--mame` to override
 the packaged binary, and `--csio-trace` for startup serial diagnostics. The
-WAV and screenshots stay in the ignored run folder.
+WAV and screenshots stay in the ignored run folder; the probe disables
+the host microphone. Add `--require-native-waveform` to require the actual
+uPD7759 dial-tone sample, not just a nominal frequency pair. `--dial` and
+`--after-dial-frames` permit a longer isolated keypad test.
+
+`voiceware_waveform_probe.py` uses a synthetic idle CPU and actual board I/O
+to play every waveform-mode bank-0 record in the supplied ROM pair. It
+verifies BUSY, the native completion interrupt, reset-abort, output RMS,
+three attention-tone components, dial tone and the 16 DTMF pairs. Audio is
+recorded internally with the microphone disabled and no CO connection.
+
+```sh
+python tools/acceptance/voiceware_waveform_probe.py --mame <native-binary> --rompath <local-roms>
+```

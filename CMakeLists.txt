@@ -47,6 +47,7 @@ add_library(coinline_support STATIC
 )
 target_include_directories(coinline_support PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/src/mame/coinline
+	${CMAKE_CURRENT_SOURCE_DIR}/mame-overlays/src/devices
 )
 target_link_libraries(coinline_support PUBLIC Threads::Threads)
 

@@ -16,7 +16,7 @@
 
 DECLARE_DEVICE_TYPE(MILLENNIUM_VOICEWARE, millennium_voiceware_device)
 
-/// Routes firmware voiceware I/O to a board-format uPD7759 ADPCM decoder with real ROM banking.
+/// Routes firmware voiceware I/O to the banked uPD7759 speech and waveform decoder.
 /// Phrase start/stop drives `millennium_audio_route_device::notify_voice_active` (prompt path for call-state traces).
 class millennium_voiceware_device : public device_t, public device_sound_interface {
 public:
@@ -27,11 +27,14 @@ public:
 	void sound_stream_update(sound_stream &stream) override;
 
 	void write_hw_control(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
-	void write_bank(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
+	// True when an active chip bank is changed and the synthesizer is reset.
+	bool write_bank(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
 	std::uint8_t read_phrase_port(std::uint16_t pc, std::uint64_t cpu_cycle);
 	// Returns true when the decoder accepted a new playback request.
 	bool write_phrase(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle);
 	std::uint8_t bank() const noexcept { return m_bank; }
+	bool native_waveform_selected() const noexcept { return m_native_waveform; }
+	std::uint32_t native_waveform_clocks() const noexcept { return m_native_waveform_clocks; }
 
 	/// True while the board-format decoder still has PCM pending.
 	bool playing() const noexcept;
@@ -57,6 +60,8 @@ private:
 	/// Latch: was the chip non-idle on the previous phrase-port read (for trace).
 	bool m_had_playback = false;
 	bool m_upd7759_core_env = false;
+	bool m_native_waveform = false;
+	std::uint32_t m_native_waveform_clocks = 0;
 	std::string m_voice_rom_sha256_u16;
 	std::string m_voice_rom_sha256_u26;
 	coinline_voiceware_phrase_port_levels m_phrase_port_levels{};

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "millennium_voiceware_phrase_lookup.h"
+#include "sound/upd7759_waveform.h"
 
 bool coinline_voiceware_lookup_phrase_for_upd7759(std::uint8_t const *rom, std::uint32_t rom_bytes,
 	std::uint8_t bank_latch, std::uint8_t phrase, coinline_voiceware_phrase_lookup_result &out)
@@ -24,11 +25,18 @@ bool coinline_voiceware_lookup_phrase_for_upd7759(std::uint8_t const *rom, std::
 	std::uint8_t const hi = bank[dir_offset];
 	std::uint8_t const lo = bank[dir_offset + 1U];
 	std::uint32_t const msg_offset = std::uint32_t((unsigned(hi) << 8) | unsigned(lo)) * 2U;
-	if (msg_offset < directory_end || segment_base + msg_offset + 1U >= rom_bytes)
+	std::uint32_t const bank_end = std::min(window_bytes, rom_bytes - segment_base);
+	if (msg_offset < directory_end || msg_offset + 1U >= bank_end)
 		return false;
 
-	// Other container modes do not contain a standalone uPD sample stream.
-	if (bank[msg_offset] != 0x00U)
+	std::uint8_t const mode = bank[msg_offset];
+	std::uint32_t wave_clocks = 0;
+	if (mode == 0x40U) {
+		auto read = [bank](std::uint32_t offset) { return bank[offset]; };
+		auto const limit = upd7759_waveform::record_limit(read, msg_offset, bank_end);
+		if (!upd7759_waveform::validate(read, msg_offset + 1U, limit, wave_clocks))
+			return false;
+	} else if (mode != 0x00U)
 		return false;
 
 	out.ok = true;
@@ -37,5 +45,7 @@ bool coinline_voiceware_lookup_phrase_for_upd7759(std::uint8_t const *rom, std::
 	out.segment_base_abs = segment_base;
 	out.msg_count = unsigned(last_sample) + 1U;
 	out.phrase_msg_index = phrase;
+	out.message_mode = mode;
+	out.waveform_clocks = wave_clocks;
 	return true;
 }

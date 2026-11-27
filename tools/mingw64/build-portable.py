@@ -177,6 +177,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows):
         "docs/status/proton-graphical-qualification-2026-11-25.md": ROOT / "docs/status/proton-graphical-qualification-2026-11-25.md",
         "docs/status/coin-cashbox-qualification-2026-11-26.md": ROOT / "docs/status/coin-cashbox-qualification-2026-11-26.md",
         "docs/status/host-audio-reliability-2026-11-26.md": ROOT / "docs/status/host-audio-reliability-2026-11-26.md",
+        "docs/status/voiceware-waveform-2026-11-27.md": ROOT / "docs/status/voiceware-waveform-2026-11-27.md",
         "docs/Running.md": ROOT / "RUNNING.md",
         "licenses/CoinLine.txt": ROOT / "LICENSE",
         "licenses/MAME.txt": mame / "COPYING",
