@@ -111,5 +111,13 @@ for further isolated diagnosis; a successful free route does not establish
 that ordinary calls are charged correctly. The original terminal's retained
 storage was not used or modified for these runs.
 
+A subsequent manager experiment assigned only a changed MT26 to the
+dedicated terminal. Normal Craft 369 successfully downloaded and
+acknowledged exactly that record (`Completed 02`). The ordinary paid
+control still outpulsed without payment, so the experiment did not resolve
+the rating fault. Both long and short InfoLine aliases still reached the
+same SIP endpoint with real RTP and normal BYE replies. The unsuccessful
+MT26 experiment was not applied to either user terminal.
+
 Routing acceptance, host quote acceptance, newly installed rate-table
 behavior and interactive ADSI playback are distinct gates.
