@@ -61,6 +61,11 @@ under [cards], using sam_slot0, sam_slot1 and sam_slot2. The included generic
 module fixture does not provide payment authorization. The independent local
 LAB ledger utility is app/lab_purse.py; run python3 app/lab_purse.py --help.
 
+For a programmable synchronous EEPROM contact bench, set smart_fixture to
+fixtures/cards/smartcard-sync-gpm103-contact.json in [cards]. This replaces
+the primary fixture only and retains the test pattern across restarts.
+The bounded pattern is not an original chip-capacity declaration.
+
 For a nine-window graphical coin table, set coin_validator = regional-nine
 under [hardware] (as in the graphical example INI). Other installations can
 retain board-default or explicitly select three-slot for the earlier fixture.

@@ -93,6 +93,15 @@ slots are read-only; any explicitly writable bench fixture must occupy the
 primary slot, whose existing persistent memory is preserved across selection.
 These controls do not change terminal tables or payment authorization.
 
+For a standalone GPM103-family synchronous EEPROM contact bench, select
+`fixtures/cards/smartcard-sync-gpm103-contact.json` as the primary
+`smart_fixture` in the profile's `[cards]` section. The fixture contains
+16 bytes of arbitrary test data and two explicitly writable bench bits;
+the nominal programming wait is 10 ms. The fixture geometry is deliberately
+bounded, not a statement about the exact capacity of an original chip.
+Use it to test reset, MSB-first reads, programming timing and persistence.
+The writable image is kept in the terminal's local card-state storage.
+
 The default chip-card fixture exercises the physical contacts;
 the registered full graphical image `996a8ac5e81d` defaults to the qualified
 `smartcard-async-contact-atr-lab.json` fixture instead of the synchronous

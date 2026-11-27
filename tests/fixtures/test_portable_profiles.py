@@ -63,7 +63,8 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
     packer.stage_files(tmp_path, tmp_path, None, None, True)
     assert {"fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE,
-            "fixtures/cards/smartcard-sync-address-test.json", *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
+            "fixtures/cards/smartcard-sync-address-test.json", "fixtures/cards/smartcard-sync-gpm103-contact.json",
+            *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
     assert {f"fixtures/cards/smartcard-async-lab-purse-{name}.json" for name in ("50", "500", "empty")} <= staged
 
 
