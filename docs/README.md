@@ -1,94 +1,65 @@
-# `coinline-emu` documentation index
+# CoinLine emulator documentation
 
-Documentation for the CoinLine Terminal Emulator. Start with the [Windows quick start](../RUNNING.md), [build and package command](../BUILDING.md), and [current verification](status/ncc-install-firmware-stx-handoff-2026-11-23.md). Dated status reports and planning documents record their original scope.
+CoinLine is a firmware-driven terminal emulator, not a screen simulation. This documentation is organized by what you want to do, with measured acceptance kept separate from the original engineering plans.
 
-## Foundation
+## Start here
 
-| Document | Purpose |
-| -------- | ------- |
-| [architecture.md](architecture.md) | System decomposition, process boundary, device tree. |
-| [engine-selection.md](engine-selection.md) | MAME-based vs clean-room comparison; recommendation. |
-| [License strategy](../LICENSE-STRATEGY.md) | Emulator and host licensing boundaries. |
-| [project-structure.md](project-structure.md) | Source-tree, fixtures, artwork, tools, tests layout. |
+| Goal | Guide |
+|---|---|
+| Run a terminal, perform INSTALL, place calls and use its controls | [Operating guide](../RUNNING.md) |
+| Build a Windows, Linux or macOS package | [Build and package](../BUILDING.md) |
+| See what actually works and what remains unqualified | [Current acceptance status](STATUS.md) |
+| Reproduce device and firmware tests | [Testing](../TESTING.md), [automated INSTALL runner](../tools/acceptance/README.md) |
+| Understand how the emulator and server fit together | [Architecture](architecture.md), [project structure](project-structure.md) |
 
-## Status (measured / rollup)
+## Acceptance and troubleshooting
 
-| Document | Purpose |
-| -------- | ------- |
-| [Windows operator guide](../tools/windows/portable/quick-start.txt) | Contents of the Quick Start included in each portable ZIP. |
-| [Firmware acceptance catalog](uat/firmware-acceptance-catalog.md) | Per-firmware cold INSTALL, restart and outstanding gates. |
-| [Batch acceptance runner](../tools/acceptance/README.md) | Verified input library, hardware selection and scripted terminal inputs. |
-| [Remote firmware downloads](firmware-download-storage.md) | Programmable NOR, bootstrap, CPU-bus test and outstanding code-server gates. |
-| [Outstanding hardware reference checklist](../specs/hardware/hardware-reference-request-checklist.md) | Prioritized hardware documentation requests, unanswered questions and native acceptance goals. |
-| [status/ncc-install-firmware-stx-handoff-2026-11-23.md](status/ncc-install-firmware-stx-handoff-2026-11-23.md) | Current end-to-end INSTALL, battery persistence, outbound SIP, and OEM voice-rate evidence. |
-| [Smart-card and payment qualification](status/smartcard-contact-2026-11-25.md) | Native contact checks, approved simulated magnetic-card call, and outstanding settlement gates. |
-| [Native smart-card transport](status/smartcard-native-transport-2026-11-25.md) | Real ASCI0 T=0/T=1, card-memory persistence, window scaling, and historical application gates. |
-| [ADSI interoperation](status/adsi-interop-2026-11-25.md) | Actual SIP/RTP, CAS, CONNECT and D1 evidence, with the first-response timing gate. |
-| [Graphical render performance](status/graphical-render-performance-2026-11-25.md) | Release tracing, display caching, board clock and measured live emulation speed. |
-| [Peripheral handoff implementation](status/peripheral-handoff-implementation-2026-11-25.md) | Native enclosure waveform, data-jack monitor and deterministic ADSI qualifier progress. |
-| [Full graphical qualification](status/proton-graphical-qualification-2026-11-25.md) | Exact image digests, real cold installation, retained service, clock and distinct module contacts; application-level gates remain separate. |
-| [Coin and cashbox qualification](status/coin-cashbox-qualification-2026-11-26.md) | Native quarter-rated local call, coin record, collection and empty replacement-box report. |
-| [Windows window timing](status/windows-window-timing-2026-11-25.md) | Nonmodal native window dragging and host renderer clock-progress measurements. |
-| [Connected DTMF and ADSI navigation](status/connected-dtmf-adsi-welcome-2026-11-25.md) | Hardware tone routing, negotiated SIP transports and genuine live graphical menu navigation. |
-| [OEM answer and dual launchers](status/oem-answer-dual-launcher-2026-11-25.md) | Cold OEM answer regression and independent portable terminal profiles. |
-| [status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md](status/TP-PCD3349A-BEHAVIORAL-ROM-STATUS.md) | Chip-oriented TP backend: behavioral ROM, hook sequencing, timer note, build paths. |
-| [status/implementation-status-audit.md](status/implementation-status-audit.md) | Historical bring-up audit and trace references. |
+- [Firmware acceptance catalog](uat/firmware-acceptance-catalog.md): exact program candidates, hardware presets, cold INSTALL, restart and unresolved cases.
+- [Current status](STATUS.md): feature-level evidence and known limits, with links to dated reports.
+- [Debugging guide](debugging-guide.md), [evidence bundles](evidence-bundles.md) and [scenario runner](scenario-runner.md): collect reproducible test results.
+- [CI and release](ci-and-release.md): how native builds, checksums and source archives are produced.
+- [Outstanding hardware reference checklist](../specs/hardware/hardware-reference-request-checklist.md): questions that still require additional hardware documentation or measurement.
 
-## Planning
+## Hardware reference
 
-| Document | Purpose |
-| -------- | ------- |
-| [implementation-roadmap.md](implementation-roadmap.md) | High-level path from E0 to E13. |
-| [tranche-plan.md](tranche-plan.md) | Per-tranche goals, files, tests, acceptance, exit. |
-| [file-plan.md](file-plan.md) | Master table of every planned file. |
-| [build-plan.md](build-plan.md) | Build-system rollout plan. |
-| [test-strategy.md](test-strategy.md) | Global test approach. |
-| [acceptance-test-plan.md](acceptance-test-plan.md) | Acceptance gate definition. |
-| [boot-milestones.md](boot-milestones.md) | M0–M12 milestone ladder. |
-| [debugging-guide.md](debugging-guide.md) | Debug workflows, traces, evidence. |
-| [risk-register.md](risk-register.md) | Risks, mitigations, tests, tranches. |
-| [compatibility-validation-items.md](compatibility-validation-items.md) | Compatibility items with explicit code-vs-validation distinction. |
-| [host-integration-plan.md](host-integration-plan.md) | Path to a CoinLine Host integration. |
-| [evidence-bundles.md](evidence-bundles.md) | Evidence bundle contents and exporter. |
-| [scenario-runner.md](scenario-runner.md) | Scenario verb set and JSON schema. |
-| [ci-and-release.md](ci-and-release.md) | CI/CD, release artifacts, sanitizer checks. |
+### Control boards and processor
 
-## Platform and CPU
+[Board profiles](board-profiles.md) · [Device model](device-model.md) · [Memory map](memory-map.md) · [I/O port map](io-port-map.md) · [Interrupt map](interrupt-map.md) · [Z180 core](z180-core.md) · [Z180 internal peripherals](z180-internal-peripherals.md)
 
-| Document | Purpose |
-| -------- | ------- |
-| [mame-driver-plan.md](mame-driver-plan.md) | MAME machine driver layout and registration. |
-| [board-profiles.md](board-profiles.md) | 2-line vs 11-line VFD and per-revision profiles. |
-| [memory-map.md](memory-map.md) | ROM, RAM, NVRAM, table storage, vectors, stack, heap. |
-| [io-port-map.md](io-port-map.md) | Known/suspected/unknown ports + unknown-port policy. |
-| [interrupt-map.md](interrupt-map.md) | Vector ordering, sources, masks, priorities. |
-| [z180-core.md](z180-core.md) | Z180 CPU expectations and core integration. |
-| [z180-internal-peripherals.md](z180-internal-peripherals.md) | MMU, ASCI, PRT, INTs, DMA, wait states. |
-| [device-model.md](device-model.md) | Common device contract (reset, I/O, tick, ints, snapshot, trace, fixtures). |
+### Display and human interface
 
-## Devices
+[VFD emulation](vfd-emulation.md) · [Keypad and quick-access keys](keypad-emulation.md) · [Handset and hook switch](hookswitch-and-handset.md) · [Art and layout](artwork-and-layout.md) · [Front panel](frontend-control-panel.md)
 
-| Document | Purpose |
-| -------- | ------- |
-| [vfd-emulation.md](vfd-emulation.md) | 2-line and 11-line VFD device. |
-| [keypad-emulation.md](keypad-emulation.md) | Numeric keypad, quick-access keys, volume, language. |
-| [hookswitch-and-handset.md](hookswitch-and-handset.md) | Hookswitch, handset audio loopback, volume. |
-| [card-reader-emulation.md](card-reader-emulation.md) | Magnetic card reader timing and LRC. |
-| [smartcard-emulation.md](smartcard-emulation.md) | Smart-card reset/ATR/APDU or memory-card behavior. |
-| [coin-validator-emulation.md](coin-validator-emulation.md) | Coin pulse trains, denominations, errors. |
-| [alerter-audio.md](alerter-audio.md) | Alerter / call-progress audio. |
-| [voiceware-emulation.md](voiceware-emulation.md) | Voice playback device (prompts / tones). |
-| [audio-routing-emulation.md](audio-routing-emulation.md) | Telephony processor routing commands. |
-| [disconnect-supervision-emulation.md](disconnect-supervision-emulation.md) | Line supervision injection model. |
-| [lock-door-vault-service.md](lock-door-vault-service.md) | Lock, door, vault, service-mode inputs. |
-| [modem-uart-host-bridge.md](modem-uart-host-bridge.md) | ASCI/UART, modem signals, host bridge. |
-| [nvram-and-table-storage.md](nvram-and-table-storage.md) | NVRAM image format, factory/corrupt images, table storage. |
-| [firmware-download-storage.md](firmware-download-storage.md) | Later-board flash, bootstrap mapping and remote upgrade acceptance. |
-| [table-download-behavior.md](table-download-behavior.md) | Table download flows and persistence. |
+### Line and sound
 
-## Frontend
+[Modem and UART host bridge](modem-uart-host-bridge.md) · [Line disconnect supervision](disconnect-supervision-emulation.md) · [Voiceware](voiceware-emulation.md) · [Audio routing](audio-routing-emulation.md) · [Alerter audio](alerter-audio.md) · [Host media](status/cross-platform-host-media-2026-11-27.md)
 
-| Document | Purpose |
-| -------- | ------- |
-| [artwork-and-layout.md](artwork-and-layout.md) | MAME `.lay` plan + clickable regions. |
-| [frontend-control-panel.md](frontend-control-panel.md) | Optional control-panel UI overlay. |
+### Coin, cards and security
+
+[Coin validator](coin-validator-emulation.md) · [Magnetic stripe reader](card-reader-emulation.md) · [Smart cards](smartcard-emulation.md) · [Local simulated purse](lab-purse.md) · [Lock, housing and cashbox](lock-door-vault-service.md)
+
+### Storage and management
+
+[NVRAM and table storage](nvram-and-table-storage.md) · [Table download behavior](table-download-behavior.md) · [Remote firmware download and recovery](firmware-download-storage.md)
+
+## Engineering evidence
+
+The [current status](STATUS.md) links the major verified results. The [status directory](status/) preserves individual dated reports, including:
+
+- [Cold INSTALL, persistence and host rating](status/ncc-install-firmware-stx-handoff-2026-11-23.md)
+- [Graphical advertising and display](status/graphic-vfd-hardware-2026-11-25.md), [hook-cycle recovery](status/graphical-ad-hook-resume-2026-11-27.md)
+- [Native ADSI and connected DTMF](status/connected-dtmf-adsi-welcome-2026-11-25.md), [direct service routing](status/adsi-direct-lan-routing-2026-11-27.md)
+- [Card contact and payment](status/smartcard-contact-2026-11-25.md), [native T=0/T=1](status/smartcard-native-transport-2026-11-25.md), [full graphical qualification](status/proton-graphical-qualification-2026-11-25.md)
+- [Coin and cashbox](status/coin-cashbox-qualification-2026-11-26.md), [peripheral signals](status/peripheral-handoff-implementation-2026-11-25.md)
+- [Voiceware waveform synthesis](status/voiceware-waveform-2026-11-27.md), [host audio reliability](status/host-audio-reliability-2026-11-26.md), [window timing](status/windows-window-timing-2026-11-25.md)
+
+## Design and implementation history
+
+Historical plans describe the decisions and milestones at the time they were written. They are not a substitute for the current acceptance status.
+
+- Foundation: [engine selection](engine-selection.md), [MAME driver plan](mame-driver-plan.md), [license strategy](../LICENSE-STRATEGY.md), [Windows MSYS2 build](building-on-windows-msys2.md).
+- Implementation: [roadmap](implementation-roadmap.md), [tranches](tranche-plan.md), [file plan](file-plan.md), [build plan](build-plan.md), [boot milestones](boot-milestones.md), [host integration](host-integration-plan.md), [risk register](risk-register.md).
+- Verification: [test strategy](test-strategy.md), [acceptance plan](acceptance-test-plan.md), [compatibility validation items](compatibility-validation-items.md).
+- Audio design: [MAME device architecture](audio-mame-device-architecture.md), [boot integration](audio-boot-integration-plan.md), [implementation roadmap](audio-implementation-roadmap.md), [debugging and traces](audio-debugging-and-trace-plan.md), [CI](audio-ci-plan.md), [evidence bundle plan](audio-evidence-bundle-plan.md).
+
+The source, device specifications and test plans remain available in [src](../src/), [specs](../specs/) and [test-plans](../test-plans/).

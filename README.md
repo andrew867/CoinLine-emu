@@ -1,125 +1,113 @@
 # CoinLine Terminal Emulator
 
-CoinLine runs the original Millennium-compatible terminal firmware on a Z180 MAME driver. It includes the terminal front panel, emulated handset and peripherals, and a local central-office simulator. CoinLine Server supplies provisioning and rating over the firmware’s NCC modem connection.
+[![Native builds](https://github.com/andrew867/CoinLine-emu/actions/workflows/native-release.yml/badge.svg?branch=main)](https://github.com/andrew867/CoinLine-emu/actions/workflows/native-release.yml) [![C++ tests](https://github.com/andrew867/CoinLine-emu/actions/workflows/cpp-tests.yml/badge.svg?branch=main)](https://github.com/andrew867/CoinLine-emu/actions/workflows/cpp-tests.yml) [![Fixture tests](https://github.com/andrew867/CoinLine-emu/actions/workflows/fixtures.yml/badge.svg?branch=main)](https://github.com/andrew867/CoinLine-emu/actions/workflows/fixtures.yml)
 
-## Start here
+**A Millennium payphone, running inside your computer.**
 
-- [Windows quick start](RUNNING.md) for the portable ZIP, controls, first INSTALL, and SIP.
-- Separate OEM two-line and graphical 11-line launchers provide independent terminal storage and SIP setup in the same package.
-- [Build and package](BUILDING.md) for Windows x64, Ubuntu Linux x64, macOS Apple Silicon, and the operator ROM input layout.
-- [INSTALL verification](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) for the firmware and network evidence.
-- [Card contact and payment qualification](docs/status/smartcard-contact-2026-11-25.md), [ADSI interoperation](docs/status/adsi-interop-2026-11-25.md), and [graphical performance](docs/status/graphical-render-performance-2026-11-25.md) for the latest live trials and remaining gates.
-- [Native smart-card transport and high-DPI window sizing](docs/status/smartcard-native-transport-2026-11-25.md) for the synthetic ASCI0 and memory-persistence tests.
-- [Full graphical image qualification](docs/status/proton-graphical-qualification-2026-11-25.md) and [native coin and cashbox qualification](docs/status/coin-cashbox-qualification-2026-11-26.md) for the latest independent cold, warm and transaction results.
-- [Independent simulated-value purse](docs/lab-purse.md) for the local nonredeemable ledger, separate from native card authorization.
-- [Interactive and audio milestone status](docs/status/interactive-audio-milestone-status.md) for the native New Call relay and SIP-dialog restart check.
-- [Windows window and artwork timing](docs/status/windows-window-timing-2026-11-25.md) for nonmodal window moves/resizes and native renderer measurements.
-- [Host audio reliability and runtime audit](docs/status/host-audio-reliability-2026-11-26.md) for measured CPU headroom, speaker underruns, persistence and remaining Voiceware tone coverage.
-- [Native Voiceware waveform playback](docs/status/voiceware-waveform-2026-11-27.md) for PCM/waveform synthesis, dial tone, attention tone, DTMF and BUSY/INT0 verification.
-- [Graphical advertising resume](docs/status/graphical-ad-hook-resume-2026-11-27.md) for the hook-ordering defect and corrected retained-state qualification.
-- [Exact InfoLine extension routing](docs/status/adsi-direct-lan-routing-2026-11-27.md) for the shared local service configuration and free-call alias contract.
-- [Connected DTMF and ADSI navigation qualification](docs/status/connected-dtmf-adsi-welcome-2026-11-25.md) for live menu navigation and SIP transport verification.
-- [Firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) for the tested terminal families, archive hashes and outstanding gates.
-- [Automated INSTALL runner](tools/acceptance/README.md) for cold installation, hardware selection and restart testing.
-- [Remote firmware downloads](docs/firmware-download-storage.md) for the MTR 2.x bootstrap, flash model and upgrade acceptance plan.
-- [Outstanding hardware reference checklist](specs/hardware/hardware-reference-request-checklist.md) for remaining documentation and physical validation priorities.
-- [Testing](TESTING.md) for the emulator suite and Windows smoke checks.
+Lift the handset. Hear the dial tone. Drop a virtual quarter into the coin slot. Swipe a synthetic card. Dial a number, connect to a SIP call, or browse an interactive information service on a glowing eleven-line vacuum fluorescent display.
 
-## Current status
+This is not a payphone-themed softphone. CoinLine emulates the Z180 control processor, the telephony controller, peripheral buses and telephone-line hardware in MAME. The terminal firmware installs itself, checks its hardware, downloads configuration tables, writes persistent memory, selects voice prompts and decides how to handle a call.
 
-Both the MTR 1.9 demo and normal OEM firmware completed INSTALL from erased EEPROM and blank SRAM. Each accepted all ten NCC table records, passed CO and answer supervision and the keypad, Track 2, and coin tests, then rebooted to **Please lift receiver** from firmware-written battery storage.
+<table>
+<tr>
+<td width="34%" valign="top">
+<img src="docs/images/graphical-terminal.png" alt="CoinLine graphical payphone emulator on-hook with a rotating globe advertisement and green status indicators" width="300">
+</td>
+<td valign="top">
+<h3>A real terminal experience</h3>
+<p>Two-line and graphical terminal profiles, an interactive handset and front panel, real keypad and softkey inputs, a working coin escrow, card readers, enclosure switches and firmware-driven audio.</p>
+<h3>Information services over a phone call</h3>
+<img src="docs/images/adsi-welcome.png" alt="Native eleven-line VFD displaying the CoinLine InfoLine ADSI welcome menu" width="570">
+<p>This menu was received over a real SIP/RTP media session. The emulated terminal detected the alert signal, decoded Bell 202 FSK data, acknowledged the message and rendered the screen.</p>
+<sub>Actual emulator screenshots, not UI designs or generated illustrations.</sub>
+</td>
+</tr>
+</table>
 
-The demo dialed the toll-free test without requesting a rate and reached National Directory Assistance through SignalWire. The OEM displayed a live five-cent, one-minute CoinLine quote and played the matching Voiceware prompt. The OEM speaks cents in five-cent increments. These results cover the tested MAME configurations and lab table set. Physical terminal certification is a separate validation activity.
+The goal is to preserve and explore the whole telephone system, not just its handset. A terminal, central office, management server and information service can now be brought up together on ordinary computers, without a physical payphone on the bench.
 
-The acceptance library covers 126 firmware identifiers and 85 archived
-artifacts with verified SHA-256 digests. Twenty-three of the 24 runnable
-firmware identifiers have completed cold INSTALL and an in-service restart
-across the recorded builds. Hardware presets support earlier
-Multi-Pay, Desk and Card-only terminals, later V1.0, V1.1 and V1.3 Multi-Pay
-control boards, and Coin Basic. The catalog records successful firmware-driven
-INSTALL and restart outcomes separately from table acknowledgements and
-individual peripheral checks. Coin Basic uses a different display and
-Voiceware port mapping, with a temporary VFD connection selectable at launch.
-The optional 11-line graphical display has a separate four-page pixel
-controller and physical softkey scanner. Its synthetic native hardware
-probe and artwork presentation pass. The locally supplied NLA1X08
-MTR 2.12-based graphical/ADSI image (terminal type 40, DLA 1.3)
-completed cold INSTALL and a separate in-service restart, acknowledged
-all 18 NCC records, and displayed all 16 downloaded bitmap-advertisement
-frames exactly. Its keypad, magnetic-card and coin tests passed. A later
-pin-level smart-card implementation passed the installed firmware's Craft
-contact test twice, following the original failed INSTALL chip-card check.
-A separate MTR 2.12 NLA1X05 cold INSTALL and restart also passed with
-the new reader model. A subsequent magnetic-card trial obtained a simulated
-host authorization and connected a local test call. A CDR and payment
-settlement were not observed. The synchronous contact fixture is nonfunded;
-a funded chip application and a fresh NLA1X08 INSTALL with the new reader
-remain separate gates.
+## Get it running
 
-The full-feature NLA1X09 graphical image identified by SHA-256 prefix
-`996a8ac5e81d` completed INSTALL from blank storage on the corrected
-later-board common-SRAM map, acknowledged all 18 NCC records and passed
-the genuine keypad, magnetic-reader, generic asynchronous customer-contact
-and coin tests. It reached `Please lift receiver` after cabinet closure
-and remained in service across an independent warm restart and hook cycle.
-The real NCC clock synchronization and three distinct internal module
-contact diagnostics also passed. With just one module populated, the two
-empty sockets correctly reported no response. Including the two additional
-local graphical variants, 25 of 26 runnable identifiers now have cold
-INSTALL and in-service restart evidence. Historical purse transactions
-remain a separate qualification gate.
+Native packages are built for **Windows x64, Linux x64 and macOS Apple Silicon**. Download from [Releases](https://github.com/andrew867/CoinLine-emu/releases) or the latest successful [native build artifacts](https://github.com/andrew867/CoinLine-emu/actions/workflows/native-release.yml).
 
-The graphical board now uses its 24.576 MHz oscillator and the local ADSI
-route carries real PCMU audio over SIP/RTP. Live firmware trials produced
-the capability A tone, decoded authentic CONNECT frames and emitted D1
-responses, independently confirmed by a wire capture. After offloading the
-services, a native call completed the first D within the one-second deadline,
-acknowledged the welcome screen and rendered its menu on the physical VFD model.
-With the service returning to voice between screens, the native keypad selected
-News and Back, the native softkey selected Exit, and the call released cleanly.
-Paid service calls remain a separate gate.
+1. Extract the package into a writable directory. Supply your authorized terminal and Voiceware images using the [ROM input layout](BUILDING.md#include-your-local-rom-inputs). Public packages do not include these images.
+2. Start the appropriate terminal. The two profiles keep separate configuration and persistent storage.
+3. For a fresh terminal, run its normal INSTALL procedure with [CoinLine Server](https://github.com/andrew867/CoinLine) available. The terminal downloads its own tables and writes its own battery-backed state.
 
-A deterministic single CONNECT test produced native D onset in 791.587 ms.
-The live receiver now shares that dedicated emulated 8 kHz sampling clock;
-the latest live result used the unchanged hardware clocks and service deadline.
-Ordinary connected-call keypad DTMF now follows the controller tone gate and
-uses negotiated RTP events, supported SIP INFO, or in-band PCM as appropriate.
+| Platform | Two-line terminal | Graphical terminal |
+|---|---|---|
+| Windows | `Start OEM.cmd` | `Start Graphical.cmd` |
+| Linux/macOS | `./start-oem.sh` | `./start-graphical.sh` |
 
-The enclosure warning source and gate now follow the later hardware latch,
-with a separate legacy Desk oscillator profile. Native GPIO and recorded
-audio measurements verified the later waveform and silent muted phases.
-The optional later-board data-jack monitor and raw relay combinations also
-passed a native bus probe; external modem audio and data-session acceptance
-are still pending. See [peripheral qualification](docs/status/peripheral-handoff-implementation-2026-11-25.md).
-The actual forgotten-card prompt and normal recovery on removal also passed;
-the installed firmware's audible reminder remains unqualified. A separate
-local-only 25-cent coin call produced a matching native CDR, physical
-cashbox collection report and empty replacement-box report without
-duplicate records. See [cashbox evidence](docs/status/coin-cashbox-qualification-2026-11-26.md).
-All three tested Coin Basic images completed detached-display Craft access,
-INSTALL with the temporary display attached, and a locally answered call
-after removing the display and restarting. The Inmate firmware is still
-missing a usable program image.
+On Linux/macOS, the included Quick Start lists the system libraries. Run `./setup-sip.sh` once if you want SIP or local InfoLine service routes. Configure the carrier account in the corresponding INI and start with `--sip`. The simulated central office is available without a carrier account.
 
-Later boards now model two persistent NOR flash chips and the resident
-bootstrap address remap. Remote code download acceptance requires the
-terminal's actual code-server exchange, flash writes, verification and reboot.
-Both MTR 2.11 V1.1 candidates and the MTR 2.12 V1.3 reference completed
-normal INSTALL and restart through the restored bootstrap, with their
-battery and initial flash restored.
-The emulator flash device and the resident bootstrap have independent tests.
-A synthetic Z180 program executes from SRAM, erases and programs a sector
-on each flash chip through the memory bus, checks neighboring sectors,
-and verifies the saved bytes after a separate launch. The
-original firmware inputs remain unchanged. Actual remote upgrades and recovery
-after interrupted delivery still need a compatible code-server exchange. The
-modem offers a configurable, independent loopback route for the firmware's
-code-server call. Native scheduled pickup of an MT94 job, separate dialing
-and acknowledged cancellation have been demonstrated. The observed
-code-server call closed before carrier and did not transfer an image.
+**[Full quick start, controls and INSTALL →](RUNNING.md)** · **[Build from source →](BUILDING.md)**
 
-The emulator supports SIP calling on Windows, Linux and macOS. Windows uses the existing WinMM microphone capture; Linux and macOS use the optional system PortAudio library, with the same filtered 8 kHz handset path and native MAME playback. On POSIX, run the packaged `setup-sip.sh` once to install the isolated SIP runtime. Local CO operation does not require Python SIP dependencies or a microphone. A Windows OEM inbound call through a SIP carrier carried captured audio to the calling side and cleared on remote hangup; POSIX physical microphone and external-carrier qualification are separate from the automated loopback checks.
+## What makes it different
 
-The emulator and the MIT-licensed CoinLine Server and Management Console communicate over the NCC transport. Authorized firmware and Voiceware images are local inputs. Public artifacts contain the emulator and original telephony model. See [license strategy](LICENSE-STRATEGY.md) and the [CoinLine Server repository](https://github.com/andrew867/CoinLine).
+- **Firmware-driven installation.** Tested terminals start with erased EEPROM and blank SRAM, perform their physical installation checks, connect to NCC, receive tables and return to service on a separate restart. No preinstalled table-state shortcut is required.
+- **Emulated hardware, not scripted menus.** Earlier and later control-board profiles model memory mapping, interrupts, DMA, serial peripherals, display controllers, keypad, magnetic and chip-card interfaces, coin escrow, cashbox and service switches.
+- **The original sound experience.** Voice prompts, dial tones, attention tones and feedback are produced through the emulated Voiceware device, including its stand-alone waveform synthesis mode. SIP calls carry real handset audio; the physical tone path also supports connected DTMF.
+- **A graphical telephone terminal.** The eleven-line VFD renders downloaded bitmap advertising, supports physical softkeys and can interact with ADSI services over ordinary telephone audio. Coin Basic and Desk profiles are also represented.
 
-[Documentation index](docs/README.md) · [Device specifications](specs/) · [Test plans](test-plans/)
+<p align="center">
+<img src="docs/images/adsi-news.png" alt="Live InfoLine News submenu selected by the terminal keypad" width="540">
+<br><sub>The News submenu, selected by pressing a real emulated keypad button during the same ADSI session.</sub>
+</p>
+
+## How it fits together
+
+The projects form a private or local telephone test network. The emulator and management server communicate over the terminal's NCC transport, while the central office handles the voice path.
+
+```mermaid
+flowchart LR
+    subgraph E[Terminal emulator / MAME]
+        CPU[Z180 firmware] <-->|I/O and memory bus| HW[Board and peripheral models]
+        HW <--> UI[Handset / keypad / VFD / card / coin]
+        HW <--> NVRAM[(Persistent terminal memory)]
+        HW <--> MODEM[NCC modem]
+        HW <--> LINE[Telephone line]
+    end
+    MODEM <-->|NCC over TCP| HOST[CoinLine Server]
+    LINE <-->|PCM / supervision / digits| CO[Central office simulator]
+    CO <-->|SIP / RTP| SIP[Local or external SIP service]
+    SIP <--> ADSI[CoinLine InfoLine]
+    HOST <-->|Synthetic payment authorization| BANK[ShadyBank lab]
+```
+
+- [CoinLine Server](https://github.com/andrew867/CoinLine): terminal provisioning, NCC table downloads, rating and operational data.
+- [CoinLine InfoLine](https://github.com/andrew867/CoinLine-ADSI): interactive ADSI information services and telephone menus.
+- ShadyBank is an optional synthetic payment provider for the lab, not a production payment issuer.
+
+## What has been verified
+
+The [firmware acceptance catalog](docs/uat/firmware-acceptance-catalog.md) tracks **126 firmware identifiers**. In the recorded acceptance baseline, **25 of 26 runnable cases** completed cold INSTALL and an independent in-service restart.
+
+| Area | Observed result |
+|---|---|
+| Installation and NCC | Earlier and later firmware, required table acknowledgments, persistent state and separate warm boot |
+| Graphical VFD | Native pixels, softkey input, and 16 exact downloaded advertisement bitmap matches |
+| Telephone audio | SIP calls, line supervision, native Voiceware synthesis, real connected DTMF and cross-platform loopback media |
+| Coin accounting | Native quarter-rated local call, coin record, collection and empty replacement-box report |
+| Magnetic and smart cards | Native reader checks, synthetic magnetic authorization trials, generic synchronous and asynchronous chip-card transport |
+| ADSI | Genuine CAS/A, FSK, message acknowledgments, News selection, Back, Exit and clean teardown |
+| Firmware upgrades | Persistent dual NOR flash, normal bootstrap restart and scheduled code-server call; actual remote image transfer remains open |
+
+This is firmware-on-emulator evidence, not a physical-terminal certification. A successful prior ADSI menu test does not mean every live host timing condition is qualified. Graphical paid-call classification, long-frame PCM reliability, modern lab magnetic-card settlement and historical chip-card payment applications are tracked separately.
+
+**[Current acceptance and remaining work →](docs/STATUS.md)**
+
+## Explore the project
+
+| If you want to… | Read this |
+|---|---|
+| Run a terminal | [Quick start and operating guide](RUNNING.md) |
+| Build or package it | [Build instructions](BUILDING.md) |
+| Understand the machine | [Architecture](docs/architecture.md) and [board profiles](docs/board-profiles.md) |
+| Dig into the chip and bus models | [Hardware and device documentation](docs/README.md#hardware-reference) |
+| Reproduce acceptance tests | [Testing](TESTING.md) and [automated firmware runner](tools/acceptance/README.md) |
+| See exact test evidence | [Project status](docs/STATUS.md) |
+
+## License
+
+The emulator is GPL-2.0-or-later; its MAME components carry their applicable licenses. The separately licensed CoinLine server communicates with the emulator across a process and protocol boundary. Public packages contain the emulator and its original telephony-controller model; authorized program and voice images are supplied locally by the operator. See [LICENSE](LICENSE) and [license strategy](LICENSE-STRATEGY.md).
