@@ -65,6 +65,23 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE} <= staged
 
 
+def test_coin_validator_profile_preserves_independent_board_fields(tmp_path):
+    source = tmp_path / "board.json"
+    original = {"coin": {"denominations": [5, 10, 25], "pulse_width_us": 350},
+                "display": {"type": "graphic"}}
+    source.write_text(json.dumps(original), encoding="utf-8")
+    target = tmp_path / "calibrated.json"
+    assert launcher.coin_profile_board(source, "board-default", target) == source
+    assert not target.exists()
+    assert launcher.coin_profile_board(source, "regional-nine", target) == target
+    configured = json.loads(target.read_text(encoding="utf-8"))
+    assert configured["coin"]["denominations"] == [5, 5, 10, 25, 100, 5, 10, 25, 100]
+    assert configured["coin"]["pulse_width_us"] == 350 and configured["display"] == original["display"]
+    assert json.loads(source.read_text(encoding="utf-8")) == original
+    with pytest.raises(ValueError, match="Unknown coin validator profile"):
+        launcher.coin_profile_board(source, "unsupported", target)
+
+
 def test_posix_sip_and_direct_adsi_preflight(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     monkeypatch.setattr(launcher, "WINDOWS", False)

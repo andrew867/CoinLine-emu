@@ -133,6 +133,16 @@ several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
 and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
 
+The validator's physical coin windows and the terminal's downloaded coin
+table must agree. Set `coin_validator` under `[hardware]` (or use
+`--coin-validator`) independently of the motherboard and display selection.
+`board-default` preserves the configured board fixture; `three-slot` is
+the nickel/dime/quarter calibration, and `regional-nine` models the nine
+active windows in the qualified graphical lab coin table. The graphical
+example INI selects `regional-nine`. Existing INIs are not rewritten.
+Choose the calibration corresponding to the actual downloaded coin table;
+the emulator does not infer it from SRAM or alter the terminal's credits.
+
 Optional InfoLine voice-service routes are available with `--adsi`. Set
 the private IPv4 host and UDP port in `[adsi]` and the exact extension-to-alias
 mapping in `[adsi.routes]`. A shared `adsi-routes.ini` (copy the example) can

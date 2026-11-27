@@ -2,6 +2,8 @@
 """Hardware presets shared by the interactive launcher and acceptance runner."""
 
 from dataclasses import dataclass
+import json
+from pathlib import Path
 import re
 
 
@@ -41,6 +43,29 @@ FIRMWARE_PRESETS = {
 }
 
 PROGRAM_TAG = re.compile(rb"<([A-Z0-9]{7,8})V(\d+\.\d+)")
+
+# Coin validator windows are physical calibration profiles, independent of
+# the terminal's downloaded coin-value table. Never derive them from RAM.
+COIN_VALIDATOR_PROFILES = {
+    "board-default": None,
+    "three-slot": (5, 10, 25),
+    "regional-nine": (5, 5, 10, 25, 100, 5, 10, 25, 100),
+}
+
+
+def coin_profile_board(source, calibration, destination):
+    if calibration not in COIN_VALIDATOR_PROFILES:
+        raise ValueError(f"Unknown coin validator profile {calibration!r}.")
+    slots = COIN_VALIDATOR_PROFILES[calibration]
+    if slots is None:
+        return Path(source)
+    board = json.loads(Path(source).read_text(encoding="utf-8"))
+    board["coin"]["denominations"] = list(slots)
+    destination = Path(destination)
+    # The native board descriptor's integer-array reader accepts compact
+    # lists. Keep the generated calibration in that representation.
+    destination.write_text(json.dumps(board, separators=(",", ":")) + "\n", encoding="utf-8")
+    return destination
 
 
 def program_tag(image):

@@ -144,6 +144,11 @@ Controls
   F / D                next magnetic / smart test card (or click its name)
   V / B / M            insert nickel / dime / quarter
 
+The graphical example INI selects the nine-window regional validator.
+For an existing INI, set coin_validator = regional-nine under [hardware]
+when its downloaded coin table uses that calibration. The three-slot or
+board-default setting remains appropriate for the original earlier fixture.
+
 The card wallet shows the selected card and actual reader state. The second
 magnetic fixture is an intentionally invalid-checksum test; the second
 contact fixture is a generic read-only transport test. Set mag_fixture_2
