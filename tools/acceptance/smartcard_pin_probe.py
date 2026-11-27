@@ -15,7 +15,19 @@ ROOT = Path(__file__).resolve().parents[2]
 PROBE = r'''
 local machine = manager.machine
 local io = machine.devices[":maincpu"].spaces["io"]
-local card = assert(machine.ioport.ports[":CARDUI"]:field(2))
+local cards = assert(machine.ioport.ports[":CARDUI"])
+local card = assert(cards:field(2))
+local insert, remove, select_smart = cards:field(4), cards:field(8), cards:field(32)
+local mag, select_mag = cards:field(1), cards:field(16)
+local outputs = machine.output
+local function panel(name) return outputs:get_value("panel_" .. name) end
+local function press(field) field:set_value(1) end
+local function release(field) field:clear_value() end
+local mag_states = {}
+local snapshots = os.getenv("COINLINE_CARD_PANEL_SNAPSHOTS") == "1"
+local function snapshot(name)
+    if snapshots then machine.screens[":screen"]:snapshot(name .. ".png") end
+end
 local frame = 0
 local warm = os.getenv("COINLINE_SMART_CARD_WARM_PROBE") == "1"
 local function d(v) io:write_u8(0xc1, v) end
@@ -69,9 +81,35 @@ emu.register_frame_done(function()
         assert(io:read_u8(0x40) & 6 == 6, "card not reinserted")
         select_card(0); assert(bit(), "read-only neighbour lost")
         advance(); assert(not bit(), "reinsertion restored programmed bit")
-        print("SMARTCARD_PIN_PROBE passed")
-        e(0); machine:exit()
+        e(0); press(insert)
     end
+    if frame == 51 then release(insert); assert(panel("smart_inserted") == 1, "insert must be idempotent"); press(select_smart) end
+    if frame == 57 then release(select_smart); assert(panel("smart_selected") == 0, "selection changed with card inserted"); press(remove) end
+    if frame == 63 then release(remove); assert(panel("smart_inserted") == 0); press(remove) end
+    if frame == 69 then release(remove); assert(panel("smart_inserted") == 0, "remove must be idempotent"); press(select_smart) end
+    if frame == 75 then release(select_smart); assert(panel("smart_selected") == 1); press(insert) end
+    if frame == 81 then release(insert); assert(panel("smart_inserted") == 1); assert(io:read_u8(0x40) & 6 == 6); snapshot("contact-inserted"); press(mag) end
+    if frame == 87 then release(mag); assert(panel("mag_motion") == 0, "magnetic swipe started with card inserted"); press(remove) end
+    if frame == 93 then release(remove); press(select_smart) end
+    if frame == 99 then release(select_smart); assert(panel("smart_selected") == 0); press(insert) end
+    if frame == 105 then
+        release(insert); select_card(); assert(bit(), "primary neighbor lost after selection"); advance()
+        assert(not bit(), "switching fixtures restored primary memory"); e(0); press(remove)
+    end
+    if frame == 111 then release(remove); press(select_mag) end
+    if frame == 117 then release(select_mag); assert(panel("mag_selected") == 1); press(mag) end
+    if frame == 123 then release(mag); assert(panel("mag_motion") ~= 0); snapshot("magnetic-swipe"); press(select_mag) end
+    if frame == 129 then release(select_mag); assert(panel("mag_selected") == 1, "selection changed during swipe") end
+    if frame > 117 then mag_states[panel("mag_motion")] = true end
+    if frame == 440 then
+        assert(mag_states[1] and mag_states[2] and mag_states[3] and panel("mag_motion") == 0,
+            "magnetic graphic did not follow entry, seated, withdrawal and empty states")
+        press(select_mag)
+    end
+    if frame == 446 then release(select_mag); assert(panel("mag_selected") == 0); press(select_smart) end
+    if frame == 452 then release(select_smart); assert(panel("smart_selected") == 1); press(insert) end
+    if frame == 458 then release(insert); assert(panel("smart_inserted") == 1); press(remove) end
+    if frame == 464 then release(remove); assert(panel("smart_inserted") == 0); snapshot("reader-empty"); print("SMARTCARD_PIN_PROBE passed"); print("VIRTUAL_CARD_PANEL passed"); machine:exit() end
 end, "synthetic smart-card contacts")
 '''
 
@@ -84,6 +122,7 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/smartcard-pin-probe")
     parser.add_argument("--program-us", type=int, choices=(1000, 10000), default=1000,
                         help="synthetic test-region programming delay, not a historical card specification")
+    parser.add_argument("--artwork", action="store_true", help="capture actual card-panel states in the Standard view")
     args = parser.parse_args()
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
@@ -105,21 +144,30 @@ def main():
     env.update(COINLINE_EMU_ROOT=str(out), COINLINE_MOTHERBOARD="later",
         COINLINE_BOARD=str(ROOT / "fixtures/board/board-profile-2line-vfd.json"), COINLINE_FIRMWARE=str(seed),
         COINLINE_DIAGNOSTICS="0", COINLINE_TP8048_ROM=str(args.controller.resolve()),
-        COINLINE_SMART_CARD=str(fixture), COINLINE_SMART_CARD_TRACE="1")
+        COINLINE_SMART_CARD=str(fixture), COINLINE_SMART_CARD_TRACE="1",
+        COINLINE_SMART_CARD_2=str(out / "fixtures/cards/smartcard-async-contact-atr-lab.json"),
+        COINLINE_MAG_CARD_2=str(out / "fixtures/cards/magcard-invalid-lrc.json"))
     command = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
         "-nolog", "-video", "none", "-sound", "none", "-rompath", str(args.rompath.resolve()),
         "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
-        "-seconds_to_run", "4", "-autoboot_delay", "0", "-autoboot_script", str(lua)]
+        "-seconds_to_run", "12", "-autoboot_delay", "0", "-autoboot_script", str(lua)]
+    if args.artwork:
+        art = out / "artwork/cl_millennium"
+        art.mkdir(parents=True)
+        shutil.copyfile(ROOT / "src/mame/layout/millennium.lay", art / "default.lay")
+        shutil.copyfile(ROOT / "artwork/millennium-terminal-front.png", art / "millennium-terminal-front.png")
+        command += ["-artpath", str(art.parent), "-snapview", "Standard", "-snapshot_directory", str(out)]
+        env["COINLINE_CARD_PANEL_SNAPSHOTS"] = "1"
     result = subprocess.run(command, cwd=out, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
     log = result.stdout.decode(errors="replace")
     (out / "mame.log").write_text(log, encoding="utf-8")
-    if result.returncode or "SMARTCARD_PIN_PROBE passed" not in log:
+    if result.returncode or "LUA ERROR" in log or "SMARTCARD_PIN_PROBE passed" not in log or "VIRTUAL_CARD_PANEL passed" not in log:
         raise RuntimeError(f"Native contact-memory probe failed: {out}")
     warm = subprocess.run(command, cwd=out, env=dict(env, COINLINE_SMART_CARD_WARM_PROBE="1"),
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
     warm_log = warm.stdout.decode(errors="replace")
     (out / "warm.log").write_text(warm_log, encoding="utf-8")
-    if warm.returncode or "SMARTCARD_PIN_PERSISTENCE passed" not in warm_log or "smart-card synthetic memory restored" not in warm_log:
+    if warm.returncode or "LUA ERROR" in warm_log or "SMARTCARD_PIN_PERSISTENCE passed" not in warm_log or "smart-card synthetic memory restored" not in warm_log:
         raise RuntimeError(f"Native restart contact-memory probe failed: {out}")
     print(f"Native contact-memory and restart persistence probes passed: {out}")
 

@@ -43,6 +43,7 @@ For the earlier and later test flows, firmware started with erased EEPROM and bl
 | Cashbox accounting | Native quarter-rated local call, matching record, collection report and empty replacement box | Additional terminal families and reconciliation cases |
 | Magnetic stripe | Native swipe/reader checks; a prior local call received a simulated provider authorization and returned to service | Separate ShadyBank end-to-end lab authorization and CDR reconciliation |
 | Smart card / modules | Native synchronous contact and persistence tests; generic asynchronous T=0/T=1 transport; distinct internal socket diagnostics | Historical issuer application and protected SAM behavior are not established |
+| Virtual card wallet | Native magnetic entry, read and withdrawal indicators; independent contact insert/remove; selection lockout while occupied; primary synthetic contact memory retained across selection and restart | Additional funded synthetic account qualification is independent of reader operation |
 | Simulated purse | Independent local nonredeemable ledger and accounting test vectors | Not a historical chip-card payment application |
 | Forgotten card | Native reminder display and removal recovery on tested configurations | Audible hardware alarm in the eligible card condition |
 

@@ -154,6 +154,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=Non
         "fixtures/board/board-profile-11line-vfd.json": ROOT / "fixtures/board/board-profile-11line-vfd.json",
         "fixtures/board/io-port-map.json": ROOT / "fixtures/board/io-port-map.json",
         "fixtures/cards/magcard-valid.json": ROOT / "fixtures/cards/magcard-valid.json",
+        "fixtures/cards/magcard-invalid-lrc.json": ROOT / "fixtures/cards/magcard-invalid-lrc.json",
         "fixtures/cards/smartcard-valid.json": ROOT / "fixtures/cards/smartcard-valid.json",
         "fixtures/cards/smartcard-sync-test.json": ROOT / "fixtures/cards/smartcard-sync-test.json",
         "fixtures/cards/smartcard-async-t0-lab.json": ROOT / "fixtures/cards/smartcard-async-t0-lab.json",

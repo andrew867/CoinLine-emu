@@ -15,7 +15,7 @@ public:
 	void device_start() override ATTR_COLD;
 	void device_reset() override;
 
-	bool reload_fixture_from_path(std::string const &path, std::string &error_out);
+	bool reload_fixture_from_path(std::string const &path, std::string &error_out, bool additional_slot = false);
 	void insert_card(u64 cycle, u64 cpu_hz);
 	void remove_card();
 	std::uint8_t read_fifo(u64 cycle);
@@ -37,7 +37,7 @@ private:
 	void nvram_default() override;
 	bool nvram_read(util::read_stream &file) override;
 	bool nvram_write(util::write_stream &file) override;
-	bool nvram_can_write() const override { return m_model.sync_test_memory_writable() && m_fixture_digest.size() == 64U; }
+	bool nvram_can_write() const override { return m_primary_writable_digest.size() == 64U; }
 	void stop_async_serial();
 	void schedule_async_serial();
 	TIMER_CALLBACK_MEMBER(async_serial_tick);
@@ -59,4 +59,8 @@ private:
 	std::string m_fixture_path;
 	std::vector<std::uint8_t> m_fixture_bytes;
 	std::string m_fixture_digest;
+	// The explicitly writable primary lab fixture retains its memory while
+	// a read-only secondary contact fixture is selected.
+	std::string m_primary_writable_digest;
+	std::vector<std::uint8_t> m_primary_memory;
 };
