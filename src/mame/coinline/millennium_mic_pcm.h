@@ -10,6 +10,14 @@
 // One capture thread writes 48 kHz PCM and one audio thread reads 8 kHz PCM.
 class millennium_mic_pcm {
 public:
+	// Only used before starting a host stream, while neither endpoint runs.
+	void reset() noexcept
+	{
+		m_write.store(0, std::memory_order_relaxed);
+		m_read.store(0, std::memory_order_relaxed);
+		m_primed = false;
+	}
+
 	void push(std::int16_t const *samples, std::size_t count) noexcept
 	{
 		auto const write = m_write.load(std::memory_order_relaxed);

@@ -162,6 +162,7 @@ you replace the handset.
 The handset uses the default Windows recording device. To choose a specific
 microphone or virtual mixer output, add an [audio] section to coinline.ini and
 set input_device to a unique prefix of its name in Windows Sound > Input.
+Set capture_enabled = false under [audio] to avoid opening a recording device.
 Restart the emulator after changing the input. The central-office log reports
 when microphone signal first reaches the SIP transmit queue.
 

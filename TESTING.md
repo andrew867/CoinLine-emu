@@ -71,9 +71,24 @@ The connected-call CO tests use real loopback SIP dialogs in addition to
 packet and waveform tests. They do not contact a provider:
 
 ```sh
-python -m pip install -r requirements-dev.txt pyVoIP==1.6.8
+python -m pip install -r requirements-dev.txt -r tools/windows/portable/requirements-sip.txt
 python -m pytest tools/line-jack -q
 ```
+
+On Linux/macOS, the native capture path can be tested without a physical
+microphone. Install the PortAudio development headers, then run:
+
+```sh
+cmake -S . -B build-host-media -DCOINLINE_TEST_PORTAUDIO=ON
+cmake --build build-host-media --target test_microphone_pcm test_microphone_portaudio
+ctest --test-dir build-host-media -R '^test_microphone_(pcm|portaudio)$' --output-on-failure
+```
+
+On macOS, pass `-DCOINLINE_PORTAUDIO_INCLUDE_DIR="$(brew --prefix portaudio)/include"`
+if the headers are outside CMake's search path. The ABI fixture supplies a
+synthetic 44.1 kHz stereo recording device and checks the real capture
+adapter, device selection, conversion, bounded buffer and silent underrun.
+This does not establish access to a particular host microphone or carrier.
 
 The native connected DTMF probe also exercises the original firmware's
 physical keypad and checks the resulting SIP packets. See the

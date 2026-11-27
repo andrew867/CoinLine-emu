@@ -3,6 +3,7 @@ import argparse
 import configparser
 from datetime import datetime, timezone
 import hashlib
+import importlib
 from ipaddress import IPv4Address, IPv4Network
 import json
 import os
@@ -222,6 +223,8 @@ def configure_sip(env, settings, profile):
         raise ValueError("Set dtmf_mode under [sip] to auto, inband or info.")
     env["COINLINE_SIP_DTMF_MODE"] = dtmf_mode
     port = settings.getint("registrar_port", 5060)
+    if not 1 <= port <= 65535:
+        raise ValueError("Set a valid SIP registrar_port.")
     env["COINLINE_SIP_PORT"] = str(port)
     local_port = settings.getint("local_port", default_port)
     if not 1 <= local_port <= 65535:
@@ -245,12 +248,36 @@ def configure_sip(env, settings, profile):
         env["COINLINE_SIP_RTP_PORT"] = str(rtp_port)
 
 
+def require_sip_runtime(secure):
+    # The CO runs with this same Python interpreter. Detect missing wheels or
+    # native extension load failures before starting the emulator or a call.
+    modules = ("pyVoIP.RTP", "pyVoIP.VoIP", "pylibsrtp") if secure else ("pyVoIP.RTP", "pyVoIP.VoIP")
+    try:
+        for module in modules:
+            importlib.import_module(module)
+    except (ImportError, OSError) as error:
+        remedy = "re-extract the bundled runtime" if WINDOWS else "run ./setup-sip.sh from the extracted package"
+        raise ValueError(f"SIP runtime is unavailable ({module}); {remedy}.") from error
+
+
+def microphone_environment(settings):
+    if not settings.getboolean("capture_enabled", True):
+        return {"COINLINE_MIC_DISABLED": "1"}
+    if input_device := settings.get("input_device", "").strip():
+        return {"COINLINE_MIC_INPUT": input_device}
+    return {}
+
+
 def stop_office(office):
     try:
         office.wait(timeout=4)
     except subprocess.TimeoutExpired:
         office.terminate()
-        office.wait()
+        try:
+            office.wait(timeout=4)
+        except subprocess.TimeoutExpired:
+            office.kill()
+            office.wait()
 
 
 def prepare_hardware(args, config):
@@ -323,8 +350,6 @@ def run(args, config, hardware):
     use_sip = args.sip
     if use_sip is None:
         use_sip = any(sip.get(key, "").strip() for key in SIP_CREDENTIAL_FIELDS)
-    if use_sip and not WINDOWS:
-        raise ValueError("SIP audio requires the Windows build. Use --local for the simulated office.")
     mode = "sip" if use_sip else "local"
     if not 1 <= port <= 65535:
         raise ValueError("Set a valid ncc_port under [line] in coinline.ini.")
@@ -344,6 +369,9 @@ def run(args, config, hardware):
     module_env = module_fixture_environment(args, cards, hardware_env["COINLINE_MOTHERBOARD"])
     data_jack_env = data_jack_environment(args, config["hardware"], hardware_env["COINLINE_MOTHERBOARD"])
     local_voice = adsi_route_settings(args, config)
+    mic_env = microphone_environment(config["audio"])
+    if use_sip or local_voice:
+        require_sip_runtime(secure=use_sip)
     if args.check:
         print(f"{args.profile.upper()} package inputs are ready. Hardware: {description}")
         return 0
@@ -378,8 +406,7 @@ def run(args, config, hardware):
         configure_sip(env, sip, args.profile)
     else:
         env["COINLINE_OUTBOUND"] = digits
-    if input_device := config.get("audio", "input_device", fallback="").strip():
-        env["COINLINE_MIC_INPUT"] = input_device
+    env.update(mic_env)
     if code_number:
         env.update(COINLINE_CODE_SERVER_NUMBER=code_number, COINLINE_CODE_SERVER_PORT=str(code_port))
     if local_voice:
@@ -398,7 +425,7 @@ def run(args, config, hardware):
         # rather than slow the physical terminal or audio clock.
         cmd += ["-window", "-maximize" if maximize else "-nomaximize", "-autoframeskip", "-frameskip", str(max_skip),
                 "-audio_latency", f"{buffer_ms / 20:g}"]
-        if WINDOWS and resolution is not None:
+        if resolution is not None:
             cmd += ["-resolution", resolution]
     if args.seconds:
         cmd += ["-seconds_to_run", str(args.seconds)]
@@ -460,7 +487,7 @@ def main():
     parser.add_argument("--check", action="store_true", help="check package inputs and exit")
     parser.add_argument("--headless", action="store_true", help="run a bounded test without a window")
     parser.add_argument("--seconds", type=int, metavar="N", help="exit after N emulated seconds")
-    parser.add_argument("--scale", type=float, help="initial Windows window size multiplier (0.5 to 4.0)")
+    parser.add_argument("--scale", type=float, help="initial window size multiplier (0.5 to 4.0)")
     parser.add_argument("--maximize", action="store_true", default=None, help="start with the emulator window maximized")
     parser.add_argument("--audio-buffer-ms", type=int, help="host speaker buffer target (40 to 500 ms)")
     parser.add_argument("--max-frameskip", type=int, help="maximum automatic renderer frame skip (0 to 10)")

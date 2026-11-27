@@ -1,0 +1,14 @@
+diff --git a/scripts/build/verinfo.py b/scripts/build/verinfo.py
+--- a/scripts/build/verinfo.py
++++ b/scripts/build/verinfo.py
+@@ -129,3 +129,10 @@ if __name__ == '__main__':
++    if options.format == 'plist' and options.subtarget == 'coinline':
++        text = text.replace(
++                '\t<key>NSPrincipalClass</key>\n',
++                '\t<key>NSMicrophoneUsageDescription</key>\n'
++                '\t<string>CoinLine uses the microphone as the simulated telephone handset input.</string>\n'
++                '\t<key>NSPrincipalClass</key>\n', 1)
++
+     if options.o is not None:
+         try:
+             with io.open(options.o, 'w', encoding='utf-8') as out:

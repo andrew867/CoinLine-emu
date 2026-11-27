@@ -1,0 +1,6 @@
+# SIP transport and G.711 compatibility, pinned to the portable runtime versions.
+pyVoIP==1.6.8
+audioop-lts==0.2.2; python_version >= "3.13"
+pylibsrtp==1.0.0
+cffi==2.0.0
+pycparser==2.23

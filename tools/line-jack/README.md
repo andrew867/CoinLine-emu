@@ -1,6 +1,6 @@
 # Line jack central office
 
-The [Windows launcher](../../RUNNING.md) starts this process with the bundled Python runtime. Local CO mode is the default. Add the SIP settings to your local `coinline.ini` and pass `--sip` for an external call. The launcher supplies an independent loopback jack for each running profile.
+The [portable launchers](../../RUNNING.md) start this process with the bundled Windows Python runtime or the POSIX package's Python environment. Local CO mode is the default. On Linux/macOS, run the package's `setup-sip.sh` first for SIP or direct ADSI routes. Add the SIP settings to the appropriate profile INI and pass `--sip` for an external call. The launcher supplies an independent loopback jack for each running profile.
 
 The emulator opens a TCP jack on `127.0.0.1` when `COINLINE_LINE_PORT` is set
 (for example `4010`). A host program connects as the central office.

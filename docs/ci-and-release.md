@@ -4,7 +4,7 @@
 
 The public repository runs the C++ emulator tests and fixture validation. Licensed firmware and SIP configuration are operator inputs for lab acceptance runs.
 
-**Native emulator builds** compiles the pinned MAME subtarget on Windows x64, Ubuntu Linux x64, and macOS on Apple Silicon. Each job launches its packaged executable with `-listfull cl_millennium` and uploads an archive and SHA-256 checksum. Pull requests and pushes to `main` produce build artifacts under Actions. A `v*` tag publishes the three packages and a matching CoinLine and MAME source archive after the matrix passes.
+**Native emulator builds** compiles the pinned MAME subtarget on Windows x64, Ubuntu Linux x64, and macOS on Apple Silicon. Each job launches its packaged executable with `-listfull cl_millennium` and uploads an archive and SHA-256 checksum. The Windows package also runs the SIP loopback suite with its embedded runtime. Separate Linux/macOS host-media jobs exercise the real SIP runtime and the native PortAudio capture adapter against a deterministic host fixture. Pull requests and pushes to `main` produce build artifacts under Actions. A `v*` tag publishes the three packages and a matching CoinLine and MAME source archive after the native and host-media matrices pass. Physical microphone access and external-provider calls are separate operator acceptance tests.
 
 Public packages require operator-supplied firmware and voice ROMs. The source archive contains the pinned MAME source and the CoinLine overlay and build scripts. Extract both source folders and pass `--mame-root ../mame` from the `coinline` folder to reproduce the build on the selected platform.
 

@@ -29,6 +29,56 @@ def test_independent_profile_config_and_sip_ports(tmp_path, monkeypatch):
     assert int(oem["COINLINE_SIP_RTP_PORT_HIGH"]) < int(graphical["COINLINE_SIP_RTP_PORT_LOW"])
 
 
+def test_posix_sip_and_direct_adsi_preflight(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    monkeypatch.setattr(launcher, "WINDOWS", False)
+    for name in ("fixtures/cards/magcard-valid.json", launcher.SYNC_CONTACT_FIXTURE):
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    config = launcher.config_for_run("oem")
+    hardware = (tmp_path / "data", tmp_path / "roms", {
+        "COINLINE_BOARD": "board-profile-2line-vfd.json",
+        "COINLINE_MOTHERBOARD": "earlier",
+        "COINLINE_SMART_CARD": str(tmp_path / launcher.SYNC_CONTACT_FIXTURE),
+    }, "fixture")
+    args = SimpleNamespace(profile="oem", scale=None, maximize=None, sip=True, check=True,
+                           mag_card=None, smart_card=None, adsi=False)
+    imported = []
+    monkeypatch.setattr(launcher.importlib, "import_module", lambda name: imported.append(name))
+    assert launcher.run(args, config, hardware) == 0
+    assert imported == ["pyVoIP.RTP", "pyVoIP.VoIP", "pylibsrtp"]
+    imported.clear()
+    args.sip, args.adsi = False, True
+    assert launcher.run(args, config, hardware) == 0
+    assert imported == ["pyVoIP.RTP", "pyVoIP.VoIP"]
+    imported.clear()
+    args.adsi = False
+    assert launcher.run(args, config, hardware) == 0
+    assert imported == []
+
+    def missing(name):
+        raise ImportError(name)
+
+    monkeypatch.setattr(launcher.importlib, "import_module", missing)
+    args.sip = True
+    with pytest.raises(ValueError, match=r"setup-sip\.sh"):
+        launcher.run(args, config, hardware)
+    monkeypatch.setattr(launcher, "WINDOWS", True)
+    with pytest.raises(ValueError, match="bundled runtime"):
+        launcher.require_sip_runtime(True)
+
+
+def test_microphone_selection_and_opt_out(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    audio = launcher.config_for_run("oem")["audio"]
+    assert launcher.microphone_environment(audio) == {}
+    audio["input_device"] = "Fixture input"
+    assert launcher.microphone_environment(audio) == {"COINLINE_MIC_INPUT": "Fixture input"}
+    audio["capture_enabled"] = "false"
+    assert launcher.microphone_environment(audio) == {"COINLINE_MIC_DISABLED": "1"}
+
+
 def test_shared_adsi_routes_preserve_profile_sip_and_validate_exact_mapping(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     (tmp_path / "coinline.ini").write_text("[sip]\nusername=oem\npassword=fixture\n[adsi]\nenabled=false\n", encoding="utf-8")

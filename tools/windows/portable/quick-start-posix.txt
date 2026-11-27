@@ -1,12 +1,12 @@
 CoinLine Terminal Emulator
 =========================
 
-Extract the archive to a writable folder. Install Python 3.10 or newer and the
+Extract the archive to a writable folder. Install Python 3.11 or newer and the
 runtime libraries for your platform.
 
   Ubuntu 24.04 x64:
-    sudo apt install python3 libsdl2-2.0-0 libsdl2-ttf-2.0-0 libfontconfig1 libxi6 libxinerama1
-  macOS 15 or later, Apple Silicon: brew install python sdl3
+    sudo apt install python3 python3-venv libsdl2-2.0-0 libsdl2-ttf-2.0-0 libfontconfig1 libxi6 libxinerama1 libportaudio2
+  macOS 15 or later, Apple Silicon: brew install python sdl3 portaudio
 
 Supply your authorized ROM images at these paths in the extracted folder.
 
@@ -20,11 +20,25 @@ Its separate configuration is coinline-graphical.ini and its state is under
 data/graphical. Both profiles can use the local CO concurrently.
 The terminal starts on-hook. Press H or click the handset photo or its button
 to lift or replace the receiver.
-The emulator includes a simulated central office. SIP audio and host microphone
-capture are currently supported by the Windows build. The Linux and macOS
-builds support the local CO and terminal audio playback.
+The emulator includes a simulated central office and supports SIP calling.
+To enable SIP or the dedicated ADSI routes, run ./setup-sip.sh once from the
+extracted package. It installs pinned dependencies into .venv, not the system
+Python. Both launchers automatically use this environment when present.
+Copy the appropriate .example.ini to coinline.ini or coinline-graphical.ini,
+fill in the [sip] settings, and run ./start-oem.sh --sip or
+./start-graphical.sh --sip. Use --local for the simulated central office.
+Without SIP or enabled ADSI routes, the local CO works without the .venv.
 
-The Windows direct ADSI service can use the shared adsi-routes.ini file
+PortAudio captures audio from the default host microphone. To select an input,
+set input_device under [audio] to a unique prefix of a PortAudio device name.
+The emulator log reports the capture rate/channel count or why capture failed.
+If no usable microphone is available, the handset transmit input is silent.
+Set capture_enabled = false under [audio] to avoid opening a recording device.
+On macOS, allow microphone access for the launching terminal or application;
+on Linux, ensure the desktop audio session can access the recording device.
+Terminal-generated audio continues through MAME's native speaker backend.
+
+The direct ADSI service can use the shared adsi-routes.ini file
 without changing either terminal's carrier account. See the example and
 docs/Running.md for exact aliases, private service host and route validation.
 

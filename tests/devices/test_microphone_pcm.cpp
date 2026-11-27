@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "millennium_mic_pcm.h"
+#include "millennium_mic_input.h"
 
 #include <cmath>
 #include <iostream>
@@ -42,12 +43,61 @@ bool check_tone(double freq, double min_gain, double max_gain)
 	return mic.read() == 0.f;
 }
 
+bool check_resampled(unsigned rate, double freq, double min_gain, double max_gain)
+{
+	millennium_mic_pcm mic;
+	millennium_mic_input input;
+	input.configure(rate, 2);
+	std::array<std::int16_t, 1024> samples;
+	std::size_t source_frames = 0, line_frames = 0, measured = 0;
+	double sine = 0, cosine = 0;
+	double const output_freq = freq > 4000. ? 8000. - freq : freq;
+	for (unsigned block = 0; block < 180; ++block) {
+		unsigned const frames = block % 2 == 0 ? 181 : 427;
+		for (unsigned i = 0; i < frames; ++i) {
+			double const value = std::sin(cycle * freq * (source_frames + i) / rate);
+			samples[i * 2] = static_cast<std::int16_t>(12000 * value);
+			samples[i * 2 + 1] = static_cast<std::int16_t>(4000 * value);
+		}
+		input.push(mic, samples.data(), frames);
+		source_frames += frames;
+		while (line_frames < source_frames * 8000 / rate) {
+			float const value = mic.read();
+			if (line_frames++ < 1000)
+				continue;
+			double const phase = cycle * output_freq * measured++ / 8000.;
+			sine += value * std::sin(phase);
+			cosine += value * std::cos(phase);
+		}
+	}
+	double const gain = 2. * std::hypot(sine, cosine) / measured / (8000. / 32768.);
+	if (gain < min_gain || gain > max_gain) {
+		std::cerr << rate << " Hz stereo capture, " << freq << " Hz signal, gain " << gain << '\n';
+		return false;
+	}
+	// A host callback can carry a null input buffer. Pass actual silence
+	// through the same clock, not a repeat of the previous microphone data.
+	for (unsigned i = 0; i < 20; ++i) {
+		input.push(mic, nullptr, rate / 100);
+		for (unsigned j = 0; j < 80; ++j)
+			mic.read();
+	}
+	return mic.read() == 0.f;
+}
+
 } // namespace
 
 int main()
 {
 	if (!check_tone(700., 0.95, 1.05) || !check_tone(7000., 0., 0.02)) {
 		std::cerr << "expected voice-band PCM, suppression of high-frequency aliases, and silence on underrun\n";
+		return 1;
+	}
+	if (!check_resampled(44100, 700., 0.94, 1.05) || !check_resampled(32000, 700., 0.94, 1.05) ||
+			!check_resampled(44100, 7000., 0., 0.02) ||
+			!millennium_mic_name_matches("Lab microphone A", "lab MICRO") ||
+			millennium_mic_name_matches("Lab microphone A", "Lab microphone B")) {
+		std::cerr << "expected portable capture conversion and input-name matching\n";
 		return 1;
 	}
 
