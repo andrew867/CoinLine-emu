@@ -112,3 +112,29 @@ reconciliation, concurrent reservation, history pagination and unrelated
 contact selection. Native historical application qualification still
 requires authoritative reference equipment and its legitimate test
 application specification.
+
+## ShadyBucks demonstration product
+
+`tools/shadybucks.py` provides a separately defined disposable demonstration
+product backed by the local LAB ledger. It issues random local UUIDs, not
+card-network identifiers, and keeps a journal of simulated debits. The
+product's neutral metadata is in `fixtures/cards/shadybucks-lab-product.json`.
+The product has no external redemption and no connection to the native
+terminal's application or NCC tables.
+
+Example using an isolated writable directory:
+
+```sh
+python tools/shadybucks.py --store demo.sqlite issue 50
+python tools/shadybucks.py --store demo.sqlite balance <issued-id>
+python tools/shadybucks.py --store demo.sqlite begin <issued-id> call1 25
+python tools/shadybucks.py --store demo.sqlite settle <issued-id> call1
+python tools/shadybucks.py --store demo.sqlite history <issued-id>
+python tools/shadybucks.py --store demo.sqlite export-contact <issued-id> --output contact.json
+```
+
+`export-contact` creates a new immutable synchronous contact snapshot of the
+current simulation state. It uses the invented `SBX1` representation rather
+than a legacy card profile. It contains no native payment authorization and
+never updates a preexisting exported file. In the portable distribution, use
+`app/shadybucks.py` with the bundled Python runtime.

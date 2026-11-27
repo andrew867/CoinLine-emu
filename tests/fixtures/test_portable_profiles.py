@@ -66,6 +66,7 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
             "fixtures/cards/smartcard-sync-address-test.json", "fixtures/cards/smartcard-sync-gpm103-contact.json",
             *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
     assert {f"fixtures/cards/smartcard-async-lab-purse-{name}.json" for name in ("50", "500", "empty")} <= staged
+    assert {"app/shadybucks.py", "fixtures/cards/shadybucks-lab-product.json"} <= staged
 
 
 def test_bundled_lab_snapshots_in_untouched_card_wallet(tmp_path, monkeypatch):

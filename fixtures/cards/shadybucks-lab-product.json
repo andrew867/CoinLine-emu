@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "product_id": "shadybucks-lab-v1",
+  "name": "ShadyBucks Stored Value Smart Card",
+  "unit": "LAB",
+  "minor_digits": 2,
+  "nonredeemable": true,
+  "reloadable": false,
+  "demo_initial_units": [0, 50, 500],
+  "demo_local_call_units": 25,
+  "identity_kind": "random-local-uuid",
+  "storage_format": "SBX1",
+  "native_terminal_protocol": false
+}
