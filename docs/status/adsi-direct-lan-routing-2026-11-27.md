@@ -55,8 +55,33 @@ handled with its authorized ten- or eleven-digit alias instead.
   A, and BYE. The Windows suite passed 31 CO tests and 49 portable/fixture
   tests.
 
-These checks establish the emulator and CO routing component. Actual LAN
-service availability, installed terminal screening/rate tables and native
-ADSI application acceptance remain independently measured steps. A local
+These checks establish the emulator and CO routing component. A local
 distribution may explicitly bundle a service-only shared configuration;
 the public package contains only the example, never site credentials.
+
+## Live LAN and manager evidence
+
+- The dedicated service gateway accepted the configured private SIP route.
+  Separate CO and gateway tests verified actual PCMU traffic and the initial
+  ADSI capability and CONNECT exchange.
+- Both terminal profiles received published manager assignments containing
+  exact free rules for all 27 dial forms. All 27 host quotes were free;
+  ten control quotes, including paid and excluded destinations, remained
+  unchanged. The standard profile has an MT92 update pending and the
+  graphical profile has MT62 and MT92 pending. These are manager-side
+  checks, not evidence that a particular terminal has installed the updates.
+- A previously installed graphical terminal outpulsed the ten-digit InfoLine
+  alias and reached the new LAN service in two separate native calls. Each
+  produced SIP 200 OK, a real CAS/A exchange and an accepted CONNECT D1.
+  The gateway independently decoded each complete 211-byte welcome frame,
+  but the native PCM path experienced underruns during reception and did
+  not acknowledge the welcome. This occurred with both the graphical UI
+  (87.33% average emulation speed) and the headless run (99.97%). No server
+  deadline was changed. Full interactive menu acceptance remains pending.
+- An older installed configuration left the four-digit alias incomplete
+  and asked for payment on the long alias. The new manager rules must be
+  downloaded normally; short-code digit completion is not yet qualified.
+  Use an authorized ten- or eleven-digit alias for subsequent native tests.
+
+Routing acceptance, host quote acceptance, newly installed rate-table
+behavior and interactive ADSI playback are distinct gates.
