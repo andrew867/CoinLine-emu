@@ -60,7 +60,8 @@ $build = Join-Path $EmuRoot 'build'
 New-Item -ItemType Directory -Force -Path $build | Out-Null
 $extra = @(
     @{ rel = 'mame-overlays\src\mame\coinline.cpp'; destRel = 'src\mame\coinline.cpp' },
-    @{ rel = 'mame-overlays\src\mame\coinline.lst'; destRel = 'src\mame\coinline.lst' }
+    @{ rel = 'mame-overlays\src\mame\coinline.lst'; destRel = 'src\mame\coinline.lst' },
+    @{ rel = 'mame-overlays\src\devices\sound\upd7759_waveform.h'; destRel = 'src\devices\sound\upd7759_waveform.h' }
 )
 foreach ($e in $extra) {
     $srcF = Join-Path $EmuRoot $e.rel

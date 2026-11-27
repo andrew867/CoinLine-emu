@@ -12,6 +12,8 @@ struct coinline_voiceware_phrase_lookup_result {
 	std::uint32_t segment_base_abs = 0;
 	unsigned msg_count = 0;
 	std::uint8_t phrase_msg_index = 0;
+	std::uint8_t message_mode = 0;
+	std::uint32_t waveform_clocks = 0;
 };
 
 /// Resolves a sample against the directory in the selected 128 KiB ROM window.

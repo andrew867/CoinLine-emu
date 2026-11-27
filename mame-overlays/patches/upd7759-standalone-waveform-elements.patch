@@ -1,0 +1,160 @@
+diff --git a/src/devices/sound/upd7759.cpp b/src/devices/sound/upd7759.cpp
+index ff23e9dd6ec..11c37c714d4 100644
+--- a/src/devices/sound/upd7759.cpp
++++ b/src/devices/sound/upd7759.cpp
+@@ -124,6 +124,7 @@
+ 
+ #include "emu.h"
+ #include "upd7759.h"
++#include "upd7759_waveform.h"
+ 
+ 
+ #define MASK_LOG_STATE (1U << 1)
+@@ -242,6 +243,14 @@ void upd775x_device::device_start()
+ 	save_item(NAME(m_first_valid_header));
+ 	save_item(NAME(m_offset));
+ 	save_item(NAME(m_repeat_offset));
++	save_item(NAME(m_wave_limit));
++	save_item(NAME(m_wave_base));
++	save_item(NAME(m_wave_points));
++	save_item(NAME(m_wave_budget));
++	save_item(NAME(m_wave_divider));
++	save_item(NAME(m_wave_gain));
++	save_item(NAME(m_wave_length));
++	save_item(NAME(m_wave_point));
+ 
+ 	save_item(NAME(m_adpcm_state));
+ 	save_item(NAME(m_adpcm_data));
+@@ -292,6 +301,14 @@ void upd775x_device::device_reset()
+ 	m_first_valid_header = 0;
+ 	m_offset             = 0;
+ 	m_repeat_offset      = 0;
++	m_wave_limit         = 0;
++	m_wave_base          = 0;
++	m_wave_points        = 0;
++	m_wave_budget        = 0;
++	m_wave_divider       = 0;
++	m_wave_gain          = 0;
++	m_wave_length        = 0;
++	m_wave_point         = 0;
+ 	m_adpcm_state        = 0;
+ 	m_adpcm_data         = 0;
+ 	m_sample             = 0;
+@@ -461,6 +478,23 @@ void upd775x_device::advance_state()
+ 		/* Second dummy state: ignore any data here and issue a request for the sixth byte */
+ 		/* The expected response will be the first block header */
+ 		case STATE_DUMMY2:
++			// The stand-alone directory can identify a PCM/waveform message
++			// instead of the ADPCM stream normally following the dummy byte.
++			// This is opt-in so existing boards and slave-mode remain unchanged.
++			if (m_waveform_enabled && m_mode == MODE_STAND_ALONE && read_byte(m_offset) == 0x40)
++			{
++				m_wave_limit = upd7759_waveform::record_limit(
++					[this](uint32_t address) { return read_byte(address); }, m_offset, upd7759_waveform::bank_size);
++				m_wave_divider = 0;
++				m_wave_gain = 0;
++				m_wave_budget = upd7759_waveform::max_record_clocks;
++				m_sample = 0;
++				++m_offset;
++				m_drq = 1;
++				m_clocks_left = 36;
++				m_state = STATE_WAVE_COMMAND;
++				break;
++			}
+ 			m_offset++;
+ 			m_first_valid_header = 0;
+ 			LOG_STATE("dummy2, requesting block header\n");
+@@ -551,6 +585,40 @@ void upd775x_device::advance_state()
+ 			else
+ 				m_state = STATE_NIBBLE_MSN;
+ 			break;
++
++		case STATE_WAVE_COMMAND:
++		{
++			upd7759_waveform::element element;
++			auto const status = upd7759_waveform::next_element(
++				[this](uint32_t address) { return read_byte(address); }, m_offset, m_wave_limit,
++				m_wave_divider, m_wave_gain, element);
++			if (status != upd7759_waveform::result::block || element.clocks > m_wave_budget)
++			{
++				m_sample = 0;
++				m_clocks_left = 4;
++				m_state = STATE_IDLE;
++				break;
++			}
++			m_wave_budget -= element.clocks;
++			if (!element.length)
++			{
++				m_sample = 0;
++				m_clocks_left = element.clocks;
++				break;
++			}
++			m_wave_base = element.samples_offset;
++			m_wave_points = element.points;
++			m_wave_length = element.length;
++			m_wave_point = 0;
++		}
++			[[fallthrough]];
++		case STATE_WAVE_POINT:
++			m_sample = upd7759_waveform::dac_sample(read_byte(m_wave_base + m_wave_point), m_wave_point, m_wave_gain);
++			if (++m_wave_point == m_wave_length)
++				m_wave_point = 0;
++			m_clocks_left = m_wave_divider;
++			m_state = --m_wave_points ? STATE_WAVE_POINT : STATE_WAVE_COMMAND;
++			break;
+ 	}
+ 
+ 	if (m_drq)
+@@ -719,6 +787,11 @@ void upd775x_device::sound_stream_update(sound_stream &stream)
+ 					sample = sound_stream::sample_t(m_sample) * sample_scale;
+ 				}
+ 			}
++			if (m_state == STATE_IDLE)
++			{
++				++index;
++				break;
++			}
+ 		}
+ 
+ 	// if we got out early, just zap the rest of the buffer
+diff --git a/src/devices/sound/upd7759.h b/src/devices/sound/upd7759.h
+index 99720af5983..21b937d8cec 100644
+--- a/src/devices/sound/upd7759.h
++++ b/src/devices/sound/upd7759.h
+@@ -25,6 +25,9 @@ public:
+ 	int busy_r();
+ 	virtual void port_w(u8 data);
+ 	void set_start_delay(uint32_t data) { m_start_delay = data; }
++	// Opt in for stand-alone ROMs whose message-leading byte selects PCM
++	// waveform elements (0x40) rather than the normal ADPCM stream (0x00).
++	void set_waveform_mode_enabled(bool enabled) { m_waveform_enabled = enabled; }
+ 
+ protected:
+ 	virtual TIMER_CALLBACK_MEMBER(internal_start_w);
+@@ -55,7 +58,9 @@ protected:
+ 		STATE_BLOCK_HEADER,
+ 		STATE_NIBBLE_COUNT,
+ 		STATE_NIBBLE_MSN,
+-		STATE_NIBBLE_LSN
++		STATE_NIBBLE_LSN,
++		STATE_WAVE_COMMAND,
++		STATE_WAVE_POINT
+ 	};
+ 	// chip modes
+ 	enum
+@@ -112,6 +117,15 @@ protected:
+ 	uint32_t      m_repeat_offset;              // current ROM repeat offset
+ 	uint32_t      m_start_delay;
+ 	int           m_mode;                       // current mode of the sound chip
++	bool          m_waveform_enabled = false;   // ROM-format configuration
++	uint32_t      m_wave_limit = 0;             // end of selected message
++	uint32_t      m_wave_base = 0;              // selected waveform element data
++	uint32_t      m_wave_points = 0;            // remaining DAC points
++	uint32_t      m_wave_budget = 0;            // malformed-stream time bound
++	uint16_t      m_wave_divider = 0;           // chip clocks per point
++	uint8_t       m_wave_gain = 0;              // current control gain
++	uint8_t       m_wave_length = 0;            // points per repeated element
++	uint8_t       m_wave_point = 0;             // current point within element
+ 
+ 	// ADPCM processing
+ 	int8_t        m_adpcm_state;                // ADPCM state index

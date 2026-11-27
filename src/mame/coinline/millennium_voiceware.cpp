@@ -51,6 +51,7 @@ void emit_phrase_trace(coinline_voiceware_phrase_trace const &trace)
 
 char const k_voiceware_exec_legacy[] = "legacy_software_decoder";
 char const k_voiceware_exec_core[] = "upd7759_core";
+char const k_voiceware_exec_waveform[] = "upd7759_waveform";
 char const k_voiceware_exec_core_fallback[] = "upd7759_core_fallback";
 
 void write_text_file_if_env(char const *env_name, std::string const &body)
@@ -236,6 +237,8 @@ void millennium_voiceware_device::device_start()
 	save_item(NAME(m_decoder_playing));
 	save_item(NAME(m_had_playback));
 	save_item(NAME(m_upd7759_core_env));
+	save_item(NAME(m_native_waveform));
+	save_item(NAME(m_native_waveform_clocks));
 }
 
 void millennium_voiceware_device::device_reset()
@@ -248,6 +251,8 @@ void millennium_voiceware_device::device_reset()
 	m_last_phrase = 0;
 	m_last_chip_bank = 0xffU;
 	m_had_playback = false;
+	m_native_waveform = false;
+	m_native_waveform_clocks = 0;
 	m_phrase_pcm.clear();
 	m_phrase_pos = 0;
 	m_decoder_playing = false;
@@ -740,6 +745,8 @@ void millennium_voiceware_device::write_hw_control(std::uint8_t data, std::uint1
 
 	if (m_reset_asserted) {
 		m_bank_latched = false;
+		m_native_waveform = false;
+		m_native_waveform_clocks = 0;
 		m_last_chip_bank = 0xffU;
 		m_decoder_playing = false;
 		m_phrase_pcm.clear();
@@ -751,14 +758,15 @@ void millennium_voiceware_device::write_hw_control(std::uint8_t data, std::uint1
 	}
 }
 
-void millennium_voiceware_device::write_bank(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle)
+bool millennium_voiceware_device::write_bank(std::uint8_t data, std::uint16_t pc, std::uint64_t cpu_cycle)
 {
-	(void)pc;
 	m_bank = data & 0x0fU;
 	m_bank_latched = true;
+	bool const changed = !m_reset_asserted && m_bank != m_last_chip_bank;
 	if (!m_reset_asserted)
 		apply_rom_bank_from_latch();
 	emit_row("voiceware_bank_commit", cpu_cycle, pc, 0x42, 'w', data, nullptr);
+	return changed;
 }
 
 std::uint8_t millennium_voiceware_device::read_phrase_port(std::uint16_t pc, std::uint64_t cpu_cycle)
@@ -789,7 +797,8 @@ std::uint8_t millennium_voiceware_device::read_phrase_port(std::uint16_t pc, std
 		tr.upd7759_idle_before = false;
 		tr.upd7759_idle_after = true;
 		tr.playback_completed_edge = true;
-		tr.execution_path = m_upd7759_core_env ? k_voiceware_exec_core : k_voiceware_exec_legacy;
+		tr.execution_path = m_native_waveform ? k_voiceware_exec_waveform :
+			(m_upd7759_core_env ? k_voiceware_exec_core : k_voiceware_exec_legacy);
 		phrase_trace_attach_rom_fingerprint(tr);
 		tr.notes = "mame_idle_transition on phrase status read; 0x61 data bus from phrase_port model (idle byte)";
 		emit_phrase_trace(tr);
@@ -852,6 +861,8 @@ bool millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 	}
 
 	m_last_phrase = data;
+	m_native_waveform = false;
+	m_native_waveform_clocks = 0;
 
 	coinline_voiceware_phrase_trace tr{};
 	tr.emulated_time_ns = emulated_ns();
@@ -919,12 +930,17 @@ bool millennium_voiceware_device::write_phrase(std::uint8_t data, std::uint16_t 
 		m_phrase_pcm.clear();
 		m_phrase_pos = 0;
 		m_decoder_playing = false;
+		m_native_waveform = lr.message_mode == 0x40U;
+		// A request made while the hardware is still BUSY is not a known
+		// fresh duration; keep using normal BUSY polling in that case.
+		m_native_waveform_clocks = idle_before ? lr.waveform_clocks : 0;
 		m_upd->port_w(lr.upd_sample_index);
 		m_upd->start_w(1);
 		m_upd->start_w(0);
-		tr.execution_path = k_voiceware_exec_core;
+		tr.execution_path = m_native_waveform ? k_voiceware_exec_waveform : k_voiceware_exec_core;
 		phrase_trace_attach_rom_fingerprint(tr);
-		tr.notes = "upd7759 master start: port_w(sample index) + start pulse; PCM from device route";
+		tr.notes = m_native_waveform ? "upd7759 master waveform start; native clock, DAC and BUSY" :
+			"upd7759 master start: port_w(sample index) + start pulse; PCM from device route";
 		tr.upd7759_idle_after = m_upd->busy_r();
 		tr.playback_started = true;
 		tr.audio_non_silent_known = false;

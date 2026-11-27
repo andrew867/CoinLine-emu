@@ -551,6 +551,7 @@ void millennium_state::millennium(machine_config &config)
 	SPEAKER(config, "vwspk").front_center();
 	UPD7759(config, m_voicew_upd, upd7759_device::STANDARD_CLOCK);
 	m_voicew_upd->set_device_rom_tag(":voicew");
+	m_voicew_upd->set_waveform_mode_enabled(true);
 	FILTER_RC(config, m_vw_upd_filter, 0);
 	m_vw_upd_filter->set_lowpass(RES_K(10), CAP_N(4.7));
 	MILLENNIUM_VOICEWARE(config, m_voiceware, 0);
@@ -1100,6 +1101,8 @@ void millennium_state::poll_voice_segment_done_pulse_int0()
 	}
 	if (m_voicew_prev_upd_idle != idle) {
 		m_voicew_prev_upd_idle = idle;
+		if (idle)
+			m_audio_route->notify_voice_active(false);
 		update_handset_routing();
 	}
 }
@@ -3725,10 +3728,11 @@ void millennium_state::update_handset_routing()
 {
 	auto const &rs = m_audio_route->route_state();
 	bool const speech = !m_voicew_prev_upd_idle && !m_handset_dial_tone;
-	bool const rx_muted = rs.rx_muted || speech || !m_loop_seized;
+	bool const native_dial = m_handset_dial_tone && m_voiceware->native_waveform_selected();
+	bool const rx_muted = rs.rx_muted || speech || (native_dial && !m_voicew_prev_upd_idle) || !m_loop_seized;
 	bool const handset_on_co = coinline::audio_route::handset_co_loop(m_tp_loop_seized, m_hw_cntl_port_image);
 	bool const local_dial_tone = coinline::audio_route::local_dial_tone_enabled(
-		!m_tel_hook_onhook_stable, m_handset_dial_tone, handset_on_co,
+		!m_tel_hook_onhook_stable, m_handset_dial_tone && !native_dial, handset_on_co,
 		m_line.line_connected() && m_line.co_dial_tone(), !rx_muted);
 	if (m_dtmf_trace && local_dial_tone != m_audio->model().local_dial_tone())
 		std::fprintf(stderr, "Dial tone %.6f local=%d hook=%d requested=%d co_loop=%d co_tone=%d rx_muted=%d\n",
@@ -4675,8 +4679,9 @@ void millennium_state::pio_keypad_w(offs_t offset, u8 data)
 		if (idx == 1U) {
 			bool const di = (m_pio_8255_shadow[0] & 1U) != 0U;
 			m_microwire_93c66.notify_sk_edge((prev & 1U) != 0U, (data & 1U) != 0U, di);
-			m_voiceware->write_bank(static_cast<u8>((data >> 1) & 0x07U),
-				u16(m_maincpu->pc() & 0xffffU), m_maincpu->total_cycles());
+			if (m_voiceware->write_bank(static_cast<u8>((data >> 1) & 0x07U),
+				u16(m_maincpu->pc() & 0xffffU), m_maincpu->total_cycles()) && !m_voicew_prev_upd_idle)
+				m_voicew_irq_timer->adjust(m_voicew_irq_poll_period, TID_VOICE_INT0);
 		}
 		return;
 	}
@@ -4722,7 +4727,8 @@ void millennium_state::pio_keypad_w(offs_t offset, u8 data)
 		// SK is PIO-B bit 7; need previous latched B for rising-edge detect (prev_b was undefined before).
 		m_microwire_93c66.notify_port_b_clock(prev_latched, data, (m_pio_8255_shadow[0] & 1U) != 0U);
 		if (!eeprom_cs) {
-			m_voiceware->write_bank(data, pc, cy);
+			if (m_voiceware->write_bank(data, pc, cy) && !m_voicew_prev_upd_idle)
+				m_voicew_irq_timer->adjust(m_voicew_irq_poll_period, TID_VOICE_INT0);
 			// Some firmware paths strobe voice phrase traffic via PIO-B bit7 edges while carrying
 			// the phrase value on the same byte bus (low 7 bits). Mirror that board-level alias
 			// into the real voice phrase path without synthetic triggers.
@@ -6060,7 +6066,13 @@ void millennium_state::voiceware_phrase_w(u8 data)
 		// The start pin is applied on scheduler synchronization. Wait for BUSY to
 		// release before raising the completion interrupt.
 		m_voicew_prev_upd_idle = false;
-		m_voicew_irq_timer->adjust(m_voicew_irq_poll_period, TID_VOICE_INT0);
+		// Waveform length is validated from the selected ROM record. Its
+		// sample clocks are a lower bound on completion (the chip also has
+		// normal startup latency). Avoid polling BUSY every 10 us throughout
+		// a long tone; the final polls still observe the real BUSY edge.
+		auto const clocks = m_voiceware->native_waveform_clocks();
+		auto const first_poll = clocks ? attotime::from_ticks(clocks, m_voicew_upd->clock()) : m_voicew_irq_poll_period;
+		m_voicew_irq_timer->adjust(first_poll, TID_VOICE_INT0);
 	}
 	update_handset_routing();
 	// M5V (first phrase command) before M5A (uPD path engaged) in boot-trace ordering.
