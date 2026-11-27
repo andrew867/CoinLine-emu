@@ -46,14 +46,22 @@ or translate these results into historical commands or approval codes.
 ### Read-only contact snapshot
 
 The `contact_snapshot` request exports a point-in-time, invented laboratory
-contact fixture. It uses the existing generic read-only T=0 or T=1 application,
-not a historical purse application. It contains no authorization state and
+contact fixture. It uses either generic synchronous read-only memory or the
+generic read-only T=0 or T=1 application, not a historical purse application.
+It contains no authorization state and
 cannot change the SQLite ledger. For example, after creating `lab-example`,
 save the output of a request with this content to a local fixture file:
 
 ```json
 {"operation":"contact_snapshot","fixture_id":"lab-example","protocol":"t1"}
 ```
+
+Use `"protocol":"sync"` for the same nonredeemable snapshot on the synchronous
+memory contact path. There is no writable region or issuer-specific data in
+this fixture. The portable package includes synchronous and asynchronous
+snapshots for 50, 500 and zero minor LAB units. The untouched virtual contact
+wallet selects the synchronous versions in slots 3 through 5; explicit
+additional slot settings override the default catalogue.
 
 The 39-byte object starts with ASCII `LABP`, a version byte, minor-unit
 precision, a lifecycle code, and four big-endian unsigned 64-bit values:

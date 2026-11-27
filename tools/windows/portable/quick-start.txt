@@ -156,6 +156,12 @@ through mag_fixture_8 and smart_fixture_2 through smart_fixture_8 under [cards]
 for additional synthetic fixtures. Use consecutive slots and leave the reader
 empty to select another card. The generic coin-slot click remains available.
 
+Default smart-card slots 3, 4 and 5 contain generic synchronous read-only
+LAB snapshots of 0.50, 5.00 and zero units. They are supplied for contact
+memory transport testing, not historical payment authorization. Matching
+async snapshots are included for explicit later-board transport tests.
+Custom additional contact slot settings override this automatic catalogue.
+
 Calls and troubleshooting
 -------------------------
 

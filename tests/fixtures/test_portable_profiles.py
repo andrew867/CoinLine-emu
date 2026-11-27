@@ -62,7 +62,25 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(packer, "copy_file", lambda source, destination: staged.add(destination.relative_to(tmp_path).as_posix()))
     packer.stage_files(tmp_path, tmp_path, None, None, True)
     assert {"fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
-            launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE} <= staged
+            launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE,
+            "fixtures/cards/smartcard-sync-address-test.json", *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
+    assert {f"fixtures/cards/smartcard-async-lab-purse-{name}.json" for name in ("50", "500", "empty")} <= staged
+
+
+def test_bundled_lab_snapshots_in_untouched_card_wallet(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    names = ("fixtures/cards/magcard-valid.json", launcher.SYNC_CONTACT_FIXTURE,
+             launcher.ASYNC_CONTACT_FIXTURE, *launcher.LAB_PURSE_CONTACT_FIXTURES)
+    for name in names:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    mag, smart = tmp_path / names[0], tmp_path / names[1]
+    defaults = launcher.extra_card_environment({}, mag, smart)
+    assert [defaults[f"COINLINE_SMART_CARD_{i}"] for i in range(2, 6)] == [str(tmp_path / x) for x in names[2:]]
+    explicit = launcher.extra_card_environment({"smart_fixture_2": launcher.ASYNC_CONTACT_FIXTURE}, mag, smart)
+    assert set(explicit) == {"COINLINE_SMART_CARD_2"}
+    assert launcher.extra_card_environment({"smart_fixture_2": ""}, mag, smart) == {}
 
 
 def test_coin_validator_profile_preserves_independent_board_fields(tmp_path):

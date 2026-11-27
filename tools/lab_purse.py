@@ -155,7 +155,7 @@ class LabPurseStore:
 
     def contact_snapshot(self, fixture_id, protocol="t1"):
         """Export an immutable, invented LAB contact object, never an authorization."""
-        if protocol not in ("t0", "t1"):
+        if protocol not in ("sync", "t0", "t1"):
             return {"error": "bad_input"}
         result = self.inspect(fixture_id)
         if "error" in result:
@@ -166,6 +166,13 @@ class LabPurseStore:
                 result["reserved_units"], result["available_units"], result["revision"])
         except struct.error:
             return {"error": "contact_value_range"}
+        if protocol == "sync":
+            # This is an invented read-only LAB object on a synchronous
+            # contact memory bus, not a historical card application.
+            return {"type": "smartcard", "protocol": "sync", "atr_hex": "00",
+                    "memory_hex": data.hex().upper(), "application": "lab-readonly",
+                    "requires_authorization": False, "lab_snapshot_revision": result["revision"],
+                    "lab_snapshot_format": "LABP-v1-nonredeemable"}
         return {"type": "smartcard", "protocol": "async", "application": "lab-readonly",
                 "reset_policy": "external", "atr_hex": "3B 00" if protocol == "t0" else "3B 80 01 81",
                 "memory_hex": data.hex().upper(), "atr_delay_us": 4000,

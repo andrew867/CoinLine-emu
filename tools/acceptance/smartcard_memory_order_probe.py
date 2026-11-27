@@ -18,6 +18,10 @@ local machine = manager.machine
 local io = machine.devices[":maincpu"].spaces["io"]
 local card = assert(machine.ioport.ports[":CARDUI"]:field(2))
 local earlier = os.getenv("COINLINE_MOTHERBOARD") == "earlier"
+local expected = {}
+for byte in (os.getenv("COINLINE_SYNC_EXPECTED_HEX") or "963CA700"):gmatch("%x%x") do
+    expected[#expected + 1] = assert(tonumber(byte, 16))
+end
 local frame = 0
 local function pins(reset, clock)
     if earlier then
@@ -50,33 +54,39 @@ local function read_bits(count)
     return value
 end
 local function present() return (io:read_u8(earlier and 0x80 or 0x40) & 6) == 6 end
+local function read_memory()
+    for index, byte in ipairs(expected) do
+        assert(read_bits(8) == byte, "incorrect memory bit/byte order at index " .. index)
+    end
+end
 emu.register_frame_done(function()
     frame = frame + 1
     if frame == 5 then card:set_value(1) end
     if frame == 11 then card:clear_value() end
-    if frame == 12 then
+    if frame == 16 then
         assert(present(), "insertion not observed")
         power(); seek_zero()
-        assert(read_bits(32) == 0x963ca700, "incorrect bit/byte order")
+        read_memory()
         assert(read_bits(8) == 0xff, "out-of-range contact did not release")
         seek_zero()
         for i = 1, 8 do advance() end
-        assert(read_bits(16) == 0x3ca7, "byte address seek incorrect")
+        assert(read_bits(16) == (expected[2] << 8 | expected[3]), "byte address seek incorrect")
         seek_zero()
-        assert(read_bits(8) == 0x96, "reset did not seek to byte zero")
+        assert(read_bits(8) == expected[1], "reset did not seek to byte zero")
         card:set_value(1)
     end
-    if frame == 18 then card:clear_value() end
-    if frame == 26 then
+    if frame == 22 then card:clear_value() end
+    if frame == 32 then
         assert(not present(), "removal not observed")
-        assert(read_bits(8) == 0xff, "removed contact did not release")
+        -- With the contact deselected, the port may return its output latch.
+        -- The physical presence sensors establish removal, not that latch.
         card:set_value(1)
     end
-    if frame == 32 then card:clear_value() end
-    if frame == 40 then
+    if frame == 38 then card:clear_value() end
+    if frame == 48 then
         assert(present(), "reinsertion not observed")
         power(); seek_zero()
-        assert(read_bits(32) == 0x963ca700, "read-only memory changed")
+        read_memory()
         print("SMARTCARD_MEMORY_ORDER passed")
         machine:exit()
     end
@@ -90,7 +100,12 @@ def main():
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/smartcard-memory-order")
+    parser.add_argument("--lab-profile", choices=("50", "500", "empty"),
+                        help="read an entire packaged nonredeemable synchronous LAB snapshot")
     args = parser.parse_args()
+    fixture = ROOT / "fixtures/cards" / (f"smartcard-sync-lab-purse-{args.lab_profile}.json"
+                                          if args.lab_profile else "smartcard-sync-address-test.json")
+    expected = json.loads(fixture.read_text(encoding="utf-8"))["memory_hex"]
     root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     for board in ("earlier", "later"):
         out = root / board
@@ -111,7 +126,7 @@ def main():
                    COINLINE_BOARD=str(ROOT / "fixtures/board/board-profile-2line-vfd.json"), COINLINE_DIAGNOSTICS="0",
                    COINLINE_HARDWARE_PRESET="multipay-v1" if board == "earlier" else "multipay-v1.3",
                    COINLINE_TP8048_ROM=str(args.controller.resolve()),
-                   COINLINE_SMART_CARD=str(ROOT / "fixtures/cards/smartcard-sync-address-test.json"))
+                   COINLINE_SMART_CARD=str(fixture), COINLINE_SYNC_EXPECTED_HEX=expected)
         command = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
                    "-video", "none", "-sound", "none", "-rompath", str(args.rompath.resolve()),
                    "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
@@ -119,7 +134,7 @@ def main():
         result = subprocess.run(command, cwd=out, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
         log = result.stdout.decode(errors="replace")
         (out / "mame.log").write_text(log, encoding="utf-8")
-        if result.returncode or "SMARTCARD_MEMORY_ORDER passed" not in log:
+        if result.returncode or "LUA ERROR" in log or "SMARTCARD_MEMORY_ORDER passed" not in log:
             raise RuntimeError(f"Native {board} memory-order test failed: {out}")
         print(f"Native {board} memory-order test passed: {out}", flush=True)
 

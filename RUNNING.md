@@ -81,8 +81,14 @@ Additional fixture paths can be configured as `mag_fixture_2` through
 `mag_fixture_8` and `smart_fixture_2` through `smart_fixture_8`, in consecutive
 slots. The default second magnetic card is a deliberately invalid checksum
 test, not another funded account. The default second contact card switches
-between the generic synchronous and asynchronous contact fixtures. Set the
-second slot to an empty value to disable that catalogue. Additional contact
+between the generic synchronous and asynchronous contact fixtures. The default
+contact wallet also provides read-only synchronous LAB snapshots in slots 3,
+4 and 5 (0.50, 5.00 and zero LAB units). These are invented transport fixtures,
+not historical GPM103 payment cards; a terminal's historical application may
+reject them. Optional asynchronous versions and the neutral memory-address test
+are included as configurable fixture paths. Any explicitly configured extra
+contact slot takes precedence over the automatic LAB catalogue. Set the second
+slot to an empty value to disable that catalogue. Additional contact
 slots are read-only; any explicitly writable bench fixture must occupy the
 primary slot, whose existing persistent memory is preserved across selection.
 These controls do not change terminal tables or payment authorization.

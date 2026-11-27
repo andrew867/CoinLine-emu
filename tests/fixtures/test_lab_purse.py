@@ -15,6 +15,20 @@ from lab_purse import LabPurseStore, LabContactSession, MODEL
 VECTORS = json.loads((ROOT / "fixtures/cards/lab-purse-vectors.json").read_text(encoding="utf-8"))
 
 
+@pytest.mark.parametrize("name,units", [("50", 50), ("500", 500), ("empty", 0)])
+@pytest.mark.parametrize("kind,protocol", [("sync", "sync"), ("async", "t1")])
+def test_bundled_generic_contact_snapshots_match_nonredeemable_ledger(tmp_path, name, units, kind, protocol):
+    store = LabPurseStore(tmp_path / "purses.sqlite")
+    assert store.seed("lab-demo", initial_units=units, limit_units=max(50, units))["balance_units"] == units
+    before = store.inspect("lab-demo")
+    expected = store.contact_snapshot("lab-demo", protocol)
+    fixture = json.loads((ROOT / f"fixtures/cards/smartcard-{kind}-lab-purse-{name}.json").read_text(encoding="utf-8"))
+    assert fixture == expected
+    assert fixture["application"] == "lab-readonly"
+    assert not fixture.get("sync_program_enabled", False)
+    assert store.inspect("lab-demo") == before
+
+
 @pytest.mark.parametrize("scenario", VECTORS["scenarios"], ids=lambda s: s["id"])
 def test_published_lab_vectors(tmp_path, scenario):
     path = tmp_path / "purses.sqlite"

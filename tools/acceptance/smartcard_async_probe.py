@@ -213,11 +213,15 @@ def main():
     parser.add_argument("--mame", required=True, type=Path)
     protocols = ("t0", "t1", "t0-inverse", "t0-pps", "slots", "slots-reset", "purse-snapshot")
     parser.add_argument("--protocol", choices=(*protocols, "all"), default="all")
+    parser.add_argument("--lab-profile", choices=("50", "500", "empty"),
+                        help="qualify a bundled nonredeemable read-only purse snapshot instead of the reservation sample")
     parser.add_argument("--pps-spacing-us", type=int, default=1500, help="declared synthetic PPS card inter-character delay")
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/smartcard-async-probe")
     args = parser.parse_args()
+    if args.lab_profile and args.protocol != "purse-snapshot":
+        parser.error("--lab-profile requires --protocol purse-snapshot")
     root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     root.mkdir(parents=True)
     for protocol in protocols if args.protocol == "all" else (args.protocol,):
@@ -229,12 +233,21 @@ def main():
             sys.path.insert(0, str(ROOT / "tools"))
             from lab_purse import LabPurseStore
             store = LabPurseStore(out / "synthetic-purse.sqlite")
-            store.seed("lab-contact-probe")
-            store.begin_spend("lab-contact-probe", "reserve", 25)
+            if args.lab_profile:
+                units = {"50": 50, "500": 500, "empty": 0}[args.lab_profile]
+                store.seed("lab-contact-probe", initial_units=units, limit_units=max(50, units))
+            else:
+                store.seed("lab-contact-probe")
+                store.begin_spend("lab-contact-probe", "reserve", 25)
             before = store.inspect("lab-contact-probe")
             contact = store.contact_snapshot("lab-contact-probe")
-            snapshot = struct.pack(">4sBBBQQQQ", b"LABP", 1, 2, 0, 100, 25, 75, 1)
-            assert bytes.fromhex(contact["memory_hex"]) == snapshot
+            if args.lab_profile:
+                packaged = ROOT / f"fixtures/cards/smartcard-async-lab-purse-{args.lab_profile}.json"
+                assert json.loads(packaged.read_text(encoding="utf-8")) == contact
+                snapshot = bytes.fromhex(contact["memory_hex"])
+            else:
+                snapshot = struct.pack(">4sBBBQQQQ", b"LABP", 1, 2, 0, 100, 25, 75, 1)
+                assert bytes.fromhex(contact["memory_hex"]) == snapshot
         image = bytearray(b"\xff" * 1048576)
         program = synthetic_program(protocol, snapshot)
         image[0xc0000:0xc0000 + len(program)] = program
@@ -245,8 +258,11 @@ def main():
         (out / "fixtures/firmware/firmware-hashes.json").write_text(json.dumps({"entries": [entry]}))
         fixture = ROOT / f"fixtures/cards/smartcard-async-{protocol}-lab.json"
         if protocol == "purse-snapshot":
-            fixture = out / "lab-contact-snapshot.json"
-            fixture.write_text(json.dumps(contact), encoding="ascii")
+            if args.lab_profile:
+                fixture = packaged
+            else:
+                fixture = out / "lab-contact-snapshot.json"
+                fixture.write_text(json.dumps(contact), encoding="ascii")
         if protocol in ("t0-inverse", "t0-pps"):
             inverse = json.loads((ROOT / "fixtures/cards/smartcard-async-t0-lab.json").read_text())
             inverse["atr_hex"] = "3F 00" if protocol == "t0-inverse" else "3B 10 12"
