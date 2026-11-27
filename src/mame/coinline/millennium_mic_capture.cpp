@@ -56,8 +56,10 @@ struct mic_capture {
 	std::thread worker;
 	HANDLE ready = nullptr;
 	HWAVEIN handle = nullptr;
-	std::array<WAVEHDR, 3> headers{};
-	std::array<std::array<std::int16_t, 480>, 3> buffers{};
+	// Eight 10 ms capture buffers let the WinMM driver keep recording through
+	// short host scheduling stalls. The separate PCM ring still bounds delay.
+	std::array<WAVEHDR, 8> headers{};
+	std::array<std::array<std::int16_t, 480>, 8> buffers{};
 
 	~mic_capture()
 	{

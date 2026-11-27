@@ -139,6 +139,7 @@ int main()
 	// The bound socket is not listening: a pending or refused connect must
 	// not advertise an established NCC transport or carrier.
 	millennium_modem_model modem;
+	modem.set_transcript_enabled(false);
 	dial(modem);
 	if (modem.ncc_link_up() || modem.dcd())
 		return fail("refused connection counted as connected");
@@ -199,6 +200,8 @@ int main()
 		}
 		if (!got_reply || guest_rx != 0x5a)
 			return fail("host RX changed or not delivered");
+		if (!modem.transcript().empty())
+			return fail("native-mode transport retained disabled transcript bytes");
 
 		if (reset_peer) {
 			// A local abortive close produces a TCP reset, not orderly EOF.

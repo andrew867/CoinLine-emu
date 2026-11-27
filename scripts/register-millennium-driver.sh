@@ -37,6 +37,7 @@ lst_files=(
   millennium_io.cpp
   millennium_debug.cpp
   millennium_board_hwinit.cpp
+  millennium_battery_writer.cpp
   millennium_firmware.cpp
   millennium_io_shared.cpp
   millennium_voiceware_config.cpp

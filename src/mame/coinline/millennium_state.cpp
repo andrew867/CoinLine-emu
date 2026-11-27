@@ -1123,6 +1123,9 @@ void millennium_state::clear_voice_segment_int0(char const *reason)
 void millennium_state::machine_start()
 {
 	driver_device::machine_start();
+	for (s32 id : {TID_HOST_POLL, TID_CARD_UI, TID_COIN_UI, TID_M3_FALLBACK,
+		TID_CPU_TRACE, TID_VECTOR_PROBE, TID_MODEM_LINK, TID_BATTERY_FLUSH, TID_CARD_SHIFT})
+		m_driver_timers[id] = timer_alloc(FUNC(millennium_state::driver_timer_cb), this);
 	m_voicew_irq_timer = timer_alloc(FUNC(millennium_state::driver_timer_cb), this);
 	m_adsi_fixture_timer = timer_alloc(FUNC(millennium_state::adsi_fixture_tick), this);
 	m_adsi_fixture_answer_timer = timer_alloc(FUNC(millennium_state::adsi_fixture_answer_tick), this);
@@ -1227,6 +1230,11 @@ void millennium_state::emit_trace_m1_m2()
 void millennium_state::machine_reset()
 {
 	driver_device::machine_reset();
+	// Reset re-arms the polling sequence below. Cancel any prior event so
+	// repeated resets cannot accumulate anonymous polling chains.
+	for (emu_timer *timer : m_driver_timers)
+		if (timer)
+			timer->adjust(attotime::never);
 	if (machine().time().is_zero()) {
 		// MAME restores toggle positions from its input configuration before reset.
 		// A newly launched terminal starts with the receiver in its cradle.
@@ -1672,9 +1680,32 @@ bool millennium_state::restore_battery_image()
 	return true;
 }
 
-void millennium_state::flush_battery_image()
+void millennium_state::flush_battery_image(bool final)
 {
 	if (!m_battery_live)
+		return;
+	using result = millennium_battery_writer::result;
+	auto record_result = [this](result status) {
+		if (status == result::failed) {
+			m_battery_dirty = true;
+			if (!m_battery_write_error)
+				std::fprintf(stderr, "battery snapshot write failed; previous complete image retained\n");
+			m_battery_write_error = true;
+		} else if (status == result::saved) {
+			m_battery_write_error = false;
+			if (!m_battery_flushed) {
+				std::fprintf(stderr, "battery flush\n");
+				m_battery_flushed = true;
+			}
+		}
+	};
+	// A slow disk may delay persistence, but must not block the emulated
+	// audio/CPU clock. Keep dirty state until another snapshot can be queued.
+	result const prior = final ? m_battery_writer.finish() : m_battery_writer.poll();
+	if (prior == result::busy)
+		return;
+	record_result(prior);
+	if (!final && !m_battery_dirty)
 		return;
 	std::array<std::uint8_t, millennium_microwire_93c66::k_capacity_bytes> eeprom{};
 	m_microwire_93c66.store_to_span(eeprom.data(), eeprom.size());
@@ -1682,10 +1713,10 @@ void millennium_state::flush_battery_image()
 	for (std::size_t i = 0; i < eeprom.size(); ++i)
 		(void)m_nvram->model().write_nvram(static_cast<std::uint32_t>(i), eeprom[i], err);
 	std::uint32_t entries = 0;
-	for (std::uint8_t valid : m_phys_low_valid) {
-		if (valid)
-			++entries;
-	}
+	if (m_earlier_motherboard)
+		for (std::uint8_t valid : m_phys_low_valid)
+			if (valid)
+				++entries;
 	std::vector<unsigned char> buf;
 	buf.reserve(22U + eeprom.size() + m_phys_ram.size() + std::size_t(entries) * 5U);
 	auto push_u32 = [&](std::uint32_t v) {
@@ -1701,32 +1732,24 @@ void millennium_state::flush_battery_image()
 	push_u32(entries);
 	buf.insert(buf.end(), eeprom.begin(), eeprom.end());
 	buf.insert(buf.end(), m_phys_ram.begin(), m_phys_ram.end());
-	for (std::size_t i = 0; i < m_phys_low_valid.size(); ++i) {
-		if (!m_phys_low_valid[i])
-			continue;
-		push_u32(static_cast<std::uint32_t>(i));
-		buf.push_back(m_phys_low_overlay[i]);
-	}
+	if (entries)
+		for (std::size_t i = 0; i < m_phys_low_valid.size(); ++i) {
+			if (!m_phys_low_valid[i])
+				continue;
+			push_u32(static_cast<std::uint32_t>(i));
+			buf.push_back(m_phys_low_overlay[i]);
+		}
 	std::filesystem::path const path(battery_image_path());
-	std::error_code ec;
-	std::filesystem::create_directories(path.parent_path(), ec);
-	std::filesystem::path const tmp = path.string() + ".tmp";
-	{
-		std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-		if (!out)
-			return;
-		out.write(reinterpret_cast<char const *>(buf.data()), static_cast<std::streamsize>(buf.size()));
-		if (!out)
-			return;
-	}
-	std::filesystem::remove(path, ec);
-	std::filesystem::rename(tmp, path, ec);
-	if (ec)
-		return;
-	m_battery_dirty = false;
-	if (!m_battery_flushed) {
-		std::fprintf(stderr, "battery flush\n");
-		m_battery_flushed = true;
+	if (final) {
+		// Normal shutdown waits for the previous write and makes one final
+		// atomic replacement from the actual latest device state.
+		bool const saved = millennium_battery_writer::write_atomic(path, buf);
+		m_battery_dirty = !saved;
+		record_result(saved ? result::saved : result::failed);
+	} else if (m_battery_writer.submit(path, std::move(buf))) {
+		m_battery_dirty = false;
+	} else {
+		record_result(result::failed);
 	}
 }
 
@@ -5201,27 +5224,25 @@ void millennium_state::init_auxiliary_trace_sinks()
 
 void millennium_state::maybe_trace_memory_sidecar(std::uint32_t phys_addr, u8 data, char const *region_tag)
 {
+	bool const stack_trace = m_stack_trace_remaining && !m_stack_trace_path.empty();
+	bool const ram_trace = m_ram_init_trace_remaining && !m_ram_init_trace_path.empty();
+	if (!stack_trace && !ram_trace)
+		return;
 	u16 const pc = u16(m_maincpu->pc() & 0xffffU);
 	u16 const sp = u16(m_maincpu->state_int(Z180_SP) & 0xffffU);
-	std::uint8_t const cbr = u8(m_maincpu->state_int(Z180_CBR) & 0xff);
-	std::uint8_t const bbr = u8(m_maincpu->state_int(Z180_BBR) & 0xff);
-	std::uint8_t const cbar = u8(m_maincpu->state_int(Z180_CBAR) & 0xff);
-	std::uint32_t const sp_phys = millennium_z180_mmu_translate20(sp, cbr, bbr, cbar);
-	bool stack_touch = false;
-	for (unsigned d = 0; d < 8U; d++) {
-		std::uint32_t const t = (sp_phys + 0x100000U - d) & 0xfffffU;
-		if (phys_addr == t) {
-			stack_touch = true;
-			break;
+	if (stack_trace) {
+		std::uint8_t const cbr = u8(m_maincpu->state_int(Z180_CBR) & 0xff);
+		std::uint8_t const bbr = u8(m_maincpu->state_int(Z180_BBR) & 0xff);
+		std::uint8_t const cbar = u8(m_maincpu->state_int(Z180_CBAR) & 0xff);
+		std::uint32_t const sp_phys = millennium_z180_mmu_translate20(sp, cbr, bbr, cbar);
+		if (((sp_phys - phys_addr) & 0xfffffU) < 8U) {
+			std::string const line = millennium_format_stack_trace_line(m_maincpu->total_cycles(), phys_addr, data, pc, sp,
+				sp_phys, region_tag, current_boot_milestone_tag());
+			millennium_boot_trace_append_line(m_stack_trace_path, line);
+			--m_stack_trace_remaining;
 		}
 	}
-	if (m_stack_trace_remaining && !m_stack_trace_path.empty() && stack_touch) {
-		std::string const line = millennium_format_stack_trace_line(m_maincpu->total_cycles(), phys_addr, data, pc, sp,
-			sp_phys, region_tag, current_boot_milestone_tag());
-		millennium_boot_trace_append_line(m_stack_trace_path, line);
-		--m_stack_trace_remaining;
-	}
-	if (m_ram_init_trace_remaining && !m_ram_init_trace_path.empty()) {
+	if (ram_trace) {
 		std::string const line = millennium_format_ram_init_trace_line(m_maincpu->total_cycles(), phys_addr, data, pc, sp,
 			region_tag, current_boot_milestone_tag());
 		millennium_boot_trace_append_line(m_ram_init_trace_path, line);
@@ -5348,6 +5369,12 @@ std::string millennium_state::format_fetch_provenance_event(char const *event, s
 
 void millennium_state::remember_memory_write(std::uint32_t phys_addr, std::uint8_t data, char const *region_tag)
 {
+	// The formatted provenance map is consumed only by optional fault and
+	// stack-flow diagnostics. Do not build register snapshots, allocate JSON
+	// strings or update the map on normal SRAM writes.
+	if (m_fetch_provenance_trace_path.empty() && m_stack_control_flow_trace_path.empty() &&
+		m_first_pc_ffff_path.empty() && m_first_pc_ffff_context_path.empty() && m_first_rst38_context_path.empty())
+		return;
 	phys_addr &= 0xfffffU;
 	u16 const pc = u16(m_maincpu->pc() & 0xffffU);
 	u16 const sp = u16(m_maincpu->state_int(Z180_SP) & 0xffffU);
@@ -6671,7 +6698,7 @@ void millennium_state::write_stop_debug_artifacts()
 void millennium_state::device_stop()
 {
 	if (m_battery_live)
-		flush_battery_image();
+		flush_battery_image(true);
 	m_line.close();
 	if (m_graphic_display && !m_graphic_vfd_snapshot.empty()) {
 		std::ofstream snapshot(m_graphic_vfd_snapshot, std::ios::binary | std::ios::trunc);
@@ -6691,7 +6718,8 @@ void millennium_state::device_stop()
 
 void millennium_state::schedule_driver_timer(s32 id, attotime const &delay)
 {
-	machine().scheduler().timer_set(delay, timer_expired_delegate(FUNC(millennium_state::driver_timer_cb), this), id);
+	assert(id >= 0 && std::size_t(id) < m_driver_timers.size() && m_driver_timers[id]);
+	m_driver_timers[id]->adjust(delay, id);
 }
 
 void millennium_state::trace_graphic_vfd(u16 port, char direction, u8 value, u16 pressed)
@@ -6816,8 +6844,7 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 {
 	s32 const id = param;
 	if (id == TID_BATTERY_FLUSH) {
-		if (m_battery_dirty)
-			flush_battery_image();
+		flush_battery_image();
 		schedule_driver_timer(TID_BATTERY_FLUSH, attotime::from_seconds(2));
 		return;
 	}
@@ -6963,13 +6990,13 @@ TIMER_CALLBACK_MEMBER(millennium_state::driver_timer_cb)
 		bool const line_present = m_line.enabled() ? m_line.line_connected() : (m_linectrl_io->read() & 1U) != 0U;
 		m_modem->model().set_line_present(line_present);
 		if (m_linectrl_io && m_line.enabled()) {
-			auto set_line_bit = [this](std::uint32_t mask, bool on) {
-				if (ioport_field *field = m_linectrl_io->field(mask))
-					field->set_value(on ? 1 : 0);
-			};
-			set_line_bit(0x01U, m_line.line_connected());
-			set_line_bit(0x02U, m_line.reversal() == 1);
-			set_line_bit(0x04U, m_line.reversal() == 2);
+			u32 const wanted = (m_line.line_connected() ? 1U : 0U) |
+				(m_line.reversal() == 1 ? 2U : 0U) | (m_line.reversal() == 2 ? 4U : 0U);
+			u32 const changed = (m_linectrl_io->read() ^ wanted) & 7U;
+			for (u32 mask : {1U, 2U, 4U})
+				if (changed & mask)
+					if (ioport_field *field = m_linectrl_io->field(mask))
+						field->set_value((wanted & mask) ? 1 : 0);
 		}
 		if (m_line.take_connected()) {
 			m_line.send_line(m_tel_hook_onhook_stable ? "H0\n" : "H1\n");

@@ -13,6 +13,7 @@ millennium_modem_device::millennium_modem_device(machine_config const &mconfig, 
 
 void millennium_modem_device::device_start()
 {
+	m_model.set_transcript_enabled(false);
 }
 
 void millennium_modem_device::device_reset()

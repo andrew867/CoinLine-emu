@@ -49,6 +49,13 @@ std::filesystem::path path_from_env(char const *name)
 
 } // namespace
 
+bool millennium_audio_trace_enabled(char const *specific_sink) noexcept
+{
+	char const *specific = specific_sink ? std::getenv(specific_sink) : nullptr;
+	char const *superset = std::getenv("COINLINE_AUDIO_TRACE");
+	return (specific && *specific) || (superset && *superset);
+}
+
 void millennium_audio_trace_append_voiceware(std::string const &line) { append_file(path_from_env("COINLINE_VOICEWARE_TRACE"), line); }
 
 void millennium_audio_trace_append_superset(std::string const &line) { append_file(path_from_env("COINLINE_AUDIO_TRACE"), line); }

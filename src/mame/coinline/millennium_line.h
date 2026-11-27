@@ -45,6 +45,7 @@ private:
 	void flush_outgoing_pcm();
 	void ingest_pcm_line(std::string const &hex);
 	void drain_tx();
+	void disconnect_client() noexcept;
 
 	std::intptr_t m_listen = -1;
 	std::intptr_t m_client = -1;

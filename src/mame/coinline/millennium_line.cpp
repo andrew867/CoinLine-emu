@@ -3,6 +3,7 @@
 #include "millennium_line.h"
 
 #include <cstdio>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 
@@ -50,10 +51,19 @@ bool line_bad(std::intptr_t v)
 {
 	return v < 0 || line_sock(v) == INVALID_SOCKET;
 }
+bool line_retryable_error()
+{
+	int const error = ::WSAGetLastError();
+	return error == WSAEWOULDBLOCK || error == WSAEINTR;
+}
 #else
 bool line_bad(std::intptr_t v)
 {
 	return v < 0;
+}
+bool line_retryable_error()
+{
+	return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
 }
 #endif
 
@@ -76,7 +86,10 @@ void millennium_line_jack::open_from_env()
 	if (s == INVALID_SOCKET)
 		return;
 	u_long nb = 1;
-	(void)::ioctlsocket(s, FIONBIO, &nb);
+	if (::ioctlsocket(s, FIONBIO, &nb) != 0) {
+		::closesocket(s);
+		return;
+	}
 	sockaddr_in addr{};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(static_cast<u_short>(port));
@@ -91,8 +104,10 @@ void millennium_line_jack::open_from_env()
 	if (s < 0)
 		return;
 	int const flags = ::fcntl(s, F_GETFL, 0);
-	if (flags >= 0)
-		(void)::fcntl(s, F_SETFL, flags | O_NONBLOCK);
+	if (flags < 0 || ::fcntl(s, F_SETFL, flags | O_NONBLOCK) != 0) {
+		::close(s);
+		return;
+	}
 	sockaddr_in addr{};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(static_cast<uint16_t>(port));
@@ -106,21 +121,16 @@ void millennium_line_jack::open_from_env()
 	std::fprintf(stderr, "line jack %d\n", port);
 }
 
-void millennium_line_jack::close() noexcept
+void millennium_line_jack::disconnect_client() noexcept
 {
 #if defined(_WIN32)
 	if (!line_bad(m_client))
 		::closesocket(line_sock(m_client));
-	if (!line_bad(m_listen))
-		::closesocket(line_sock(m_listen));
 #else
 	if (!line_bad(m_client))
 		::close(static_cast<int>(m_client));
-	if (!line_bad(m_listen))
-		::close(static_cast<int>(m_listen));
 #endif
 	m_client = -1;
-	m_listen = -1;
 	m_rx.clear();
 	m_tx_pending.clear();
 	m_ring = false;
@@ -134,6 +144,19 @@ void millennium_line_jack::close() noexcept
 	m_pcm_realtime = m_pcm_primed = false;
 }
 
+void millennium_line_jack::close() noexcept
+{
+	disconnect_client();
+#if defined(_WIN32)
+	if (!line_bad(m_listen))
+		::closesocket(line_sock(m_listen));
+#else
+	if (!line_bad(m_listen))
+		::close(static_cast<int>(m_listen));
+#endif
+	m_listen = -1;
+}
+
 void millennium_line_jack::drain_tx()
 {
 	if (line_bad(m_client) || m_tx_pending.empty())
@@ -145,15 +168,21 @@ void millennium_line_jack::drain_tx()
 #endif
 	if (n > 0)
 		m_tx_pending.erase(0, static_cast<std::size_t>(n));
-	else if (m_tx_pending.size() > 65536U)
-		m_tx_pending.clear();
+	else if (n < 0 && !line_retryable_error())
+		disconnect_client();
 }
 
 void millennium_line_jack::send_line(char const *text)
 {
-	if (!text || !*text)
+	if (!text || !*text || line_bad(m_client))
 		return;
 	m_tx_pending.append(text);
+	// Never discard a partial control or media line from a live stream.
+	// A peer stalled this far has lost the real-time line; reconnect cleanly.
+	if (m_tx_pending.size() > 65536U) {
+		disconnect_client();
+		return;
+	}
 	drain_tx();
 }
 
@@ -217,6 +246,10 @@ void millennium_line_jack::ingest_pcm_line(std::string const &hex)
 
 void millennium_line_jack::flush_outgoing_pcm()
 {
+	// Do not accumulate encoded audio in the TCP queue during backpressure.
+	// The bounded PCM queue retains samples until the previous line drains.
+	if (!m_tx_pending.empty())
+		return;
 	std::string hex;
 	{
 		std::lock_guard<std::mutex> lock(m_pcm_mu);
@@ -247,7 +280,10 @@ void millennium_line_jack::poll()
 		SOCKET c = ::accept(line_sock(m_listen), nullptr, nullptr);
 		if (c != INVALID_SOCKET) {
 			u_long nb = 1;
-			(void)::ioctlsocket(c, FIONBIO, &nb);
+			if (::ioctlsocket(c, FIONBIO, &nb) != 0) {
+				::closesocket(c);
+				return;
+			}
 			int const no_delay = 1;
 			(void)::setsockopt(c, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char const *>(&no_delay), sizeof(no_delay));
 			m_client = static_cast<std::intptr_t>(c);
@@ -255,31 +291,32 @@ void millennium_line_jack::poll()
 			// CO attached ⇒ tip/ring battery present for QUERY_CO_LINE_STATUS (craft Failed:41).
 			m_connected = true;
 			m_rx.clear();
+			std::lock_guard<std::mutex> lock(m_pcm_mu);
+			m_pcm_to_co.clear();
+			m_pcm_from_co.clear();
 		}
 	}
 	if (line_bad(m_client))
 		return;
-	flush_outgoing_pcm();
 	drain_tx();
-	char buf[256];
+	if (line_bad(m_client))
+		return;
+	flush_outgoing_pcm();
+	if (line_bad(m_client))
+		return;
+	// A 20 ms PCM packet is 642 text bytes. Read at least one complete
+	// packet per poll rather than spreading it over three host wakeups.
+	char buf[2048];
 	int n = ::recv(line_sock(m_client), buf, sizeof(buf), 0);
 	if (n == 0) {
-		::closesocket(line_sock(m_client));
-		m_client = -1;
-		m_rx.clear();
-		m_tx_pending.clear();
-		m_ring = false;
-		m_connected = false;
-		m_co_dial_tone = false;
-		m_reversal = 0;
-		std::lock_guard<std::mutex> lock(m_pcm_mu);
-		m_pcm_to_co.clear();
-		m_pcm_from_co.clear();
-		m_pcm_realtime = m_pcm_primed = false;
+		disconnect_client();
 		return;
 	}
-	if (n < 0)
+	if (n < 0) {
+		if (!line_retryable_error())
+			disconnect_client();
 		return;
+	}
 #else
 	if (line_bad(m_client)) {
 		int c = ::accept(static_cast<int>(m_listen), nullptr, nullptr);
@@ -288,39 +325,44 @@ void millennium_line_jack::poll()
 			int const no_delay = 1;
 			(void)::setsockopt(c, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(no_delay));
 			int const flags = ::fcntl(c, F_GETFL, 0);
-			if (flags >= 0)
-				(void)::fcntl(c, F_SETFL, flags | O_NONBLOCK);
+			if (flags < 0 || ::fcntl(c, F_SETFL, flags | O_NONBLOCK) != 0) {
+				::close(c);
+				return;
+			}
 			m_client = c;
 			m_connected_edge = true;
 			m_connected = true;
 			m_rx.clear();
+			std::lock_guard<std::mutex> lock(m_pcm_mu);
+			m_pcm_to_co.clear();
+			m_pcm_from_co.clear();
 		}
 	}
 	if (line_bad(m_client))
 		return;
-	flush_outgoing_pcm();
 	drain_tx();
-	char buf[256];
+	if (line_bad(m_client))
+		return;
+	flush_outgoing_pcm();
+	if (line_bad(m_client))
+		return;
+	char buf[2048];
 	int n = ::recv(static_cast<int>(m_client), buf, sizeof(buf), 0);
 	if (n == 0) {
-		::close(static_cast<int>(m_client));
-		m_client = -1;
-		m_rx.clear();
-		m_tx_pending.clear();
-		m_ring = false;
-		m_connected = false;
-		m_co_dial_tone = false;
-		m_reversal = 0;
-		std::lock_guard<std::mutex> lock(m_pcm_mu);
-		m_pcm_to_co.clear();
-		m_pcm_from_co.clear();
-		m_pcm_realtime = m_pcm_primed = false;
+		disconnect_client();
 		return;
 	}
-	if (n < 0)
+	if (n < 0) {
+		if (!line_retryable_error())
+			disconnect_client();
 		return;
+	}
 #endif
 	m_rx.append(buf, buf + n);
+	if (m_rx.size() > 65536U) {
+		disconnect_client();
+		return;
+	}
 	for (;;) {
 		std::size_t const nl = m_rx.find('\n');
 		if (nl == std::string::npos)

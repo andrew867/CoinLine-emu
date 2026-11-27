@@ -114,7 +114,7 @@ visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
 passed on the later Multi-pay board; funded chip-card applications and
 several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
-and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
+and [firmware results catalog](../docs/uat/firmware-acceptance-catalog.md).
 
 An optional graphical voice-service route is available with `--adsi`. Set
 the exact local aliases, target and UDP port under `[adsi]` in `coinline.ini`.
@@ -200,6 +200,6 @@ The launcher stores `cfg`, `nvram`, and `logs` under `data/oem`. Close the emula
 "Start OEM.cmd" --record
 ```
 
-The Windows launcher defaults to a compact OpenGL window with automatic frameskip and keeps the debugger and trace sidecars off. Use `--video gdi` if OpenGL is unavailable; the software renderer can skip additional display frames to preserve terminal timing. Direct3D is also selectable with `--video d3d` where supported. Mouse-driven title-bar moves and border resizes no longer pause the terminal; artwork redraws are briefly deferred until the drag ends. The standard Windows system menu retains its original modal behavior. The latest log directory contains `display.txt` or `graphic-vfd.json`, `emulator.log`, and `central-office.log`. Error 41 points to CO line detection. For error 24, verify the running NCC listener, matching wire ID, and published table assignment.
+The Windows launcher defaults to a compact OpenGL window with automatic frameskip up to 11 and keeps the debugger and trace sidecars off. This prioritizes the terminal and audio clock over artwork under load. Use `--video gdi` if OpenGL is unavailable; Direct3D is also selectable with `--video d3d` where supported. Mouse-driven title-bar moves and border resizes no longer pause the terminal; artwork redraws are briefly deferred until the drag ends. The standard Windows system menu retains its original modal behavior. The host speaker buffer target defaults to 240 ms, configurable as `[audio] playback_buffer_ms` or `--audio-buffer-ms 40..500`. Windows uses above-normal process priority, configurable as `[performance] host_priority` or `--host-priority normal`. Set `[display] max_frameskip` or `--max-frameskip 0..11` to change the automatic redraw limit. These host settings do not alter the emulated hardware clock or remote media deadlines. The latest log directory contains `display.txt` or `graphic-vfd.json`, `emulator.log`, and `central-office.log`. Error 41 points to CO line detection. For error 24, verify the running NCC listener, matching wire ID, and published table assignment.
 
 The [verification handoff](docs/status/ncc-install-firmware-stx-handoff-2026-11-23.md) records the full MAME and CoinLine acceptance runs.

@@ -36,6 +36,7 @@ def main():
     parser.add_argument("--telephony-trace", action="store_true", help="capture startup and runtime telephony transactions")
     parser.add_argument("--keypad-trace", action="store_true", help="capture panel inputs and TP command/key transactions without per-edge CSIO logs")
     parser.add_argument("--dtmf-trace", action="store_true", help="trace controller dial-pad tone gating and genuine tone events")
+    parser.add_argument("--voiceware-trace", action="store_true", help="trace native phrase/bank/reset and completion events")
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--coin-trace", action="store_true", help="capture the later-board validator UART register activity")
     parser.add_argument("--modem-trace", action="store_true", help="capture modem traffic without enabling default boot traces")
@@ -55,7 +56,12 @@ def main():
     parser.add_argument("--adsi-offline-pcm", type=Path, help="deterministic signed 8 kHz line stimulus, triggered by actual configured local outpulse")
     parser.add_argument("--offline-co", action="store_true", help="retain local CO control signaling but use deterministic offline PCM")
     parser.add_argument("--sound", action="store_true", help="enable the native audio output during the bench")
+    parser.add_argument("--audio-metrics", action="store_true", help="report Windows WASAPI output underruns (no audio recording)")
+    parser.add_argument("--unthrottled", action="store_true", help="measure native CPU headroom; not a real-time media qualification")
+    parser.add_argument("--audio-buffer-ms", type=int, default=120, help="host speaker buffer target for the timing bench")
+    parser.add_argument("--max-frameskip", type=int, help="maximum automatic renderer frame skipping for the timing bench")
     parser.add_argument("--realtime-priority", action="store_true", help="use above-normal Windows process priority for timing qualification")
+    parser.add_argument("--host-priority", choices=("normal", "above-normal"), default="normal", help="Windows process scheduling preference for the bench")
     parser.add_argument("--read-watch", type=Path, help="local physical-address watch list for read-only timing diagnosis")
     parser.add_argument("--read-watch-registers", action="store_true", help="include CPU register snapshots with read watches")
     parser.add_argument("--read-watch-per-frame", type=int, default=0, help="limit samples per watch address per frame (0: existing global cap only)")
@@ -76,6 +82,12 @@ def main():
         parser.error("Use the dedicated offline CO controls for deterministic PCM tests")
     if args.snapshot_interval < 0:
         parser.error("--snapshot-interval cannot be negative")
+    if not 40 <= args.audio_buffer_ms <= 500:
+        parser.error("--audio-buffer-ms must be between 40 and 500")
+    if args.audio_metrics and (os.name != "nt" or not args.sound or args.unthrottled):
+        parser.error("--audio-metrics requires a throttled Windows --sound bench")
+    if args.max_frameskip is not None and not 0 <= args.max_frameskip <= 11:
+        parser.error("--max-frameskip must be between 0 and 11")
     if not 0 <= args.read_watch_per_frame <= 2000:
         parser.error("--read-watch-per-frame must be between 0 and 2000")
     if (args.read_watch_registers or args.read_watch_per_frame or args.read_watch_manual or args.read_watch_start) and not args.read_watch:
@@ -153,6 +165,8 @@ def main():
         env.update(COINLINE_MODEM_TRACE="1", COINLINE_BOOT_TRACE=str(out / "boot.jsonl"))
     if args.modem_trace:
         env["COINLINE_MODEM_TRACE"] = "1"
+    if args.voiceware_trace:
+        env["COINLINE_VOICEWARE_TRACE"] = str(out / "voiceware.jsonl")
     for key in ("line", "serial", "pin"):
         if key in settings:
             env["COINLINE_ACCEPTANCE_" + key.upper()] = str(settings[key])
@@ -231,7 +245,7 @@ def main():
                    COINLINE_TP_RUNTIME_HEALTH_TRACE=str(out / "telephony-health.jsonl"))
     view = "Graphical" if args.display == "11line" else "Standard"
     cmd = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug",
-           "-nolog", "-video", args.video if args.artwork else "none", "-sound", "auto" if args.sound else "none",
+           "-nolog", "-video", args.video if args.artwork else "none", "-sound", "wasapi" if args.audio_metrics else "auto" if args.sound else "none",
            "-rompath", str(args.rompath.resolve()), "-artpath", str(art.parent),
            "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
            "-snapshot_directory", str(out), "-snapview", view if args.artwork and not args.snapshot_native else "native",
@@ -239,13 +253,21 @@ def main():
            "-autoboot_delay", "0", "-autoboot_script", str(Path(__file__).with_suffix(".lua").resolve())]
     if args.realtime_priority and os.name == "nt":
         cmd.extend(["-priority", "1"])
+    if args.unthrottled:
+        cmd.append("-nothrottle")
+    if args.audio_metrics:
+        cmd.append("-verbose")
+    if args.sound:
+        cmd.extend(["-audio_latency", str(args.audio_buffer_ms / 20)])
     if args.artwork:
-        cmd.extend(["-autoframeskip", "-frameskip", "11" if args.video == "gdi" else "4", "-audio_latency", "6"])
+        max_skip = args.max_frameskip if args.max_frameskip is not None else (11 if args.video == "gdi" else 4)
+        cmd.extend(["-autoframeskip", "-frameskip", str(max_skip)])
         if os.name == "nt":
             cmd.extend(["-resolution", "360x850"])
     office = nullcontext() if args.external_co_port or (args.adsi_offline_pcm and not args.offline_co) else central_office(out, env, Path(sys.executable))
     with (out / "mame.log").open("wb") as log, office:
-        result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT)
+        flags = subprocess.ABOVE_NORMAL_PRIORITY_CLASS if os.name == "nt" and args.host_priority == "above-normal" else 0
+        result = subprocess.run(cmd, cwd=out, env=env, stdout=log, stderr=subprocess.STDOUT, creationflags=flags)
     print(f"Emulator exited with {result.returncode}", flush=True)
     return result.returncode
 

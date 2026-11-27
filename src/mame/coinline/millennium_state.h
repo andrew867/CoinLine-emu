@@ -12,6 +12,7 @@
 #include <mutex>
 
 #include "millennium_audio.h"
+#include "millennium_battery_writer.h"
 #include "millennium_board_profile.h"
 #include "millennium_card.h"
 #include "millennium_coin.h"
@@ -349,6 +350,8 @@ private:
 	// The completion timer runs only while there is a speech segment to watch.
 	bool m_voicew_prev_upd_idle = true;
 	emu_timer *m_voicew_irq_timer = nullptr;
+	// Stable timers for the driver polling paths; one pending event per ID.
+	std::array<emu_timer *, TID_CARD_SHIFT + 1> m_driver_timers{};
 	attotime m_voicew_irq_poll_period = attotime::zero;
 	/// Voice-completion INT0 is a hardware level from the speech path; firmware clears it by starting/resetting speech.
 	bool m_voicew_int0_asserted = false;
@@ -383,10 +386,12 @@ private:
 	void sync_microwire_from_nvram();
 	std::string battery_image_path() const;
 	bool restore_battery_image();
-	void flush_battery_image();
+	void flush_battery_image(bool final = false);
+	millennium_battery_writer m_battery_writer;
 	bool m_battery_live = false;
 	bool m_battery_dirty = false;
 	bool m_battery_flushed = false;
+	bool m_battery_write_error = false;
 	void load_firmware_and_emit_m0();
 	// Retained card, coin, and rate tables for the built-in-table image. Erased SRAM fails the
 	// startup memory check and forces those tables back to "download required".

@@ -1,0 +1,52 @@
+diff --git a/src/osd/modules/sound/wasapi_sound.cpp b/src/osd/modules/sound/wasapi_sound.cpp
+index 1c0fdd38e02..28d53f222cc 100644
+--- a/src/osd/modules/sound/wasapi_sound.cpp
++++ b/src/osd/modules/sound/wasapi_sound.cpp
+@@ -160,6 +160,12 @@ private:
+ 		UINT32                      m_buffer_frames;
+ 		UINT32                      m_minimum_headroom;
+ 		bool                        m_underflowing;
++		// Render-thread counters for opt-in host audio qualification. Initial
++		// buffer priming is not an underrun.
++		bool                        m_render_started = false;
++		uint64_t                    m_render_underruns = 0;
++		uint64_t                    m_render_missing_frames = 0;
++		uint64_t                    m_render_reprime_frames = 0;
+ 		std::atomic<bool>           m_exiting;
+ 	};
+ 
+@@ -284,6 +290,11 @@ sound_wasapi::stream_info::~stream_info()
+ {
+ 	m_client->Stop();
+ 	stop();
++	if (m_render)
++		osd_printf_verbose("Sound: WASAPI render underruns=%llu missing_frames=%llu reprime_frames=%llu\n",
++			static_cast<unsigned long long>(m_render_underruns),
++			static_cast<unsigned long long>(m_render_missing_frames),
++			static_cast<unsigned long long>(m_render_reprime_frames));
+ 	DeleteCriticalSection(&m_critical_section);
+ }
+ 
+@@ -426,6 +437,8 @@ void sound_wasapi::stream_info::render_task()
+ 					m_buffer.get(samples, locked);
+ 					if (available < locked)
+ 					{
++						++m_render_underruns;
++						m_render_missing_frames += locked - available;
+ 						m_underflowing = true;
+ 						m_buffer.get(m_underflow_fill.data(), 1);
+ 					}
+@@ -433,10 +446,13 @@ void sound_wasapi::stream_info::render_task()
+ 				else if (available >= m_minimum_headroom)
+ 				{
+ 					m_buffer.get(samples, locked);
++					m_render_started = true;
+ 					m_underflowing = false;
+ 				}
+ 				else
+ 				{
++					if (m_render_started)
++						m_render_reprime_frames += locked;
+ 					for (UINT32 i = 0; locked > i; ++i, samples += m_buffer.channels())
+ 						std::copy_n(m_underflow_fill.data(), m_buffer.channels(), samples);
+ 				}
