@@ -30,12 +30,15 @@ For the earlier and later test flows, firmware started with erased EEPROM and bl
 | SIP | Real Windows incoming/outgoing media and teardown; actual loopback SIP/RTP and connected DTMF on all three OSes | Physical microphone and external carrier acceptance on Linux/macOS |
 | Voiceware | Native ADPCM and stand-alone waveform-element playback; dial, attention and feedback tones, completion interrupt | Unmeasured control/envelope details |
 | Two-line / graphical displays | Native VFD rendering and brightness, bitmap transfer, hook-cycle advertising recovery | Additional display modules and host load conditions |
+| Regional rating | Earlier native matrix 15/15; later local and national prices, ordinary host quotes and local quarter payment verified after corrections | Later 711/811 service classifications, shortened-number prompt, longer paid national calls and physical equipment |
 | Live ADSI | Independent wire-confirmed CAS/A, CONNECT, welcome, keypad News/Back, softkey Exit, release and normal idle | Longer frames in subsequent LAN tests were interrupted by native PCM underruns; repeat reliability and other application menus remain open |
 | Local service routes | Exact direct SIP routing, host quotes for 27 free aliases, genuine graphical short-code calls to two services | Remaining individual native extension trials; ordinary graphical paid-call control still fails |
 
 [Host media and platform support](status/cross-platform-host-media-2026-11-27.md) details Windows WinMM and POSIX PortAudio capture, real SIP loopback tests and package validation. [ADSI navigation](status/connected-dtmf-adsi-welcome-2026-11-25.md), [direct extension routing](status/adsi-direct-lan-routing-2026-11-27.md), [native Voiceware playback](status/voiceware-waveform-2026-11-27.md), [audio reliability](status/host-audio-reliability-2026-11-26.md) and [advertising recovery](status/graphical-ad-hook-resume-2026-11-27.md) contain the more detailed evidence.
 
 ## Coin and card behavior
+
+The [regional tariff qualification](status/regional-rating-qualification-2026-11-27.md) records the independent two-line and graphical checks, ordinary NCC rate replies, and remaining service-code gates.
 
 | Area | Verified | Remaining qualification |
 |---|---|---|
