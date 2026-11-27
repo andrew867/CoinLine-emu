@@ -94,6 +94,16 @@ GPM103 payment application compatibility. A native balance-display test
 must use an authorized reference card and its legitimate test profile, and
 observe the actual terminal display, call result and reconciled records.
 
+The independent `LabDisposableSession` models a single exclusive local
+disposable-card test session without a reload operation. It rejects a
+request while the simulated card is absent, reserves value on a request,
+settles an observed result once, and preserves an unresolved reservation
+if the card is removed or the local session restarts without completion
+evidence. Its state is not connected to the terminal or its payment
+authorization. The disposable-card tests cover the nine enquiry, debit,
+exhaustion, insufficient-value, duplicate, removal, failure, interruption
+and reinsertion scenarios, plus restart with a pending request.
+
 The [machine-readable vectors](../fixtures/cards/lab-purse-vectors.json)
 cover balance, reservation, completion, event idempotency, cancellation,
 reload limit, uncertain restart, inactive/empty fixtures, invalid input,

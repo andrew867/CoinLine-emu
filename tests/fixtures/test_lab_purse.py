@@ -10,9 +10,68 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
-from lab_purse import LabPurseStore, LabContactSession, MODEL
+from lab_purse import LabPurseStore, LabContactSession, LabDisposableSession, MODEL
 
 VECTORS = json.loads((ROOT / "fixtures/cards/lab-purse-vectors.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("scenario,initial,expected_balance,expected_records", [
+    ("enquiry", 12, 12, 0),
+    ("debit", 12, 9, 1),
+    ("exhaustion", 3, 0, 1),
+    ("insufficient", 2, 2, 0),
+    ("duplicate", 12, 9, 1),
+    ("absent", 12, 12, 0),
+    ("failure", 12, 12, 0),
+    ("interrupted", 12, 12, 0),
+    ("reinsert", 12, 9, 1),
+    ("restart-pending", 12, 12, 0),
+])
+def test_disposable_lab_application_contract(tmp_path, scenario, initial, expected_balance, expected_records):
+    path = tmp_path / "disposable.sqlite"
+    store = LabPurseStore(path)
+    card = "lab-disposable"
+    assert store.seed(card, initial_units=initial, limit_units=12)["balance_units"] == initial
+    session = LabDisposableSession(store, card)
+    assert session.insert()["balance_units"] == initial
+    if scenario == "enquiry":
+        assert session.enquire()["revision"] == 0
+    elif scenario == "absent":
+        session.remove()
+        assert session.enquire()["error"] == "card_absent"
+        assert session.request_debit("event1", 3)["error"] == "card_absent"
+    elif scenario == "insufficient":
+        assert session.request_debit("event1", 3)["error"] == "insufficient_units"
+    else:
+        assert session.request_debit("event1", 3)["disposition"] == "pending"
+        assert session.enquire()["reserved_units"] == 3
+        if scenario == "failure":
+            assert session.finish_debit("event1", False)["disposition"] == "cancelled"
+        elif scenario in {"interrupted", "restart-pending"}:
+            if scenario == "interrupted":
+                assert session.remove()["disposition"] == "uncertain"
+            else:
+                assert session.insert()["reserved_units"] == 3  # Same live session.
+            store = LabPurseStore(path)
+            session = LabDisposableSession(store, card)
+            reopened = session.insert()
+            assert reopened["reserved_units"] == 3
+            assert session.request_debit("event1", 3)["disposition"] == "uncertain"
+            assert session.finish_debit("event1", True)["error"] == "no_pending_request"
+        else:
+            assert session.finish_debit("event1", True)["disposition"] == "committed"
+            if scenario == "duplicate":
+                assert session.request_debit("event1", 3)["disposition"] == "committed"
+                assert session.finish_debit("event1", True)["error"] == "no_pending_request"
+            elif scenario == "reinsert":
+                session.remove()
+                assert session.insert()["balance_units"] == 9
+                session = LabDisposableSession(LabPurseStore(path), card)
+                assert session.insert()["balance_units"] == 9
+    final = store.inspect(card)
+    assert final["balance_units"] == expected_balance
+    assert final["reserved_units"] == (3 if scenario in {"interrupted", "restart-pending"} else 0)
+    assert len(store.history(card)["records"]) == expected_records
 
 
 @pytest.mark.parametrize("name,units", [("50", 50), ("500", 500), ("empty", 0)])

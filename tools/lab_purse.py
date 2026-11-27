@@ -264,6 +264,22 @@ class LabPurseStore:
     def mark_uncertain(self, fixture_id, event_id, reason):
         return self._transition(fixture_id, event_id, "uncertain", reason)
 
+    def recover_abandoned_local_spends(self, fixture_id):
+        """An exclusive simulator session reopened without completion evidence."""
+        def action(s, db):
+            recovered = []
+            for event in s["ledger"]:
+                if event["kind"] == "spend" and event["disposition"] == "pending":
+                    event["disposition"] = "uncertain"
+                    seq = sequence(s)
+                    s["incidents"].append({"incident_id": f"incident-{seq}",
+                                           "related_event_id": event["event_id"],
+                                           "reason": "local simulator restarted without completion evidence",
+                                           "sequence": seq})
+                    recovered.append(event["event_id"])
+            return {"recovered_events": recovered}, bool(recovered)
+        return self._operate(fixture_id, action)
+
     def record_local_outcome(self, fixture_id, event_id, journal_ref, disposition):
         """Simulator administration only: immutable local journal, never native I/O."""
         def action(s, db):
@@ -329,6 +345,63 @@ class LabContactSession:
         self.session_id = None
         self.transport_state = "absent"
         self.contact_present, self.selected_model = False, None
+
+
+class LabDisposableSession:
+    """Exclusive local, nonredeemable test session; no native card protocol."""
+
+    def __init__(self, store, fixture_id):
+        self.store, self.fixture_id = store, fixture_id
+        self.present = False
+        self.pending = None
+
+    def insert(self):
+        if self.present:
+            return self.enquire()
+        result = self.store.recover_abandoned_local_spends(self.fixture_id)
+        if "error" not in result:
+            self.present = True
+            self.pending = None
+        return result
+
+    def enquire(self):
+        if not self.present:
+            return {"error": "card_absent"}
+        return self.store.inspect(self.fixture_id)
+
+    def request_debit(self, event_id, units):
+        if not self.present:
+            return {"error": "card_absent"}
+        if self.pending is not None and event_id != self.pending:
+            return {"error": "busy"}
+        result = self.store.begin_spend(self.fixture_id, event_id, units)
+        if result.get("disposition") == "pending":
+            self.pending = event_id
+        return result
+
+    def finish_debit(self, event_id, success):
+        if not self.present:
+            return {"error": "card_absent"}
+        if event_id != self.pending or self.pending is None:
+            return {"error": "no_pending_request"}
+        if type(success) is not bool:
+            return {"error": "bad_input"}
+        operation = self.store.complete_spend if success else self.store.cancel_spend
+        result = operation(self.fixture_id, event_id)
+        if "error" not in result:
+            self.pending = None
+        return result
+
+    def remove(self):
+        # A lost completion observation is not evidence of a failed debit.
+        # Keep the reservation until the independent local journal resolves it.
+        self.present = False
+        if self.pending is not None:
+            result = self.store.mark_uncertain(self.fixture_id, self.pending, "local simulated contact removed")
+            if "error" not in result:
+                self.pending = None
+            return result
+        return {"present": False}
 
 
 def main():
