@@ -55,6 +55,14 @@ controls still rejected; community information, directory assistance,
 local and home-area national controls retained their previous observed
 behavior. The service candidate is therefore not qualified for deployment.
 
+A separate metered home-area national call requested 50 cents, accepted two
+physical quarters, outpulsed the expected local-only destination and received
+CO answer. Its native display showed a 59-second countdown and the correct
+25-cent continuation request. The line then released before the planned
+handset replacement or additional period. This qualifies the initial and
+continuation price prompts, not sustained later-board call holding or
+metered extension.
+
 ## Coin calibration
 
 The earlier three-window validator and the downloaded later nine-window
