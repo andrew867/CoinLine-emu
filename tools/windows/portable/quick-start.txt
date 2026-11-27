@@ -14,7 +14,7 @@ The graphical launcher has separate battery, flash, configuration and logs
 under data/graphical. Both launchers can run at the same time. Give them
 different 10-digit terminal wire IDs and appropriate NCC table assignments.
 
-Graphical update from 996a8ac5e81d to cb6be6c988bf: close the old emulator
+Graphical update from cb6be6c988bf to 33eaa2644e20: close the old emulator
 normally after INSTALL, then extract the new package to a separate folder.
 The launcher separates saved state by full firmware digest. To retain the
 installed terminal, copy coinline-graphical.ini if present and copy the
@@ -23,12 +23,13 @@ existing battery, nvram and coin files from the old profile's
 directory. Do not copy program_flash; the new image supplies its own seed.
 Both profiles' full directory names are:
 
-  data/graphical/multipay-v1.3-996a8ac5e81daea2c3618792a15ccd5d0571a9d6ee62c5b541bc66bc27f2fb1f/11line/nvram/cl_millennium
   data/graphical/multipay-v1.3-cb6be6c988bf57818bd25ed4cc0922f23c45429cba2fc81919203decb5fe603d/11line/nvram/cl_millennium
+  data/graphical/multipay-v1.3-33eaa2644e20a41b7179195ee698d2e552d066d29b05377381245864dff7d9e1/11line/nvram/cl_millennium
 
 Copy only to a new, empty destination. Keep the original state as a backup.
-This exact retained-state transition passed startup and generic card removal;
-fresh INSTALL on the routing-corrected image is still a separate test.
+This exact retained-state transition passed startup, eight pickup/hangup
+cycles and advertising resume. A fresh INSTALL on the advertising-corrected
+image is still a separate qualification test.
 
 Package.txt tells you whether this copy includes local ROM inputs. If it does
 not, supply your authorized images at the following paths.
@@ -108,8 +109,8 @@ Allow the refund and collection tests to finish before pressing * again.
 
 The optional smartcard-async-t0-lab.json and smartcard-async-t1-lab.json fixtures
 are generic read-only native serial application tests, not historical payment
-cards. The full graphical images (SHA-256 prefixes 996a8ac5e81d and
-cb6be6c988bf) default to smartcard-async-contact-atr-lab.json for their
+cards. The full graphical images (SHA-256 prefixes 996a8ac5e81d,
+cb6be6c988bf and 33eaa2644e20) default to smartcard-async-contact-atr-lab.json for their
 asynchronous contact diagnostics. Earlier images retain the synchronous
 default. Override smart_fixture
 in the profile INI if you deliberately want a different fixture.

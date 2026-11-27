@@ -29,7 +29,7 @@ NCC address is 127.0.0.1 and TCP port 4000. Copy coinline.example.ini to
 coinline.ini to configure a different NCC port. For operator instructions and
 front-panel controls, see docs/Running.md.
 
-The full graphical images (SHA-256 prefixes 996a8ac5e81d and cb6be6c988bf)
+The full graphical images (SHA-256 prefixes 996a8ac5e81d, cb6be6c988bf and 33eaa2644e20)
 use the generic asynchronous contact fixture for contact diagnostics; other
 images retain their synchronous default. You can override smart_fixture
 in the appropriate INI. Later-board profiles accept optional read-only internal contact fixtures
@@ -38,6 +38,11 @@ module fixture does not provide payment authorization. The independent local
 LAB ledger utility is app/lab_purse.py; run python3 app/lab_purse.py --help.
 
 Copy data/oem/nvram between packages to carry forward an installed terminal.
+For the graphical transition from cb6be6c988bf to 33eaa2644e20, copy only
+battery, nvram and coin from the old digest's 11line/nvram/cl_millennium
+directory to the new empty digest directory. Do not copy program_flash.
+Retained-state startup and advertising resume passed; a fresh INSTALL on
+the corrected image is a separate qualification gate.
 Each run saves a display snapshot and logs under data/oem/logs. Use --headless
 --seconds 18 for a bounded boot check and --record for a local handset recording.
 
