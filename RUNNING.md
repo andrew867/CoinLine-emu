@@ -70,7 +70,24 @@ navigation is qualified with the compatible voice service.
 For a local card bench, choose synthetic card fixtures with `--mag-card`
 and `--smart-card` or set `mag_fixture` and `smart_fixture` under
 `[cards]` in `coinline.ini`. Paths are relative to the extracted package
-or absolute. The default chip-card fixture exercises the physical contacts;
+or absolute. The on-screen wallet shows the current magnetic and contact test
+card. Click its name (or press F for magnetic, D for contact) to cycle through
+the available cards. Press P or click Swipe for a complete magnetic swipe;
+press `[` to insert the selected contact card and `]` to remove it (or click
+the contact action button). The reader artwork follows the actual sensor
+states. Selection is locked while either card occupies the reader.
+
+Additional fixture paths can be configured as `mag_fixture_2` through
+`mag_fixture_8` and `smart_fixture_2` through `smart_fixture_8`, in consecutive
+slots. The default second magnetic card is a deliberately invalid checksum
+test, not another funded account. The default second contact card switches
+between the generic synchronous and asynchronous contact fixtures. Set the
+second slot to an empty value to disable that catalogue. Additional contact
+slots are read-only; any explicitly writable bench fixture must occupy the
+primary slot, whose existing persistent memory is preserved across selection.
+These controls do not change terminal tables or payment authorization.
+
+The default chip-card fixture exercises the physical contacts;
 the registered full graphical image `996a8ac5e81d` defaults to the qualified
 `smartcard-async-contact-atr-lab.json` fixture instead of the synchronous
 default. Neither is a funded payment card. The optional `smartcard-async-t0-lab.json`

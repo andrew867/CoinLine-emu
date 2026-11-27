@@ -29,6 +29,42 @@ def test_independent_profile_config_and_sip_ports(tmp_path, monkeypatch):
     assert int(oem["COINLINE_SIP_RTP_PORT_HIGH"]) < int(graphical["COINLINE_SIP_RTP_PORT_LOW"])
 
 
+def test_ordered_virtual_card_catalogue(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    names = ("fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
+             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE, "third.json")
+    for name in names:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    mag, smart = tmp_path / names[0], tmp_path / names[2]
+    defaults = launcher.extra_card_environment({}, mag, smart)
+    assert defaults == {"COINLINE_MAG_CARD_2": str(tmp_path / names[1]),
+                        "COINLINE_SMART_CARD_2": str(tmp_path / names[3])}
+    alternate = launcher.extra_card_environment({}, mag, tmp_path / names[3])
+    assert alternate["COINLINE_SMART_CARD_2"] == str(smart)
+    custom = launcher.extra_card_environment({"mag_fixture_3": "third.json", "smart_fixture_2": ""}, mag, smart)
+    assert custom["COINLINE_MAG_CARD_3"] == str(tmp_path / "third.json")
+    assert "COINLINE_SMART_CARD_2" not in custom
+    for settings, error in (({"mag_fixture_2": "", "mag_fixture_3": "third.json"}, "contiguous"),
+                            ({"mag_fixture_2": "absent.json"}, "missing"),
+                            ({"mag_fixture_2": names[0]}, "duplicates")):
+        with pytest.raises(ValueError, match=error):
+            launcher.extra_card_environment(settings, mag, smart)
+
+
+def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
+    path = PORTABLE.parents[1] / "mingw64/build-portable.py"
+    pack_spec = importlib.util.spec_from_file_location("coinline_portable_packer", path)
+    packer = importlib.util.module_from_spec(pack_spec)
+    pack_spec.loader.exec_module(packer)
+    staged = set()
+    monkeypatch.setattr(packer, "copy_file", lambda source, destination: staged.add(destination.relative_to(tmp_path).as_posix()))
+    packer.stage_files(tmp_path, tmp_path, None, None, True)
+    assert {"fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
+            launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE} <= staged
+
+
 def test_posix_sip_and_direct_adsi_preflight(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     monkeypatch.setattr(launcher, "WINDOWS", False)

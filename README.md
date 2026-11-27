@@ -41,6 +41,10 @@ Native packages are built for **Windows x64, Linux x64 and macOS Apple Silicon**
 
 On Linux/macOS, the included Quick Start lists the system libraries. Run `./setup-sip.sh` once if you want SIP or local InfoLine service routes. Configure the carrier account in the corresponding INI and start with `--sip`. The simulated central office is available without a carrier account.
 
+The virtual card wallet works in both profiles. Click a card's name to cycle through your synthetic test fixtures, press `P` to swipe a magnetic card, or use `[` and `]` to insert and remove a contact card. The reader artwork moves with the actual emulated card sensors.
+
+<img src="docs/images/card-wallet.png" alt="Native emulator showing a magnetic card being swiped and a smart card inserted" width="500" />
+
 **[Full quick start, controls and INSTALL →](RUNNING.md)** · **[Build from source →](BUILDING.md)**
 
 ## What makes it different

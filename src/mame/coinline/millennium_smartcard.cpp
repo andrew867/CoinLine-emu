@@ -51,6 +51,10 @@ void millennium_smartcard_device::device_start()
 			m_fixture_path = path;
 			m_fixture_bytes = std::move(raw);
 			m_fixture_digest = millennium_sha256_hex(m_fixture_bytes.data(), m_fixture_bytes.size());
+			if (m_model.sync_test_memory_writable()) {
+				m_primary_writable_digest = m_fixture_digest;
+				m_primary_memory = m_model.memory();
+			}
 		}
 	}
 }
@@ -62,23 +66,48 @@ void millennium_smartcard_device::device_reset()
 	stop_async_serial();
 }
 
-bool millennium_smartcard_device::reload_fixture_from_path(std::string const &path, std::string &error_out)
+bool millennium_smartcard_device::reload_fixture_from_path(std::string const &path, std::string &error_out, bool additional_slot)
 {
 	std::vector<std::uint8_t> raw;
 	if (!millennium_read_file(path, raw, error_out))
 		return false;
 	// Reinserting the same virtual card must not replenish its test memory.
 	// Loading a different fixture creates a distinct, explicitly selected card.
-	if (path == m_fixture_path && raw == m_fixture_bytes)
+	if (path == m_fixture_path && raw == m_fixture_bytes) {
+		if (additional_slot && m_model.sync_test_memory_writable()) {
+			error_out = "additional contact slots must be read-only; use the primary slot for persistent lab memory";
+			return false;
+		}
 		return true;
+	}
 	std::string const txt(reinterpret_cast<char const *>(raw.data()), raw.size());
 	millennium_smartcard_model candidate;
 	if (!candidate.parse_fixture_json(txt, error_out))
 		return false;
+	if (additional_slot && candidate.sync_test_memory_writable()) {
+		error_out = "additional contact slots must be read-only; use the primary slot for persistent lab memory";
+		return false;
+	}
+	if (m_model.sync_test_memory_writable() && m_fixture_digest == m_primary_writable_digest)
+		m_primary_memory = m_model.memory();
+	std::string const digest = millennium_sha256_hex(raw.data(), raw.size());
+	if (!additional_slot) {
+		if (candidate.sync_test_memory_writable()) {
+			if (digest == m_primary_writable_digest && !candidate.restore_sync_test_memory(m_primary_memory)) {
+				error_out = "persistent primary contact memory is incompatible with the fixture";
+				return false;
+			}
+			m_primary_writable_digest = digest;
+			m_primary_memory = candidate.memory();
+		} else {
+			m_primary_writable_digest.clear();
+			m_primary_memory.clear();
+		}
+	}
 	m_model = std::move(candidate);
 	m_fixture_path = path;
 	m_fixture_bytes = std::move(raw);
-	m_fixture_digest = millennium_sha256_hex(m_fixture_bytes.data(), m_fixture_bytes.size());
+	m_fixture_digest = digest;
 	return true;
 }
 
@@ -100,6 +129,7 @@ bool millennium_smartcard_device::nvram_read(util::read_stream &file)
 	auto const [error, actual] = util::read(file, memory.data(), memory.size());
 	if (error || actual != memory.size() || !m_model.restore_sync_test_memory(memory))
 		return false;
+	m_primary_memory = m_model.memory();
 	if (m_pin_trace)
 		osd_printf_info("smart-card synthetic memory restored\n");
 	return true;
@@ -109,10 +139,10 @@ bool millennium_smartcard_device::nvram_write(util::write_stream &file)
 {
 	if (!nvram_can_write())
 		return false;
-	auto const [header_error, header_size] = util::write(file, m_fixture_digest.data(), m_fixture_digest.size());
-	if (header_error || header_size != m_fixture_digest.size())
+	auto const [header_error, header_size] = util::write(file, m_primary_writable_digest.data(), m_primary_writable_digest.size());
+	if (header_error || header_size != m_primary_writable_digest.size())
 		return false;
-	auto const &memory = m_model.memory();
+	auto const &memory = m_fixture_digest == m_primary_writable_digest ? m_model.memory() : m_primary_memory;
 	auto const [error, actual] = util::write(file, memory.data(), memory.size());
 	return !error && actual == memory.size();
 }

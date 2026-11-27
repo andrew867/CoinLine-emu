@@ -50,7 +50,10 @@ front-panel controls, see docs/Running.md.
 The full graphical images (SHA-256 prefixes 996a8ac5e81d, cb6be6c988bf and 33eaa2644e20)
 use the generic asynchronous contact fixture for contact diagnostics; other
 images retain their synchronous default. You can override smart_fixture
-in the appropriate INI. Later-board profiles accept optional read-only internal contact fixtures
+in the appropriate INI. The card wallet cycles magnetic and contact test
+fixtures by clicking their names or pressing F and D. P swipes; [ inserts
+the contact card and ] removes it. See docs/Running.md for additional fixture
+slots and the default negative magnetic test card. Later-board profiles accept optional read-only internal contact fixtures
 under [cards], using sam_slot0, sam_slot1 and sam_slot2. The included generic
 module fixture does not provide payment authorization. The independent local
 LAB ledger utility is app/lab_purse.py; run python3 app/lab_purse.py --help.

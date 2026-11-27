@@ -160,6 +160,20 @@ copyright-holders:CoinLine contributors
 			<color red="1.00" green="0.78" blue="0.46" />
 		</text>
 	</element>
+	<element name="indicator_cashbox" defstate="0">
+		<text string="Cash box" align="1"><bounds x="0.03" y="0.12" width="0.39" height="0.76" /><color red="0.85" green="0.89" blue="0.94" /></text>
+		<disk state="0"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="0.25" green="0.93" blue="0.54" /></disk>
+		<disk state="1"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="1.00" green="0.62" blue="0.18" /></disk>
+		<text state="0" string="Present" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="0.63" green="0.94" blue="0.74" /></text>
+		<text state="1" string="Removed" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="1.00" green="0.78" blue="0.46" /></text>
+	</element>
+	<element name="indicator_cashbox_full" defstate="0">
+		<text string="Full sensor" align="1"><bounds x="0.03" y="0.12" width="0.39" height="0.76" /><color red="0.85" green="0.89" blue="0.94" /></text>
+		<disk state="0"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="0.25" green="0.93" blue="0.54" /></disk>
+		<disk state="1"><bounds x="0.46" y="0.22" width="0.09" height="0.56" /><color red="1.00" green="0.62" blue="0.18" /></disk>
+		<text state="0" string="Clear" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="0.63" green="0.94" blue="0.74" /></text>
+		<text state="1" string="Full" align="1"><bounds x="0.61" y="0.12" width="0.36" height="0.76" /><color red="1.00" green="0.78" blue="0.46" /></text>
+	</element>
 	<element name="graphic_bezel">
 		<rect><color red="0.11" green="0.14" blue="0.15" /></rect>
 		<rect><bounds x="0.012" y="0.018" width="0.976" height="0.964" /><color red="0.018" green="0.035" blue="0.037" /></rect>
@@ -192,6 +206,242 @@ copyright-holders:CoinLine contributors
 		<rect state="0"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.12" green="0.16" blue="0.17" /></rect>
 		<rect state="1"><bounds x="0.09" y="0.10" width="0.82" height="0.80" /><color red="0.28" green="0.48" blue="0.44" /></rect>
 		<text string="&gt;"><bounds x="0.13" y="0.14" width="0.74" height="0.72" /><color red="0.79" green="0.86" blue="0.85" /></text>
+	</element>
+	<element name="card_mag_selection" defstate="0">
+		<rect>
+			<bounds x="0" y="0" width="1" height="1" />
+			<color red="0.09" green="0.13" blue="0.17" />
+		</rect>
+		<rect>
+			<bounds x="0.005" y="0.04" width="0.99" height="0.92" />
+			<color red="0.14" green="0.19" blue="0.23" />
+		</rect>
+		<text state="0" string="Mag Test Card 1" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="1" string="Mag Test Card 2" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="2" string="Mag Test Card 3" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="3" string="Mag Test Card 4" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="4" string="Mag Test Card 5" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="5" string="Mag Test Card 6" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="6" string="Mag Test Card 7" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="7" string="Mag Test Card 8" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<rect>
+			<bounds x="0.82" y="0.16" width="0.15" height="0.68" />
+			<color red="0.25" green="0.31" blue="0.36" />
+		</rect>
+		<text string="F" align="0">
+			<bounds x="0.82" y="0.22" width="0.15" height="0.56" />
+			<color red="0.86" green="0.9" blue="0.94" />
+		</text>
+	</element>
+	<element name="card_smart_selection" defstate="0">
+		<rect>
+			<bounds x="0" y="0" width="1" height="1" />
+			<color red="0.09" green="0.13" blue="0.17" />
+		</rect>
+		<rect>
+			<bounds x="0.005" y="0.04" width="0.99" height="0.92" />
+			<color red="0.14" green="0.19" blue="0.23" />
+		</rect>
+		<text state="0" string="SC Test Card 1" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="1" string="SC Test Card 2" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="2" string="SC Test Card 3" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="3" string="SC Test Card 4" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="4" string="SC Test Card 5" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="5" string="SC Test Card 6" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="6" string="SC Test Card 7" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<text state="7" string="SC Test Card 8" align="1">
+			<bounds x="0.035" y="0.12" width="0.76" height="0.76" />
+			<color red="0.9" green="0.94" blue="0.97" />
+		</text>
+		<rect>
+			<bounds x="0.82" y="0.16" width="0.15" height="0.68" />
+			<color red="0.25" green="0.31" blue="0.36" />
+		</rect>
+		<text string="D" align="0">
+			<bounds x="0.82" y="0.22" width="0.15" height="0.56" />
+			<color red="0.86" green="0.9" blue="0.94" />
+		</text>
+	</element>
+	<element name="card_mag_action" defstate="0">
+		<rect>
+			<bounds x="0" y="0" width="1" height="1" />
+			<color red="0.07" green="0.11" blue="0.14" />
+		</rect>
+		<rect state="0">
+			<bounds x="0.01" y="0.04" width="0.98" height="0.92" />
+			<color red="0.12" green="0.24" blue="0.27" />
+		</rect>
+		<text state="0" string="Swipe [P]" align="0">
+			<bounds x="0.04" y="0.13" width="0.92" height="0.74" />
+			<color red="0.65" green="0.94" blue="0.87" />
+		</text>
+		<rect state="1">
+			<bounds x="0.01" y="0.04" width="0.98" height="0.92" />
+			<color red="0.36" green="0.22" blue="0.09" />
+		</rect>
+		<text state="1" string="Inserting" align="0">
+			<bounds x="0.04" y="0.13" width="0.92" height="0.74" />
+			<color red="1" green="0.84" blue="0.6" />
+		</text>
+		<rect state="2">
+			<bounds x="0.01" y="0.04" width="0.98" height="0.92" />
+			<color red="0.36" green="0.22" blue="0.09" />
+		</rect>
+		<text state="2" string="Reading" align="0">
+			<bounds x="0.04" y="0.13" width="0.92" height="0.74" />
+			<color red="1" green="0.84" blue="0.6" />
+		</text>
+		<rect state="3">
+			<bounds x="0.01" y="0.04" width="0.98" height="0.92" />
+			<color red="0.36" green="0.22" blue="0.09" />
+		</rect>
+		<text state="3" string="Removing" align="0">
+			<bounds x="0.04" y="0.13" width="0.92" height="0.74" />
+			<color red="1" green="0.84" blue="0.6" />
+		</text>
+	</element>
+	<element name="card_smart_action" defstate="0">
+		<rect>
+			<bounds x="0" y="0" width="1" height="1" />
+			<color red="0.07" green="0.11" blue="0.14" />
+		</rect>
+		<rect state="0">
+			<bounds x="0.01" y="0.04" width="0.98" height="0.92" />
+			<color red="0.12" green="0.24" blue="0.27" />
+		</rect>
+		<text state="0" string="Insert [" align="0">
+			<bounds x="0.04" y="0.13" width="0.92" height="0.74" />
+			<color red="0.65" green="0.94" blue="0.87" />
+		</text>
+		<rect state="1">
+			<bounds x="0.01" y="0.04" width="0.98" height="0.92" />
+			<color red="0.36" green="0.22" blue="0.09" />
+		</rect>
+		<text state="1" string="Remove ]" align="0">
+			<bounds x="0.04" y="0.13" width="0.92" height="0.74" />
+			<color red="1" green="0.84" blue="0.6" />
+		</text>
+	</element>
+	<element name="card_mag_physical" defstate="0">
+		<rect state="1">
+			<bounds x="0.06" y="0.35" width="0.88" height="0.65" />
+			<color red="0.08" green="0.1" blue="0.13" />
+		</rect>
+		<rect state="1">
+			<bounds x="0.09" y="0.37" width="0.82" height="0.615" />
+			<color red="0.14" green="0.46" blue="0.55" />
+		</rect>
+		<rect state="1">
+			<bounds x="0.11" y="0.39999999999999997" width="0.78" height="0.08" />
+			<color red="0.05" green="0.07" blue="0.09" />
+		</rect>
+		<text state="1" string="LAB" align="0">
+			<bounds x="0.14" y="0.8200000000000001" width="0.72" height="0.12" />
+			<color red="0.88" green="0.94" blue="0.98" />
+		</text>
+		<rect state="2">
+			<bounds x="0.06" y="0.02" width="0.88" height="0.3" />
+			<color red="0.08" green="0.1" blue="0.13" />
+		</rect>
+		<rect state="2">
+			<bounds x="0.09" y="0.04" width="0.82" height="0.265" />
+			<color red="0.14" green="0.46" blue="0.55" />
+		</rect>
+		<rect state="2">
+			<bounds x="0.11" y="0.07" width="0.78" height="0.08" />
+			<color red="0.05" green="0.07" blue="0.09" />
+		</rect>
+		<text state="2" string="LAB" align="0">
+			<bounds x="0.14" y="0.14" width="0.72" height="0.12" />
+			<color red="0.88" green="0.94" blue="0.98" />
+		</text>
+		<rect state="3">
+			<bounds x="0.06" y="0.49" width="0.88" height="0.51" />
+			<color red="0.08" green="0.1" blue="0.13" />
+		</rect>
+		<rect state="3">
+			<bounds x="0.09" y="0.51" width="0.82" height="0.475" />
+			<color red="0.14" green="0.46" blue="0.55" />
+		</rect>
+		<rect state="3">
+			<bounds x="0.11" y="0.54" width="0.78" height="0.08" />
+			<color red="0.05" green="0.07" blue="0.09" />
+		</rect>
+		<text state="3" string="LAB" align="0">
+			<bounds x="0.14" y="0.8200000000000001" width="0.72" height="0.12" />
+			<color red="0.88" green="0.94" blue="0.98" />
+		</text>
+	</element>
+	<element name="card_smart_physical" defstate="0">
+		<rect state="1">
+			<bounds x="0.06" y="0.04" width="0.88" height="0.65" />
+			<color red="0.08" green="0.1" blue="0.13" />
+		</rect>
+		<rect state="1">
+			<bounds x="0.09" y="0.06" width="0.82" height="0.615" />
+			<color red="0.38" green="0.24" blue="0.55" />
+		</rect>
+		<rect state="1">
+			<bounds x="0.28" y="0.13" width="0.42" height="0.18" />
+			<color red="0.83" green="0.67" blue="0.33" />
+		</rect>
+		<rect state="1">
+			<bounds x="0.39" y="0.13" width="0.018" height="0.18" />
+			<color red="0.39" green="0.3" blue="0.17" />
+		</rect>
+		<rect state="1">
+			<bounds x="0.53" y="0.13" width="0.018" height="0.18" />
+			<color red="0.39" green="0.3" blue="0.17" />
+		</rect>
+		<text state="1" string="LAB" align="0">
+			<bounds x="0.14" y="0.51" width="0.72" height="0.12" />
+			<color red="0.88" green="0.94" blue="0.98" />
+		</text>
 	</element>
 	<view name="Standard">
 		<element ref="front">
@@ -291,12 +541,21 @@ copyright-holders:CoinLine contributors
 		</element>
 
 		<!-- Coin slot -->
+		<!-- Virtual card wallet: select only while the reader is empty. -->
+		<element ref="card_mag_physical" name="panel_mag_motion"><bounds left="365" top="937" right="452" bottom="1084" /></element>
+		<element ref="card_smart_physical" name="panel_smart_inserted"><bounds left="377" top="943" right="448" bottom="1088" /></element>
+		<element ref="indicator_panel"><bounds left="312" top="1101" right="628" bottom="1227" /></element>
+		<element ref="card_mag_selection" name="panel_mag_selected" inputtag="CARDUI" inputmask="0x10"><bounds left="320" top="1110" right="516" bottom="1161" /></element>
+		<element ref="card_mag_action" name="panel_mag_motion" inputtag="CARDUI" inputmask="0x01"><bounds left="520" top="1110" right="620" bottom="1161" /></element>
+		<element ref="card_smart_selection" name="panel_smart_selected" inputtag="CARDUI" inputmask="0x20"><bounds left="320" top="1167" right="516" bottom="1218" /></element>
+		<element ref="card_smart_action" name="panel_smart_inserted" inputtag="CARDUI" inputmask="0x02"><bounds left="520" top="1167" right="620" bottom="1218" /></element>
+
 		<element ref="hit_coin" inputtag="COINUI" inputmask="0x01">
 			<bounds left="272" top="22" right="348" bottom="121" />
 		</element>
 
 		<element ref="indicator_panel">
-			<bounds left="162" top="1232" right="442" bottom="1366" />
+			<bounds left="162" top="1232" right="442" bottom="1440" />
 		</element>
 		<element ref="indicator_housing" name="panel_housing_open" inputtag="SECMASK" inputmask="0x02">
 			<bounds left="173" top="1243" right="431" bottom="1280" />
@@ -307,6 +566,8 @@ copyright-holders:CoinLine contributors
 		<element ref="indicator_vault" name="panel_vault_open" inputtag="SECMASK" inputmask="0x04">
 			<bounds left="173" top="1317" right="431" bottom="1354" />
 		</element>
+		<element ref="indicator_cashbox" name="panel_cashbox_removed" inputtag="CASHBOXUI" inputmask="0x01"><bounds left="173" top="1354" right="431" bottom="1391" /></element>
+		<element ref="indicator_cashbox_full" name="panel_cashbox_full" inputtag="CASHBOXUI" inputmask="0x02"><bounds left="173" top="1391" right="431" bottom="1428" /></element>
 	</view>
 	<view name="Graphical">
 		<element ref="front">
@@ -431,12 +692,21 @@ copyright-holders:CoinLine contributors
 		</element>
 
 		<!-- Coin slot -->
+		<!-- Virtual card wallet: select only while the reader is empty. -->
+		<element ref="card_mag_physical" name="panel_mag_motion"><bounds left="365" top="937" right="452" bottom="1084" /></element>
+		<element ref="card_smart_physical" name="panel_smart_inserted"><bounds left="377" top="943" right="448" bottom="1088" /></element>
+		<element ref="indicator_panel"><bounds left="312" top="1101" right="628" bottom="1227" /></element>
+		<element ref="card_mag_selection" name="panel_mag_selected" inputtag="CARDUI" inputmask="0x10"><bounds left="320" top="1110" right="516" bottom="1161" /></element>
+		<element ref="card_mag_action" name="panel_mag_motion" inputtag="CARDUI" inputmask="0x01"><bounds left="520" top="1110" right="620" bottom="1161" /></element>
+		<element ref="card_smart_selection" name="panel_smart_selected" inputtag="CARDUI" inputmask="0x20"><bounds left="320" top="1167" right="516" bottom="1218" /></element>
+		<element ref="card_smart_action" name="panel_smart_inserted" inputtag="CARDUI" inputmask="0x02"><bounds left="520" top="1167" right="620" bottom="1218" /></element>
+
 		<element ref="hit_coin" inputtag="COINUI" inputmask="0x01">
 			<bounds left="272" top="22" right="348" bottom="121" />
 		</element>
 
 		<element ref="indicator_panel">
-			<bounds left="162" top="1232" right="442" bottom="1366" />
+			<bounds left="162" top="1232" right="442" bottom="1440" />
 		</element>
 		<element ref="indicator_housing" name="panel_housing_open" inputtag="SECMASK" inputmask="0x02">
 			<bounds left="173" top="1243" right="431" bottom="1280" />
@@ -447,5 +717,7 @@ copyright-holders:CoinLine contributors
 		<element ref="indicator_vault" name="panel_vault_open" inputtag="SECMASK" inputmask="0x04">
 			<bounds left="173" top="1317" right="431" bottom="1354" />
 		</element>
+		<element ref="indicator_cashbox" name="panel_cashbox_removed" inputtag="CASHBOXUI" inputmask="0x01"><bounds left="173" top="1354" right="431" bottom="1391" /></element>
+		<element ref="indicator_cashbox_full" name="panel_cashbox_full" inputtag="CASHBOXUI" inputmask="0x02"><bounds left="173" top="1391" right="431" bottom="1428" /></element>
 	</view>
 </mamelayout>

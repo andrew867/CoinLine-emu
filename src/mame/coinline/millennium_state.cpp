@@ -1126,6 +1126,7 @@ void millennium_state::clear_voice_segment_int0(char const *reason)
 void millennium_state::machine_start()
 {
 	driver_device::machine_start();
+	load_card_ui_fixtures();
 	for (s32 id : {TID_HOST_POLL, TID_CARD_UI, TID_COIN_UI, TID_M3_FALLBACK,
 		TID_CPU_TRACE, TID_VECTOR_PROBE, TID_MODEM_LINK, TID_BATTERY_FLUSH, TID_CARD_SHIFT})
 		m_driver_timers[id] = timer_alloc(FUNC(millennium_state::driver_timer_cb), this);
@@ -1376,6 +1377,8 @@ void millennium_state::machine_reset()
 	m_magstripe_bits.clear();
 	m_magstripe_signals = 0;
 	m_magstripe_clock = false;
+	machine().output().set_value("panel_mag_motion", 0);
+	machine().output().set_value("panel_smart_inserted", 0);
 	m_maincpu->set_input_line(Z180_INPUT_LINE_DREQ0, CLEAR_LINE);
 	m_maincpu->set_input_line(Z180_INPUT_LINE_DREQ1, CLEAR_LINE);
 	m_coin_ui_last = 0;
@@ -5734,6 +5737,24 @@ u8 millennium_state::card_reader_signals() const
 	return u8(m_magstripe_signals | ((m_smartcard->status_lines() & 1U) ? 0x06U : 0U));
 }
 
+void millennium_state::load_card_ui_fixtures()
+{
+	auto load = [this](std::vector<std::string> &fixtures, char const *variable, char const *fallback) {
+		char const *primary = osd_getenv(variable);
+		fixtures = {resolve_relative_path(primary && *primary ? primary : fallback)};
+		for (unsigned slot = 2; slot <= 8; ++slot) {
+			std::string const key = std::string(variable) + "_" + std::to_string(slot);
+			char const *value = osd_getenv(key.c_str());
+			if (value && *value)
+				fixtures.push_back(resolve_relative_path(value));
+		}
+	};
+	load(m_mag_ui_fixtures, "COINLINE_MAG_CARD", "fixtures/cards/magcard-valid.json");
+	load(m_smart_ui_fixtures, "COINLINE_SMART_CARD", "fixtures/cards/smartcard-sync-test.json");
+	machine().output().set_value("panel_mag_selected", 0);
+	machine().output().set_value("panel_smart_selected", 0);
+}
+
 void millennium_state::poll_card_ui()
 {
 	u32 const v = m_cardui->read();
@@ -5744,36 +5765,40 @@ void millennium_state::poll_card_ui()
 	u64 const cy = m_maincpu->total_cycles();
 	u64 const hz = static_cast<u64>(m_maincpu->unscaled_clock());
 	std::string err;
+	bool const smart_present = BIT(m_smartcard->status_lines(), 0);
+	bool const reader_idle = m_magstripe_bits.empty() && !smart_present;
+	if (reader_idle && (rise & 0x10U)) {
+		m_mag_ui_selected = (m_mag_ui_selected + 1) % m_mag_ui_fixtures.size();
+		machine().output().set_value("panel_mag_selected", m_mag_ui_selected);
+	}
+	if (reader_idle && (rise & 0x20U)) {
+		m_smart_ui_selected = (m_smart_ui_selected + 1) % m_smart_ui_fixtures.size();
+		machine().output().set_value("panel_smart_selected", m_smart_ui_selected);
+	}
 	if ((rise & 1U) && m_magstripe_bits.empty() && !(m_smartcard->status_lines() & 1U)) {
-		std::string const p = resolve_relative_path(
-			(osd_getenv("COINLINE_MAG_CARD") && *osd_getenv("COINLINE_MAG_CARD"))
-				? std::string(osd_getenv("COINLINE_MAG_CARD"))
-				: std::string("fixtures/cards/magcard-valid.json"));
-		if (m_card->reload_fixture_from_path(p, err)) {
+		if (m_card->reload_fixture_from_path(m_mag_ui_fixtures[m_mag_ui_selected], err)) {
 			m_card->arm_swipe(cy, hz);
 			m_magstripe_bits = m_card->model().track2_wire_bits();
 			m_magstripe_index = 0;
 			m_magstripe_signals = 0x02U;
 			m_magstripe_withdrawing = false;
+			machine().output().set_value("panel_mag_motion", 1);
 			schedule_driver_timer(TID_CARD_SHIFT, attotime::from_msec(150));
 		} else {
 			osd_printf_warning("millennium: mag card reload failed: %s\n", err.c_str());
 		}
 	}
-	if (rise & 2U) {
-		if (m_smartcard->status_lines() & 1U) {
-			m_smartcard->remove_card();
-			return;
-		}
-		if (!m_magstripe_bits.empty())
-			return;
-		std::string const p = resolve_relative_path(
-			(osd_getenv("COINLINE_SMART_CARD") && *osd_getenv("COINLINE_SMART_CARD"))
-				? std::string(osd_getenv("COINLINE_SMART_CARD"))
-				: std::string("fixtures/cards/smartcard-sync-test.json"));
-		if (m_smartcard->reload_fixture_from_path(p, err))
+	// The toggle remains available to the panel and existing automation;
+	// the dedicated insert/remove controls are intentionally idempotent.
+	if (smart_present && (rise & 0x0aU)) {
+		m_smartcard->remove_card();
+		machine().output().set_value("panel_smart_inserted", 0);
+	} else if (!smart_present && (rise & 0x06U) && !(rise & 0x08U) && m_magstripe_bits.empty()) {
+		if (m_smartcard->reload_fixture_from_path(m_smart_ui_fixtures[m_smart_ui_selected], err,
+			m_smart_ui_selected != 0)) {
 			m_smartcard->insert_card(cy, hz);
-		else
+			machine().output().set_value("panel_smart_inserted", BIT(m_smartcard->status_lines(), 0));
+		} else
 			osd_printf_warning("millennium: smartcard reload failed: %s\n", err.c_str());
 	}
 }
@@ -5803,13 +5828,16 @@ void millennium_state::clock_magstripe()
 	if (m_magstripe_withdrawing) {
 		m_magstripe_signals = 0;
 		m_magstripe_bits.clear();
+		machine().output().set_value("panel_mag_motion", 0);
 	} else if ((m_magstripe_signals & 0x04U) == 0U) {
 		m_magstripe_signals = 0x06U;
+		machine().output().set_value("panel_mag_motion", 2);
 		schedule_driver_timer(TID_CARD_SHIFT, attotime::from_msec(500));
 	} else {
 		m_magstripe_signals = 0x02U;
 		m_magstripe_withdrawing = true;
 		m_magstripe_index = 0;
+		machine().output().set_value("panel_mag_motion", 3);
 		schedule_driver_timer(TID_CARD_SHIFT, attotime::from_msec(150));
 	}
 }

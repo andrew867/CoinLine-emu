@@ -431,6 +431,7 @@ private:
 	void try_boot_m8(u64 cycle);
 
 	void poll_card_ui();
+	void load_card_ui_fixtures();
 	u8 card_reader_signals() const;
 	void clock_magstripe();
 	void poll_coin_ui();
@@ -479,6 +480,8 @@ private:
 	void tp_backend_queue_response_bytes(std::vector<std::uint8_t> const &bytes, char const *reason);
 
 	u32 m_card_ui_last = 0;
+	std::vector<std::string> m_mag_ui_fixtures, m_smart_ui_fixtures;
+	std::size_t m_mag_ui_selected = 0, m_smart_ui_selected = 0;
 	std::vector<u8> m_magstripe_bits;
 	std::size_t m_magstripe_index = 0;
 	u8 m_magstripe_signals = 0;

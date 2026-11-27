@@ -26,6 +26,7 @@ PROFILES = {
 SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "PASSWORD"}
 SYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-sync-test.json"
 ASYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-async-contact-atr-lab.json"
+MAG_NEGATIVE_FIXTURE = "fixtures/cards/magcard-invalid-lrc.json"
 ADSI_SHARED_CONFIG = "adsi-routes.ini"
 ADSI_CONFIG_SECTIONS = ("adsi", "adsi.routes")
 ADSI_CONFIG_KEYS = {"enabled", "host", "port", "dial_digits", "target"}
@@ -154,6 +155,40 @@ def contact_fixture_default(entry):
 def customer_fixture_path(args, cards, hardware_env):
     return ROOT / (args.smart_card or cards.get("smart_fixture", "").strip()
                    or hardware_env.get("COINLINE_SMART_CARD", SYNC_CONTACT_FIXTURE))
+
+
+def extra_card_environment(cards, mag_card, smart_card):
+    """Build ordered, profile-local catalogues without reading payment data."""
+    second_smart = (SYNC_CONTACT_FIXTURE if smart_card.resolve() == (ROOT / ASYNC_CONTACT_FIXTURE).resolve()
+                    else ASYNC_CONTACT_FIXTURE)
+    result = {}
+    for setting, variable, primary, fallback in (
+        ("mag_fixture", "COINLINE_MAG_CARD", mag_card, MAG_NEGATIVE_FIXTURE),
+        ("smart_fixture", "COINLINE_SMART_CARD", smart_card, second_smart),
+    ):
+        selected = {primary.resolve()}
+        ended = False
+        for slot in range(2, 9):
+            key = f"{setting}_{slot}"
+            default = fallback if slot == 2 and (ROOT / fallback).is_file() else ""
+            value = cards.get(key, default).strip()
+            if not value:
+                ended = True
+                continue
+            if ended:
+                raise ValueError(f"{key} requires contiguous card slots starting at 2.")
+            path = (ROOT / value).resolve()
+            if not path.is_file():
+                raise ValueError(f"{key} fixture file is missing.")
+            if path in selected:
+                # A primary override may duplicate an optional built-in alternative.
+                if key not in cards:
+                    ended = True
+                    continue
+                raise ValueError(f"{key} duplicates a previously selected fixture.")
+            selected.add(path)
+            result[f"{variable}_{slot}"] = str(path)
+    return result
 
 
 def module_fixture_environment(args, cards, motherboard):
@@ -366,6 +401,7 @@ def run(args, config, hardware):
     smart_card = customer_fixture_path(args, cards, hardware_env)
     if not mag_card.is_file() or not smart_card.is_file():
         raise ValueError("The selected local card fixture file is missing.")
+    extra_cards = extra_card_environment(cards, mag_card, smart_card)
     module_env = module_fixture_environment(args, cards, hardware_env["COINLINE_MOTHERBOARD"])
     data_jack_env = data_jack_environment(args, config["hardware"], hardware_env["COINLINE_MOTHERBOARD"])
     local_voice = adsi_route_settings(args, config)
@@ -389,6 +425,7 @@ def run(args, config, hardware):
         "COINLINE_TP8048_ROM": str(ROOT / "firmware/tp_pcd3349a_behavioural.rom"),
         "COINLINE_MAG_CARD": str(mag_card),
         "COINLINE_SMART_CARD": str(smart_card),
+        **extra_cards,
         **module_env,
         **data_jack_env,
         "COINLINE_LINE_PORT": get_line_port(),

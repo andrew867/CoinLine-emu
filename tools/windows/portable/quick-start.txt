@@ -101,8 +101,9 @@ and service startup are managed separately from this emulator.
    installation.
 
 Some later firmware has a separate smart-card test and two calibration coins
-followed by an escrow test. Use [ to insert or remove the synthetic contact
-card. The synchronous contact test passed on the later reference terminal;
+followed by an escrow test. Use [ to insert the synthetic contact card and ]
+to remove it, or click the contact action button. The synchronous contact test
+passed on the later reference terminal;
 the default card is nonfunded and does not qualify chip payment. Other
 firmware may still report a failure. Follow the firmware's continuation prompt.
 Allow the refund and collection tests to finish before pressing * again.
@@ -139,8 +140,16 @@ Controls
   Y G J X Z            positions 6 through 10 on a ten-button profile
   K / C / A            lock / housing / cash vault, also clickable on the LEDs
   P or card reader     insert, read, and remove the synthetic magstripe card
-  [                    insert or remove the synthetic smart card
+  [ / ]                insert / remove the synthetic smart card
+  F / D                next magnetic / smart test card (or click its name)
   V / B / M            insert nickel / dime / quarter
+
+The card wallet shows the selected card and actual reader state. The second
+magnetic fixture is an intentionally invalid-checksum test; the second
+contact fixture is a generic read-only transport test. Set mag_fixture_2
+through mag_fixture_8 and smart_fixture_2 through smart_fixture_8 under [cards]
+for additional synthetic fixtures. Use consecutive slots and leave the reader
+empty to select another card. The generic coin-slot click remains available.
 
 Calls and troubleshooting
 -------------------------
