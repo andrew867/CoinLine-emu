@@ -86,8 +86,8 @@ def main():
         parser.error("--audio-buffer-ms must be between 40 and 500")
     if args.audio_metrics and (os.name != "nt" or not args.sound or args.unthrottled):
         parser.error("--audio-metrics requires a throttled Windows --sound bench")
-    if args.max_frameskip is not None and not 0 <= args.max_frameskip <= 11:
-        parser.error("--max-frameskip must be between 0 and 11")
+    if args.max_frameskip is not None and not 0 <= args.max_frameskip <= 10:
+        parser.error("--max-frameskip must be between 0 and 10")
     if not 0 <= args.read_watch_per_frame <= 2000:
         parser.error("--read-watch-per-frame must be between 0 and 2000")
     if (args.read_watch_registers or args.read_watch_per_frame or args.read_watch_manual or args.read_watch_start) and not args.read_watch:
@@ -260,7 +260,7 @@ def main():
     if args.sound:
         cmd.extend(["-audio_latency", str(args.audio_buffer_ms / 20)])
     if args.artwork:
-        max_skip = args.max_frameskip if args.max_frameskip is not None else (11 if args.video == "gdi" else 4)
+        max_skip = args.max_frameskip if args.max_frameskip is not None else (10 if args.video == "gdi" else 4)
         cmd.extend(["-autoframeskip", "-frameskip", str(max_skip)])
         if os.name == "nt":
             cmd.extend(["-resolution", "360x850"])

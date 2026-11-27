@@ -117,7 +117,7 @@ def main():
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--sound", action="store_true", help="Enable native audio output")
     parser.add_argument("--video", choices=("gdi", "d3d", "opengl"), default="gdi")
-    parser.add_argument("--frameskip", type=int, choices=range(12), default=4, help="Maximum automatic frameskip")
+    parser.add_argument("--frameskip", type=int, choices=range(11), default=4, help="Maximum automatic frameskip")
     parser.add_argument("--free-aspect", action="store_true", help="Disable aspect constraints for the resize geometry test")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/window-drag-probe")
     args = parser.parse_args()

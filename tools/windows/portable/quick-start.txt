@@ -166,12 +166,14 @@ Restart the emulator after changing the input. The central-office log reports
 when microphone signal first reaches the SIP transmit queue.
 
 If the computer is busy, the launcher defaults to a 240 ms host speaker
-buffer, automatic artwork frame skipping up to 11, and above-normal Windows
+buffer, automatic artwork frame skipping up to 10, and above-normal Windows
 priority for the emulator and local central office. These settings do not
 change the terminal clock, analogue signal timing or SIP packet deadlines.
 Use --audio-buffer-ms 320 to try a larger speaker buffer, or configure
 playback_buffer_ms (40 to 500) under [audio]. Use --max-frameskip 4 to keep
-more artwork redraws, or set max_frameskip (0 to 11) under [display].
+more artwork redraws, or set max_frameskip (0 to 10) under [display].
+Zero selects MAME's default automatic limit (10); legacy settings of 11 are
+treated as 10 without changing your existing INI file.
 Use --host-priority normal, or set host_priority = normal under [performance],
 to remove the Windows scheduling preference. Real-time priority is not used.
 A buffer absorbs short stalls; it cannot compensate for an emulator that

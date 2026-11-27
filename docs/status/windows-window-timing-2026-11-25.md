@@ -33,7 +33,7 @@ short intervals, not frame rates or an audio-continuity measurement.
 | Synthetic CPU, GDI, max frameskip 4 | 35.4% | 92.7% | Not completed | Not completed |
 | Synthetic CPU, OpenGL, max frameskip 4 | 96.9% | 96.3% | 98.5% | 96.1% |
 | Real graphical firmware, audio enabled, GDI, max frameskip 4 | 70.3% | 83.3% | 95.5% | 89.0% |
-| Real graphical firmware, audio enabled, GDI, max frameskip 11 | 82.8% | 82.7% | 92.8% | 92.0% |
+| Real graphical firmware, audio enabled, GDI, requested frameskip 11 (rejected; default limit 10) | 82.8% | 82.7% | 92.8% | 92.0% |
 | Real graphical firmware, audio enabled, final native executable, OpenGL | 89.8% | 92.3% | 99.2% | 89.2% |
 
 The initial GDI test demonstrated clock progress while redraws were
@@ -50,11 +50,15 @@ comparison runs used the same program and nominal renderer options except
 the stated renderer and maximum automatic frameskip. The native Direct3D
 test failed during renderer initialization on this display configuration.
 
-The portable Windows launcher and artwork acceptance harness now choose
-OpenGL by default. GDI remains selectable with a maximum automatic frameskip
-of 11 to shed expensive artwork frames instead of slowing the machine. The
-normal OpenGL maximum remains 4. The acceptance harness can suppress
-periodic PNG captures and use an independently managed CO listener.
+The portable Windows launcher and artwork acceptance harness choose OpenGL
+by default. MAME accepts frame skip values 0 through 10, with zero selecting
+its default upper limit of 10 when automatic frame skip is enabled. The
+historical GDI run requested 11; its retained log records rejection and
+fallback to zero. The timings above are unchanged and are not a measurement
+of a distinct level 11. The launcher and GDI acceptance default now use 10
+explicitly; the OpenGL acceptance harness defaults to 4. The acceptance
+harness can suppress periodic PNG captures and use an independently managed
+CO listener.
 
 Evidence remains in `build/firmware-acceptance/window-drag-probe/`:
 `20261125T145915.225411Z`, `20261125T150252.776927Z`,

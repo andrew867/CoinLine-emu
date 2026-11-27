@@ -59,7 +59,11 @@ def test_host_playback_and_scheduling_settings(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     config = launcher.config_for_run("graphical")
     args = SimpleNamespace(audio_buffer_ms=None, max_frameskip=None, host_priority=None)
-    assert launcher.performance_settings(args, config) == (240, 11, "above-normal")
+    assert launcher.performance_settings(args, config) == (240, 10, "above-normal")
+    config["display"]["max_frameskip"] = "11"
+    assert launcher.performance_settings(args, config) == (240, 10, "above-normal")
+    assert config["display"]["max_frameskip"] == "11"
+    assert launcher.performance_settings(SimpleNamespace(max_frameskip=11), config) == (240, 10, "above-normal")
     config["audio"]["playback_buffer_ms"] = "120"
     config["display"]["max_frameskip"] = "4"
     config["performance"]["host_priority"] = "normal"
@@ -70,6 +74,8 @@ def test_host_playback_and_scheduling_settings(tmp_path, monkeypatch):
         launcher.performance_settings(SimpleNamespace(audio_buffer_ms=0), config)
     with pytest.raises(ValueError, match="max_frameskip"):
         launcher.performance_settings(SimpleNamespace(max_frameskip=12), config)
+    with pytest.raises(ValueError, match="max_frameskip"):
+        launcher.performance_settings(SimpleNamespace(max_frameskip=-1), config)
     with pytest.raises(ValueError, match="host_priority"):
         launcher.performance_settings(SimpleNamespace(host_priority="realtime"), config)
 
