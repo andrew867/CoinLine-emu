@@ -28,6 +28,7 @@ ASYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-async-contact-atr-lab.json"
 ADSI_SHARED_CONFIG = "adsi-routes.ini"
 ADSI_CONFIG_SECTIONS = ("adsi", "adsi.routes")
 ADSI_CONFIG_KEYS = {"enabled", "host", "port", "dial_digits", "target"}
+MAME_MAX_FRAMESKIP = 10
 
 
 def config_for_run(profile):
@@ -110,12 +111,16 @@ def performance_settings(args, config):
         buffer_ms = config["audio"].getint("playback_buffer_ms", 240)
     max_skip = getattr(args, "max_frameskip", None)
     if max_skip is None:
-        max_skip = config["display"].getint("max_frameskip", 11)
+        max_skip = config["display"].getint("max_frameskip", MAME_MAX_FRAMESKIP)
+    # Older portable packages used 11. Normalize saved settings and command
+    # lines without rewriting the user's configuration; MAME accepts 0..10.
+    if max_skip == 11:
+        max_skip = MAME_MAX_FRAMESKIP
     priority = getattr(args, "host_priority", None) or config["performance"].get("host_priority", "above-normal").strip()
     if not 40 <= buffer_ms <= 500:
         raise ValueError("Set playback_buffer_ms or --audio-buffer-ms between 40 and 500.")
-    if not 0 <= max_skip <= 11:
-        raise ValueError("Set max_frameskip or --max-frameskip between 0 and 11.")
+    if not 0 <= max_skip <= MAME_MAX_FRAMESKIP:
+        raise ValueError("Set max_frameskip or --max-frameskip between 0 and 10.")
     if priority not in ("normal", "above-normal"):
         raise ValueError("Set host_priority to normal or above-normal.")
     return buffer_ms, max_skip, priority
@@ -458,7 +463,7 @@ def main():
     parser.add_argument("--scale", type=float, help="initial Windows window size multiplier (0.5 to 4.0)")
     parser.add_argument("--maximize", action="store_true", default=None, help="start with the emulator window maximized")
     parser.add_argument("--audio-buffer-ms", type=int, help="host speaker buffer target (40 to 500 ms)")
-    parser.add_argument("--max-frameskip", type=int, help="maximum automatic renderer frame skip (0 to 11)")
+    parser.add_argument("--max-frameskip", type=int, help="maximum automatic renderer frame skip (0 to 10)")
     parser.add_argument("--host-priority", choices=("normal", "above-normal"), help="Windows scheduling preference")
     if WINDOWS:
         parser.add_argument("--video", choices=("gdi", "d3d", "opengl"), default="opengl", help="OpenGL by default; use gdi for software rendering")
