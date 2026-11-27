@@ -118,7 +118,7 @@ code-server call. Native scheduled pickup of an MT94 job, separate dialing
 and acknowledged cancellation have been demonstrated. The observed
 code-server call closed before carrier and did not transfer an image.
 
-The Windows build supports SIP audio and selection of a recording device. An OEM inbound call through SignalWire carried captured audio to the calling side and cleared on remote hangup. Linux and macOS builds use the local central-office simulator. SIP audio and microphone capture on those platforms are future work.
+The emulator supports SIP calling on Windows, Linux and macOS. Windows uses the existing WinMM microphone capture; Linux and macOS use the optional system PortAudio library, with the same filtered 8 kHz handset path and native MAME playback. On POSIX, run the packaged `setup-sip.sh` once to install the isolated SIP runtime. Local CO operation does not require Python SIP dependencies or a microphone. A Windows OEM inbound call through a SIP carrier carried captured audio to the calling side and cleared on remote hangup; POSIX physical microphone and external-carrier qualification are separate from the automated loopback checks.
 
 The emulator and the MIT-licensed CoinLine Server and Management Console communicate over the NCC transport. Authorized firmware and Voiceware images are local inputs. Public artifacts contain the emulator and original telephony model. See [license strategy](LICENSE-STRATEGY.md) and the [CoinLine Server repository](https://github.com/andrew867/CoinLine).
 

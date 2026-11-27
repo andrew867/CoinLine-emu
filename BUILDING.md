@@ -1,6 +1,6 @@
 # Build and package the emulator
 
-The public repository builds Windows x64, Ubuntu Linux x64, and macOS Apple Silicon packages in GitHub Actions. See [CI and release](docs/ci-and-release.md) for artifact and source downloads. SIP audio and microphone capture are available in the Windows build. Linux and macOS packages use the local central office and support terminal audio playback.
+The public repository builds Windows x64, Ubuntu Linux x64, and macOS Apple Silicon packages in GitHub Actions. See [CI and release](docs/ci-and-release.md) for artifact and source downloads. All three platforms support the local CO and SIP transport; Linux and macOS additionally use the system PortAudio microphone runtime, and Windows retains its bundled SIP runtime and existing microphone capture.
 
 Before packaging from source, [assemble the original telephony controller model](tools/tp8048/). The CI workflow assembles this model and adds it to each package.
 
@@ -20,13 +20,13 @@ The package includes the launcher, front panel, telephony-processor image, card 
 
 ## Linux x64 and macOS Apple Silicon
 
-Use the MAME revision in `config/mame-pinned.ref`. On Ubuntu 24.04 install `build-essential`, `python3`, `libsdl2-dev`, `libsdl2-ttf-dev`, `libfontconfig1-dev`, `libxi-dev`, and `libxinerama-dev`. On macOS 15 install Xcode Command Line Tools and the Homebrew `python`, `pkgconf`, and `sdl3` packages.
+Use the MAME revision in `config/mame-pinned.ref`. On Ubuntu 24.04 install `build-essential`, `python3`, `python3-venv`, `libsdl2-dev`, `libsdl2-ttf-dev`, `libfontconfig1-dev`, `libxi-dev`, `libxinerama-dev`, and `libportaudio2`. On macOS 15 install Xcode Command Line Tools and the Homebrew `python`, `pkgconf`, `sdl3`, and `portaudio` packages. The capture driver uses PortAudio's public API header in the pinned MAME tree and loads the system library at runtime; native MAME speaker playback remains independent.
 
 ```bash
 python3 tools/mingw64/build-portable.py --mame-root /path/to/mame
 ```
 
-The build produces a `.tar.gz` package and a SHA-256 checksum. Use Python 3.11 or newer to build the packages.
+The build produces a `.tar.gz` package and a SHA-256 checksum. Use Python 3.11 or newer to build the packages. POSIX packages include a `setup-sip.sh` script and pinned requirements. Run the script from the extracted package to create its own `.venv`; both launchers then use that interpreter. No dependencies are installed globally or automatically by the launchers. Local CO mode remains available with system Python alone.
 
 ## Include your local ROM inputs
 
@@ -43,7 +43,7 @@ By default the ZIP leaves the terminal firmware and Voiceware files for the oper
 /usr/bin/python tools/mingw64/build-portable.py --rom-input /path/to/local-roms
 ```
 
-This variant has `-local-roms` in its ZIP name. Keep it private and use only ROM images you are authorized to use. The OEM profile starts with empty battery state. The package carries no credentials or terminal data from the build machine.
+This variant has `-local-roms` in its archive name. Keep it private and use only ROM images you are authorized to use. The OEM profile starts with empty battery state. The package carries no credentials or terminal data from the build machine. On any platform, an optional service-only `--adsi-config /path/to/adsi-routes.ini` may be included in an explicitly local package; public artifacts contain only the example.
 
 If the optional registered graphical image is present in the input layout,
 the package includes it automatically; alternatively provide `--graphical-rom

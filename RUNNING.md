@@ -19,7 +19,7 @@ which the native aspect ratio and monitor work area may constrain. Use
 Set `[display] window_scale = 2.0` (and optionally `window_maximized = true`)
 in the corresponding INI to retain the preference across launches.
 
-On Linux x64 or macOS on Apple Silicon, extract the archive, install the dependencies listed in **Quick Start.txt**, and run `./start-oem.sh`. These builds use the local central office and play terminal audio. SIP audio and capture are Windows features.
+On Linux x64 or macOS on Apple Silicon, extract the archive, install the dependencies listed in **Quick Start.txt**, and run `./start-oem.sh` or `./start-graphical.sh`. For SIP or the dedicated InfoLine routes, run `./setup-sip.sh` once to install the isolated Python runtime dependencies. POSIX builds use MAME for speaker playback and PortAudio for microphone capture. The usual local CO mode does not require the SIP runtime.
 
 Open the included **Quick Start.txt** for setup. The [Windows operator guide](tools/windows/portable/quick-start.txt) includes the full INSTALL sequence for all platforms. Supply authorized ROMs using the [ROM input layout](BUILDING.md#include-your-local-rom-inputs).
 
@@ -180,7 +180,7 @@ The volume buttons step through four handset receive levels. The VFD brightness 
 
 With blank SIP settings, the local central office plays dial tone and answers the configured outbound digits, which default to `18005551212`. With the lab free-call policy, the demo places this call without a rating request. The OEM can ask CoinLine for a live quote on a paid lab destination. Its spoken cents use five-cent increments.
 
-For SignalWire, fill in the SIP registrar, username, and password in `coinline.ini` and open **Start OEM.cmd**. The launcher reports **SIP calling** and calls the number the terminal outpulses. Dial a 10-digit North American number with an optional leading 1. For international dialing, use 011 followed by the country code and number. Leave `local_address` blank for automatic IPv4 selection. Launch with `--local` to use the local office even with SIP credentials present. The `outbound_digits` setting controls the local office test number.
+For a compatible SIP carrier, fill in the SIP registrar, username, and password in the selected profile's INI. On Windows open **Start OEM.cmd** or **Start Graphical.cmd**. On Linux/macOS run `./setup-sip.sh` if needed, then `./start-oem.sh --sip` or `./start-graphical.sh --sip`. The launcher reports **SIP calling** and calls the number the terminal outpulses. Dial a 10-digit North American number with an optional leading 1. For international dialing, use 011 followed by the country code and number. Leave `local_address` blank for automatic IPv4 selection. Launch with `--local` to use the local office even with SIP credentials present. The `outbound_digits` setting controls the local office test number.
 
 Connected keypad digits are separate from initial call routing. The `[sip]`
 `dtmf_mode = auto` default uses negotiated RFC 4733 RTP telephone events,
@@ -188,7 +188,7 @@ then explicitly supported legacy SIP INFO, otherwise in-band G.711 tones.
 Set `dtmf_mode = inband` or `info` only if the peer requires that alternative.
 The exact local ADSI route always uses in-band tones.
 
-The handset uses the default Windows recording device. Set `input_device` under `[audio]` in `coinline.ini` to a unique prefix of a Windows recording device name to choose a microphone or virtual mixer output for the emulator. Restart the emulator after changing the input.
+The handset uses the default host recording device: WinMM on Windows and PortAudio on Linux/macOS. Set `input_device` under `[audio]` in the selected profile's INI to a unique prefix of a recording device name. A missing or ambiguous device leaves the microphone silent and is reported in the emulator log. Restart after changing the input. On Linux install `libportaudio2` and ensure the desktop audio session permits capture; on macOS install `portaudio` and allow microphone access for the launching app or terminal in System Settings. The host microphone is not required for local installation or terminal-generated voice, tones, or ADSI replies.
 
 ```cmd
 "Start OEM.cmd" --sip

@@ -30,6 +30,52 @@ jobs:
           path: firmware/tp_pcd3349a_behavioural.rom
           if-no-files-found: error
 
+  host-media:
+    name: Host media and SIP (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            runner: ubuntu-24.04
+          - name: macOS Apple Silicon
+            runner: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install Linux microphone runtime and headers
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev
+      - name: Install macOS microphone runtime and headers
+        if: runner.os == 'macOS'
+        run: brew install portaudio
+      - name: Verify packaged SIP installation and real loopback media
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/coinline-media"
+          cp tools/windows/portable/setup-sip.sh tools/windows/portable/requirements-sip.txt "$RUNNER_TEMP/coinline-media/"
+          sh "$RUNNER_TEMP/coinline-media/setup-sip.sh"
+          "$RUNNER_TEMP/coinline-media/.venv/bin/python" -m unittest discover -s tools/line-jack -p 'test_*.py' -v
+      - name: Verify native capture path with deterministic PortAudio ABI fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          options=()
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            options+=("-DCOINLINE_PORTAUDIO_INCLUDE_DIR=$(brew --prefix portaudio)/include")
+          fi
+          cmake -S . -B build-host-media -DCMAKE_BUILD_TYPE=Release -DCOINLINE_TEST_PORTAUDIO=ON "${options[@]}"
+          cmake --build build-host-media --target test_microphone_pcm test_microphone_portaudio -j2
+          ctest --test-dir build-host-media -R '^test_microphone_(pcm|portaudio)$' --output-on-failure
+
   native:
     name: ${{ matrix.name }}
     needs: controller
@@ -74,11 +120,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libxi-dev libxinerama-dev
+          sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libxi-dev libxinerama-dev libportaudio2
 
       - name: Install macOS build dependencies
         if: runner.os == 'macOS'
-        run: brew install pkgconf sdl3
+        run: brew install pkgconf sdl3 portaudio
 
       - name: Build and test Windows package
         if: runner.os == 'Windows'
@@ -90,6 +136,8 @@ jobs:
           COINLINE_MAME_REGENIE=1 /usr/bin/python tools/mingw64/build-portable.py --mame-root mame-build --output artifacts
           package=(artifacts/*-work/'CoinLine Emulator')
           "${package[0]}/bin/coinline-mame.exe" -listfull cl_millennium | grep cl_millennium
+          "${package[0]}/runtime/python.exe" -c 'import pyVoIP.RTP, pyVoIP.VoIP, pylibsrtp'
+          "${package[0]}/runtime/python.exe" -m unittest discover -s tools/line-jack -p 'test_*.py' -v
           (cd artifacts && sha256sum --check ./*.sha256)
 
       - name: Build and test Linux or macOS package
@@ -106,6 +154,8 @@ jobs:
           fi
           "${package[0]}/bin/coinline-mame" -listfull cl_millennium | grep cl_millennium
           "${package[0]}/start-oem.sh" --help
+          test -x "${package[0]}/setup-sip.sh"
+          test -f "${package[0]}/requirements-sip.txt"
           (cd artifacts && shasum -a 256 -c ./*.sha256)
 
       - name: Archive matching build sources
@@ -127,7 +177,7 @@ jobs:
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: native
+    needs: [native, host-media]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

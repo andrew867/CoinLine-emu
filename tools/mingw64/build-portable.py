@@ -182,6 +182,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=Non
         "docs/status/voiceware-waveform-2026-11-27.md": ROOT / "docs/status/voiceware-waveform-2026-11-27.md",
         "docs/status/graphical-ad-hook-resume-2026-11-27.md": ROOT / "docs/status/graphical-ad-hook-resume-2026-11-27.md",
         "docs/status/adsi-direct-lan-routing-2026-11-27.md": ROOT / "docs/status/adsi-direct-lan-routing-2026-11-27.md",
+        "docs/status/cross-platform-host-media-2026-11-27.md": ROOT / "docs/status/cross-platform-host-media-2026-11-27.md",
         "docs/Running.md": ROOT / "RUNNING.md",
         "licenses/CoinLine.txt": ROOT / "LICENSE",
         "licenses/MAME.txt": mame / "COPYING",
@@ -192,8 +193,13 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=Non
         sources[GRAPHICAL_ROM] = graphical_rom
     if adsi_config:
         sources["adsi-routes.ini"] = adsi_config
+    if not windows:
+        sources["requirements-sip.txt"] = PORTABLE / "requirements-sip.txt"
+        sources["setup-sip.sh"] = PORTABLE / "setup-sip.sh"
     for destination, source in sources.items():
         copy_file(source, bundle / destination)
+    if not windows:
+        (bundle / "setup-sip.sh").chmod(0o755)
     for profile, label in (("oem", "OEM"), ("graphical", "Graphical")):
         if windows:
             script = (f'@echo off\n"%~dp0runtime\\python.exe" "%~dp0app\\launch.py" {profile} %*\n'
@@ -201,7 +207,9 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=Non
             (bundle / f"Start {label}.cmd").write_text(script, encoding="ascii", newline="\r\n")
         else:
             launcher = bundle / f"start-{profile}.sh"
-            launcher.write_text(f'#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\nexec python3 app/launch.py {profile} "$@"\n',
+            launcher.write_text(f'#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\n'
+                                'if [ -x .venv/bin/python ]; then python=.venv/bin/python; else python=${COINLINE_PYTHON:-python3}; fi\n'
+                                f'exec "$python" app/launch.py {profile} "$@"\n',
                                 encoding="ascii")
             launcher.chmod(0o755)
 
@@ -217,8 +225,8 @@ def pack(args):
     if args.graphical_rom and not args.rom_input:
         raise ValueError("Graphical ROM packaging also requires the local OEM and Voiceware ROM inputs.")
     if args.adsi_config:
-        if not args.rom_input or os.environ.get("MSYSTEM") != "MINGW64":
-            raise ValueError("A configured ADSI service file belongs only in a local Windows package.")
+        if not args.rom_input:
+            raise ValueError("A configured ADSI service file belongs only in a local package.")
         sys.path.insert(0, str(PORTABLE))
         try:
             from launch import read_adsi_config, adsi_route_settings
@@ -267,7 +275,7 @@ def pack(args):
         f"Graphical ROM included: {'yes' if graphical_rom else 'no'}\n"
         f"Local shared ADSI service configuration included: {'yes' if args.adsi_config else 'no'}\n"
         + ("CPython 3.13.17, pyVoIP 1.6.8, audioop-lts 0.2.2, pylibsrtp 1.0.0\n" if windows
-           else "Local CO only. See Quick Start.txt for the system runtime dependencies.\n"),
+           else "Local CO and optional SIP runtime; run setup-sip.sh on the host. PortAudio capture uses the system library.\n"),
         encoding="ascii",
     )
     entries = sorted(path for path in bundle.rglob("*") if path.is_file())
