@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -165,14 +166,25 @@ def main():
                         help="read an entire packaged nonredeemable synchronous LAB snapshot")
     parser.add_argument("--gpm103-contact", action="store_true",
                         help="qualify the bounded, non-payment EEPROM contact fixture and persistent writes")
+    parser.add_argument("--shadybucks-contact", action="store_true",
+                        help="generate a new independent SBX1 read-only snapshot and qualify contact reads")
     args = parser.parse_args()
-    if args.lab_profile and args.gpm103_contact:
+    if sum((bool(args.lab_profile), args.gpm103_contact, args.shadybucks_contact)) > 1:
         parser.error("choose one fixture")
+    root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     fixture = ROOT / "fixtures/cards" / (
         "smartcard-sync-gpm103-contact.json" if args.gpm103_contact else
         f"smartcard-sync-lab-purse-{args.lab_profile}.json" if args.lab_profile else "smartcard-sync-address-test.json")
+    if args.shadybucks_contact:
+        sys.path.insert(0, str(ROOT / "tools"))
+        from shadybucks import ShadyBucks
+        root.mkdir(parents=True)
+        issuer = ShadyBucks(root / "local-demo.sqlite")
+        card = issuer.issue(50)["fixture_id"]
+        fixture = root / "independent-sbx1.json"
+        fixture.write_text(json.dumps(issuer.export_contact(card), indent=2) + "\n", encoding="utf-8")
+        initial_state = issuer.balance(card)
     expected = json.loads(fixture.read_text(encoding="utf-8"))["memory_hex"]
-    root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     for board in ("earlier", "later"):
         out = root / board
         out.mkdir(parents=True)
@@ -216,6 +228,8 @@ def main():
                     "smart-card synthetic memory restored" not in warm_log):
                 raise RuntimeError(f"Native {board} restart persistence test failed: {out}")
             print(f"Native {board} restart persistence test passed: {out}", flush=True)
+    if args.shadybucks_contact and issuer.balance(card) != initial_state:
+        raise RuntimeError("Read-only contact probe changed the independent local ledger")
 
 
 if __name__ == "__main__":

@@ -138,3 +138,11 @@ current simulation state. It uses the invented `SBX1` representation rather
 than a legacy card profile. It contains no native payment authorization and
 never updates a preexisting exported file. In the portable distribution, use
 `app/shadybucks.py` with the bundled Python runtime.
+
+The native contact regression `tools/acceptance/smartcard_memory_order_probe.py
+--shadybucks-contact` generates a fresh local identity and snapshot, reads
+the entire object through each motherboard's manual contact pins, tests
+address/reset/bounds behavior and removal/reinsertion, and verifies that
+the separate simulated ledger is unchanged. This is a synchronous memory
+transport qualification; the independently designed `SBX1` representation
+is not the original device's logical application image or physical capacity.
