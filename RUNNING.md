@@ -81,11 +81,26 @@ Additional fixture paths can be configured as `mag_fixture_2` through
 `mag_fixture_8` and `smart_fixture_2` through `smart_fixture_8`, in consecutive
 slots. The default second magnetic card is a deliberately invalid checksum
 test, not another funded account. The default second contact card switches
-between the generic synchronous and asynchronous contact fixtures. Set the
-second slot to an empty value to disable that catalogue. Additional contact
+between the generic synchronous and asynchronous contact fixtures. The default
+contact wallet also provides read-only synchronous LAB snapshots in slots 3,
+4 and 5 (0.50, 5.00 and zero LAB units). These are invented transport fixtures,
+not historical GPM103 payment cards; a terminal's historical application may
+reject them. Optional asynchronous versions and the neutral memory-address test
+are included as configurable fixture paths. Any explicitly configured extra
+contact slot takes precedence over the automatic LAB catalogue. Set the second
+slot to an empty value to disable that catalogue. Additional contact
 slots are read-only; any explicitly writable bench fixture must occupy the
 primary slot, whose existing persistent memory is preserved across selection.
 These controls do not change terminal tables or payment authorization.
+
+For a standalone GPM103-family synchronous EEPROM contact bench, select
+`fixtures/cards/smartcard-sync-gpm103-contact.json` as the primary
+`smart_fixture` in the profile's `[cards]` section. The fixture contains
+16 bytes of arbitrary test data and two explicitly writable bench bits;
+the nominal programming wait is 10 ms. The fixture geometry is deliberately
+bounded, not a statement about the exact capacity of an original chip.
+Use it to test reset, MSB-first reads, programming timing and persistence.
+The writable image is kept in the terminal's local card-state storage.
 
 The default chip-card fixture exercises the physical contacts;
 the registered full graphical image `996a8ac5e81d` defaults to the qualified

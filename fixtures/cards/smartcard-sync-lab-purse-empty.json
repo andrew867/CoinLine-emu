@@ -1,0 +1,10 @@
+{
+  "type": "smartcard",
+  "protocol": "sync",
+  "atr_hex": "00",
+  "memory_hex": "4C4142500102000000000000000000000000000000000000000000000000000000000000000000",
+  "application": "lab-readonly",
+  "requires_authorization": false,
+  "lab_snapshot_revision": 0,
+  "lab_snapshot_format": "LABP-v1-nonredeemable"
+}

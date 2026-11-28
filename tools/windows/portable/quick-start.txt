@@ -124,6 +124,10 @@ For a generic module application transport test, use
 fixtures/cards/smartcard-async-module-lab.json. Leave the
 positions blank to emulate no installed module. These fixtures are separate
 from the customer card and do not provide historical payment authorization.
+For a programmable synchronous EEPROM contact bench, set smart_fixture to
+fixtures/cards/smartcard-sync-gpm103-contact.json in [cards]. This replaces
+the primary fixture only and retains the test pattern across restarts.
+The bounded pattern is not an original chip-capacity declaration.
 The independent LAB ledger utility is available at app/lab_purse.py. Run
 runtime\python.exe app\lab_purse.py --help for its local request interface.
 
@@ -155,6 +159,12 @@ contact fixture is a generic read-only transport test. Set mag_fixture_2
 through mag_fixture_8 and smart_fixture_2 through smart_fixture_8 under [cards]
 for additional synthetic fixtures. Use consecutive slots and leave the reader
 empty to select another card. The generic coin-slot click remains available.
+
+Default smart-card slots 3, 4 and 5 contain generic synchronous read-only
+LAB snapshots of 0.50, 5.00 and zero units. They are supplied for contact
+memory transport testing, not historical payment authorization. Matching
+async snapshots are included for explicit later-board transport tests.
+Custom additional contact slot settings override this automatic catalogue.
 
 Calls and troubleshooting
 -------------------------

@@ -27,6 +27,11 @@ SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "P
 SYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-sync-test.json"
 ASYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-async-contact-atr-lab.json"
 MAG_NEGATIVE_FIXTURE = "fixtures/cards/magcard-invalid-lrc.json"
+LAB_PURSE_CONTACT_FIXTURES = (
+    "fixtures/cards/smartcard-sync-lab-purse-50.json",
+    "fixtures/cards/smartcard-sync-lab-purse-500.json",
+    "fixtures/cards/smartcard-sync-lab-purse-empty.json",
+)
 ADSI_SHARED_CONFIG = "adsi-routes.ini"
 ADSI_CONFIG_SECTIONS = ("adsi", "adsi.routes")
 ADSI_CONFIG_KEYS = {"enabled", "host", "port", "dial_digits", "target"}
@@ -167,6 +172,18 @@ def extra_card_environment(cards, mag_card, smart_card):
         ("smart_fixture", "COINLINE_SMART_CARD", smart_card, second_smart),
     ):
         selected = {primary.resolve()}
+        # An untouched contact wallet includes the packaged nonredeemable
+        # read-only demonstration snapshots. Explicit slot settings retain
+        # their existing catalogue semantics and are never overwritten.
+        if setting == "smart_fixture" and not any(f"{setting}_{slot}" in cards for slot in range(2, 9)):
+            slot = 2
+            for value in (fallback, *LAB_PURSE_CONTACT_FIXTURES):
+                path = (ROOT / value).resolve()
+                if path.is_file() and path not in selected:
+                    selected.add(path)
+                    result[f"{variable}_{slot}"] = str(path)
+                    slot += 1
+            continue
         ended = False
         for slot in range(2, 9):
             key = f"{setting}_{slot}"

@@ -15,6 +15,11 @@ import sys
 from connected_dtmf_native_probe import ROOT, port, wait_for
 
 
+def contact_fixture(args, package=None):
+    name = "smartcard-sync-gpm103-contact.json" if args.gpm103_contact else "smartcard-sync-test.json"
+    return (ROOT if args.gpm103_contact or package is None else package) / "fixtures/cards" / name
+
+
 def contact_evidence(log, fixture):
     # Only the bundled non-payment contact fixture is used by this probe.
     memory = bytes.fromhex(json.loads(fixture.read_text())["memory_hex"])
@@ -58,7 +63,7 @@ def run_oem_package(args, out, settings, env):
                COINLINE_BOARD=str(package / "fixtures/board/board-profile-2line-vfd.json"),
                COINLINE_TP8048_ROM=str(package / "firmware/tp_pcd3349a_behavioural.rom"),
                COINLINE_FIRMWARE=str(package / "firmware/oem/flash.bin"),
-               COINLINE_SMART_CARD=str(package / "fixtures/cards/smartcard-sync-test.json"),
+               COINLINE_SMART_CARD=str(contact_fixture(args, package)),
                COINLINE_GRAPHIC_COMMANDS=str(commands), COINLINE_GRAPHIC_EVENTS=str(run / "events.tsv"),
                COINLINE_GRAPHIC_SNAPSHOT_INTERVAL="0", COINLINE_VFD_LIVE=str(run / "display.txt"),
                COINLINE_ACCEPTANCE_PIN=str(settings.get("pin", "")), COINLINE_NCC_PORT=str(settings["ncc_port"]),
@@ -81,7 +86,7 @@ def run_oem_package(args, out, settings, env):
                 office.terminate()
                 office.wait(timeout=5)
     return {"native_exit_code": native.returncode, "display_review_required": True, "run": run.name,
-            **contact_evidence(run / "mame.log", package / "fixtures/cards/smartcard-sync-test.json"),
+            **contact_evidence(run / "mame.log", contact_fixture(args, package)),
             "result_snapshot_present": (run / "card-test-result.png").is_file(),
             "service_snapshot_present": (run / "returned-service.png").is_file()}
 
@@ -98,6 +103,7 @@ def main():
     parser.add_argument("--item", help="Craft menu number; defaults to 728 for MTR 2.x or 227 for the earlier OEM package")
     parser.add_argument("--runtime-contact", action="store_true", help="unfunded contact insertion after pickup without dialing")
     parser.add_argument("--require-contact", action="store_true", help="fail unless the native contact reads match the synthetic fixture")
+    parser.add_argument("--gpm103-contact", action="store_true", help="use the bundled bounded synchronous EEPROM bench fixture")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/smartcard-craft")
     args = parser.parse_args()
     if args.startup_frames < 600:
@@ -130,7 +136,8 @@ def main():
                "--mame", str(args.mame.resolve()), "--firmware", str(args.firmware.resolve()),
                "--battery", str(args.battery.resolve()), "--settings", str(local_settings),
                "--hardware", "auto", "--display", args.display, "--output", str(out / "terminal"),
-               "--quiet", "--card-trace", "--snapshot-interval", "0", "--snapshot-native", "--seconds", "240"]
+               "--quiet", "--card-trace", "--snapshot-interval", "0", "--snapshot-native", "--seconds", "240",
+               "--smart-card", str(contact_fixture(args))]
     native = None
     result = {"native_exit_code": None, "display_review_required": True}
     try:
@@ -147,7 +154,7 @@ def main():
             result["run"] = commands.parent.name
             result["native_exit_code"] = native.wait(timeout=240)
             run = commands.parent
-            result.update(contact_evidence(run / "mame.log", ROOT / "fixtures/cards/smartcard-sync-test.json"))
+            result.update(contact_evidence(run / "mame.log", contact_fixture(args)))
             result["result_snapshot_present"] = (run / "card-test-result.png").is_file()
             result["service_snapshot_present"] = (run / "returned-service.png").is_file()
     finally:

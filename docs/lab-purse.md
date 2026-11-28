@@ -46,14 +46,22 @@ or translate these results into historical commands or approval codes.
 ### Read-only contact snapshot
 
 The `contact_snapshot` request exports a point-in-time, invented laboratory
-contact fixture. It uses the existing generic read-only T=0 or T=1 application,
-not a historical purse application. It contains no authorization state and
+contact fixture. It uses either generic synchronous read-only memory or the
+generic read-only T=0 or T=1 application, not a historical purse application.
+It contains no authorization state and
 cannot change the SQLite ledger. For example, after creating `lab-example`,
 save the output of a request with this content to a local fixture file:
 
 ```json
 {"operation":"contact_snapshot","fixture_id":"lab-example","protocol":"t1"}
 ```
+
+Use `"protocol":"sync"` for the same nonredeemable snapshot on the synchronous
+memory contact path. There is no writable region or issuer-specific data in
+this fixture. The portable package includes synchronous and asynchronous
+snapshots for 50, 500 and zero minor LAB units. The untouched virtual contact
+wallet selects the synchronous versions in slots 3 through 5; explicit
+additional slot settings override the default catalogue.
 
 The 39-byte object starts with ASCII `LABP`, a version byte, minor-unit
 precision, a lifecycle code, and four big-endian unsigned 64-bit values:
@@ -86,6 +94,16 @@ GPM103 payment application compatibility. A native balance-display test
 must use an authorized reference card and its legitimate test profile, and
 observe the actual terminal display, call result and reconciled records.
 
+The independent `LabDisposableSession` models a single exclusive local
+disposable-card test session without a reload operation. It rejects a
+request while the simulated card is absent, reserves value on a request,
+settles an observed result once, and preserves an unresolved reservation
+if the card is removed or the local session restarts without completion
+evidence. Its state is not connected to the terminal or its payment
+authorization. The disposable-card tests cover the nine enquiry, debit,
+exhaustion, insufficient-value, duplicate, removal, failure, interruption
+and reinsertion scenarios, plus restart with a pending request.
+
 The [machine-readable vectors](../fixtures/cards/lab-purse-vectors.json)
 cover balance, reservation, completion, event idempotency, cancellation,
 reload limit, uncertain restart, inactive/empty fixtures, invalid input,
@@ -94,3 +112,37 @@ reconciliation, concurrent reservation, history pagination and unrelated
 contact selection. Native historical application qualification still
 requires authoritative reference equipment and its legitimate test
 application specification.
+
+## ShadyBucks demonstration product
+
+`tools/shadybucks.py` provides a separately defined disposable demonstration
+product backed by the local LAB ledger. It issues random local UUIDs, not
+card-network identifiers, and keeps a journal of simulated debits. The
+product's neutral metadata is in `fixtures/cards/shadybucks-lab-product.json`.
+The product has no external redemption and no connection to the native
+terminal's application or NCC tables.
+
+Example using an isolated writable directory:
+
+```sh
+python tools/shadybucks.py --store demo.sqlite issue 50
+python tools/shadybucks.py --store demo.sqlite balance <issued-id>
+python tools/shadybucks.py --store demo.sqlite begin <issued-id> call1 25
+python tools/shadybucks.py --store demo.sqlite settle <issued-id> call1
+python tools/shadybucks.py --store demo.sqlite history <issued-id>
+python tools/shadybucks.py --store demo.sqlite export-contact <issued-id> --output contact.json
+```
+
+`export-contact` creates a new immutable synchronous contact snapshot of the
+current simulation state. It uses the invented `SBX1` representation rather
+than a legacy card profile. It contains no native payment authorization and
+never updates a preexisting exported file. In the portable distribution, use
+`app/shadybucks.py` with the bundled Python runtime.
+
+The native contact regression `tools/acceptance/smartcard_memory_order_probe.py
+--shadybucks-contact` generates a fresh local identity and snapshot, reads
+the entire object through each motherboard's manual contact pins, tests
+address/reset/bounds behavior and removal/reinsertion, and verifies that
+the separate simulated ledger is unchanged. This is a synchronous memory
+transport qualification; the independently designed `SBX1` representation
+is not the original device's logical application image or physical capacity.

@@ -1,0 +1,12 @@
+{
+  "type": "smartcard",
+  "protocol": "async",
+  "application": "lab-readonly",
+  "reset_policy": "external",
+  "atr_hex": "3B 80 01 81",
+  "memory_hex": "4C4142500102000000000000000000000000000000000000000000000000000000000000000000",
+  "atr_delay_us": 4000,
+  "apdu_response_delay_us": 1000,
+  "lab_snapshot_revision": 0,
+  "lab_snapshot_format": "LABP-v1-nonredeemable"
+}

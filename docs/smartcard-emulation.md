@@ -55,6 +55,26 @@ synthetic programming probe accepts `--program-us 10000` to test bounded
 non-payment memory switching on that time scale without identifying the
 fixture as either historical card family.
 
+### GPM103-family EEPROM contact bench
+
+`fixtures/cards/smartcard-sync-gpm103-contact.json` is a deliberately
+arbitrary 16-byte synchronous test memory. The final byte contains two
+explicitly writable bench bits with a nominal 10 ms programming interval.
+It is selectable as the primary contact fixture on either board. This
+interval is a bench setting, not a measured programming-pulse limit.
+Historical reader documentation identifies GPM103 as a synchronous memory
+family ([Gemplus GemCore controller manual](https://ifd-gempc.apdu.fr/e5221031.pdf),
+[ACS ACR30 reference manual](https://www.acs.com.hk/download-manual/1184/REF_ACx30.pdf));
+the exact physical chip capacity is not established by those classifications.
+
+Run `tools/acceptance/smartcard_memory_order_probe.py --gpm103-contact`
+with the native emulator executable. It verifies all fixture bytes, address
+seeking, out-of-bounds reads, short-pulse rejection, programming after a
+held clock, read-only bounds, interrupted programming on removal, reinsertion
+and restart persistence through the board's real contact pins. The fixture
+does not contain application-specific data. The optional native Craft test
+uses the same fixture with `smartcard_craft_probe.py --gpm103-contact`.
+
 For the earlier board, the firmware drives a low/high/low supply-enable
 pulse and subsequently clocks the contact while that pin remains low. The
 model retains supply across the falling edge; a card removal or device reset

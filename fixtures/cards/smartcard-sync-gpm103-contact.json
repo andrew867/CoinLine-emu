@@ -1,0 +1,11 @@
+{
+  "type": "smartcard",
+  "protocol": "sync",
+  "fixture_kind": "gpm103-family-contact-bench",
+  "atr_hex": "00",
+  "memory_hex": "963CA7004C4142545A81C37E2D18F0FF",
+  "sync_program_enabled": true,
+  "sync_program_first_bit": 120,
+  "sync_program_end_bit": 122,
+  "sync_program_us": 10000
+}
