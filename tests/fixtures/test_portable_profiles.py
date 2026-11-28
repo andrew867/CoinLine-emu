@@ -4,8 +4,10 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import sys
 from types import SimpleNamespace
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -55,6 +57,58 @@ def test_ordered_virtual_card_catalogue(tmp_path, monkeypatch):
                             ({"mag_fixture_2": names[0]}, "duplicates")):
         with pytest.raises(ValueError, match=error):
             launcher.extra_card_environment(settings, mag, smart)
+
+
+@pytest.mark.parametrize("primary,expected", [
+    (launcher.SYNC_CONTACT_FIXTURE, ["1: GPM103 Lab", "2: Async ATR", "3: Sync Transport",
+                                     "4: LAB 0.50", "5: LAB 5.00", "6: LAB Empty"]),
+    (launcher.ASYNC_CONTACT_FIXTURE, ["1: Async ATR", "2: Sync Transport",
+                                      "3: LAB 0.50", "4: LAB 5.00", "5: LAB Empty"]),
+])
+def test_card_panel_labels_match_actual_slots(tmp_path, monkeypatch, primary, expected):
+    root = PORTABLE.parents[2]
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    artwork = tmp_path / "artwork/cl_millennium"
+    artwork.mkdir(parents=True)
+    shutil.copyfile(root / "src/mame/layout/millennium.lay", artwork / "default.lay")
+    shutil.copyfile(root / "artwork/millennium-terminal-front.png", artwork / "millennium-terminal-front.png")
+    original = (artwork / "default.lay").read_bytes()
+    names = ("fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
+             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE,
+             launcher.SYNC_TRANSPORT_FIXTURE, *launcher.LAB_PURSE_CONTACT_FIXTURES)
+    for name in names:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    mag, smart = tmp_path / names[0], tmp_path / primary
+    extras = launcher.extra_card_environment({}, mag, smart)
+    run = tmp_path / "run"
+    artpath = launcher.stage_card_panel_artwork(run, mag, smart, extras)
+    assert artpath.split(";") == [str(run / "artwork"), str(tmp_path / "artwork")]
+    generated = run / "artwork" / launcher.CARD_ARTWORK_OVERRIDE
+    assert (generated / "millennium-terminal-front.png").read_bytes() == (artwork / "millennium-terminal-front.png").read_bytes()
+    layout = ET.parse(generated / "default.lay").getroot()
+    assert {view.attrib["name"] for view in layout.findall("view")} == {"Standard", "Graphical"}
+    contact = layout.find("element[@name='card_smart_selection']")
+    magnetic = layout.find("element[@name='card_mag_selection']")
+    def labels(element):
+        return [text.attrib["string"] for text in element.findall("text") if "state" in text.attrib]
+    assert labels(contact) == expected + ["Unused slot"] * (8 - len(expected))
+    assert labels(magnetic) == ["1: Mag Test", "2: Mag Bad LRC"] + ["Unused slot"] * 6
+    catalogue = json.loads((run / "card-catalogue.json").read_text(encoding="utf-8"))
+    assert [entry["label"] for entry in catalogue["contact"]] == expected
+    assert [entry["fixture"] for entry in catalogue["contact"]] == [
+        smart.name, *(Path(extras[f"COINLINE_SMART_CARD_{slot}"]).name for slot in range(2, len(expected) + 1))]
+    assert (artwork / "default.lay").read_bytes() == original
+
+
+def test_custom_card_label_is_neutral(tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    # A similarly named fixture outside the package must not be mistaken for
+    # a known bundled fixture.
+    catalogue = launcher.card_panel_catalogue(
+        tmp_path / "custom/smartcard-sync-test.json", {}, "COINLINE_SMART_CARD", "SC")
+    assert catalogue == [{"slot": 1, "fixture": "smartcard-sync-test.json", "label": "1: Custom SC"}]
 
 
 def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):

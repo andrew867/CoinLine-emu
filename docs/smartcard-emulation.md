@@ -125,6 +125,13 @@ profiles retain their qualified read-only async fixture. Automatic secondary
 contact slots remain read-only, and the generic synchronous transport
 fixture is the alternate for an asynchronous primary contact.
 
+The portable launcher uses the same card-label rules in the Standard and
+Graphical views. Its per-run artwork maps the actual ordered catalogue to
+the existing native selection output, so changing the primary fixture or
+the additional slots cannot silently shift the meaning of a displayed
+card label. The local `card-catalogue.json` records the corresponding
+fixture filenames; neither labels nor the report interpret card contents.
+
 The independent `fixtures/cards/smartcard-sync-gpm103-lab-readback.json`
 retains the frozen read-only 13-byte image. The GPM103-family 16-byte
 contact bench and independent 13-byte geometry bench remain available for
