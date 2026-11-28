@@ -94,6 +94,23 @@ input file. Application-specific erase/carry rules,
 credentials and monetary balance validation are not implemented by this
 generic programming model.
 
+### Short synchronous memory test image
+
+`fixtures/cards/smartcard-sync-13byte-bench.json` is a separate 13-byte
+non-payment test image. It uses the existing synchronous socket and the
+same bounded one-way programming model as the contact bench, with two
+writable bits at the start of the final byte. It exercises the shorter
+memory boundary without replacing the original 16-byte fixture. It has no
+issuer identity, payment authentication, or stored-value semantics.
+
+The fixture is included in the portable package and is selectable as a
+contact fixture in `[cards]`. Test both native board mappings with
+`tools/acceptance/smartcard_memory_order_probe.py --13-byte-bench` and
+`--mame` pointing to the native executable. The probe checks all 13 bytes,
+out-of-range reads, bounded programming, removal during programming and
+persistence on reinsertion and restart, independently of the 16-byte bench.
+These checks do not qualify an application or payment path.
+
 The asynchronous socket uses generated card clock, supply latch and reset
 selection. Direct and inverse ATR convention, T=0 procedure bytes, T=1
 LRC blocks and chaining, and bounded PPS negotiation are qualified by native

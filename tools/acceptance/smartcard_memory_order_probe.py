@@ -166,14 +166,18 @@ def main():
                         help="read an entire packaged nonredeemable synchronous LAB snapshot")
     parser.add_argument("--gpm103-contact", action="store_true",
                         help="qualify the bounded, non-payment EEPROM contact fixture and persistent writes")
+    parser.add_argument("--13-byte-bench", dest="short_contact_bench", action="store_true",
+                        help="qualify the independent 13-byte non-payment contact fixture and persistent writes")
     parser.add_argument("--shadybucks-contact", action="store_true",
                         help="generate a new independent SBX1 read-only snapshot and qualify contact reads")
     args = parser.parse_args()
-    if sum((bool(args.lab_profile), args.gpm103_contact, args.shadybucks_contact)) > 1:
+    if sum((bool(args.lab_profile), args.gpm103_contact, args.shadybucks_contact, args.short_contact_bench)) > 1:
         parser.error("choose one fixture")
+    programming = args.gpm103_contact or args.short_contact_bench
     root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     fixture = ROOT / "fixtures/cards" / (
         "smartcard-sync-gpm103-contact.json" if args.gpm103_contact else
+        "smartcard-sync-13byte-bench.json" if args.short_contact_bench else
         f"smartcard-sync-lab-purse-{args.lab_profile}.json" if args.lab_profile else "smartcard-sync-address-test.json")
     if args.shadybucks_contact:
         sys.path.insert(0, str(ROOT / "tools"))
@@ -205,7 +209,7 @@ def main():
                    COINLINE_HARDWARE_PRESET="multipay-v1" if board == "earlier" else "multipay-v1.3",
                    COINLINE_TP8048_ROM=str(args.controller.resolve()),
                    COINLINE_SMART_CARD=str(fixture), COINLINE_SYNC_EXPECTED_HEX=expected)
-        if args.gpm103_contact:
+        if programming:
             env.update(COINLINE_SYNC_PROGRAM_BENCH="1", COINLINE_SMART_CARD_TRACE="1")
         command = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
                    "-video", "none", "-sound", "none", "-rompath", str(args.rompath.resolve()),
@@ -214,11 +218,11 @@ def main():
         result = subprocess.run(command, cwd=out, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
         log = result.stdout.decode(errors="replace")
         (out / "mame.log").write_text(log, encoding="utf-8")
-        marker = "SMARTCARD_SYNC_BENCH passed" if args.gpm103_contact else "SMARTCARD_MEMORY_ORDER passed"
+        marker = "SMARTCARD_SYNC_BENCH passed" if programming else "SMARTCARD_MEMORY_ORDER passed"
         if result.returncode or "LUA ERROR" in log or marker not in log:
             raise RuntimeError(f"Native {board} memory-order test failed: {out}")
         print(f"Native {board} memory-order test passed: {out}", flush=True)
-        if args.gpm103_contact:
+        if programming:
             warm = subprocess.run(command, cwd=out, env=dict(env, COINLINE_SYNC_PROGRAM_WARM="1"),
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
             warm_log = warm.stdout.decode(errors="replace")
