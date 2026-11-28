@@ -162,6 +162,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=Non
         "fixtures/cards/smartcard-sync-gpm103-contact.json": ROOT / "fixtures/cards/smartcard-sync-gpm103-contact.json",
         "fixtures/cards/smartcard-sync-13byte-bench.json": ROOT / "fixtures/cards/smartcard-sync-13byte-bench.json",
         "fixtures/cards/smartcard-sync-gpm103-lab.json": ROOT / "fixtures/cards/smartcard-sync-gpm103-lab.json",
+        "fixtures/cards/smartcard-sync-gpm103-lab-readback.json": ROOT / "fixtures/cards/smartcard-sync-gpm103-lab-readback.json",
         "fixtures/tables/gpm103-lab/manifest.json": ROOT / "fixtures/tables/gpm103-lab/manifest.json",
         "fixtures/tables/gpm103-lab/maximizer-mt93-mt134-gpm103-seed.json": ROOT / "fixtures/tables/gpm103-lab/maximizer-mt93-mt134-gpm103-seed.json",
         "fixtures/tables/gpm103-lab/mt022.bin": ROOT / "fixtures/tables/gpm103-lab/mt022.bin",

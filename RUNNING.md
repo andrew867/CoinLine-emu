@@ -77,7 +77,7 @@ press `[` to insert the selected contact card and `]` to remove it (or click
 the contact action button). The reader artwork follows the actual sensor
 states. Selection is locked while either card occupies the reader.
 
-The packaged default customer contact is
+The packaged default synchronous customer contact is
 `fixtures/cards/smartcard-sync-gpm103-lab.json` (lab application image with
 programmable counters). Pair it with the MT93/MT134 (or MT22/MT93) binaries
 under `fixtures/tables/gpm103-lab/` downloaded through CoinLine; the emulator
@@ -86,9 +86,10 @@ does not inject those tables by itself.
 Additional fixture paths can be configured as `mag_fixture_2` through
 `mag_fixture_8` and `smart_fixture_2` through `smart_fixture_8`, in consecutive
 slots. The default second magnetic card is a deliberately invalid checksum
-test, not another funded account. An untouched contact wallet also includes
-the async ATR lab fixture, the generic sync transport image, and read-only
-LAB snapshots. Optional asynchronous versions and the neutral memory-address
+test, not another funded account. An untouched contact wallet includes
+read-only alternate contact fixtures and read-only LAB snapshots. When the
+primary contact is asynchronous, its alternate is the generic synchronous
+transport fixture. Optional asynchronous versions and the neutral memory-address
 test remain configurable. Set slot 2 empty to disable the automatic catalogue.
 Additional contact slots are read-only; writable benches must occupy the
 primary slot. These controls do not change terminal tables by themselves.
@@ -104,6 +105,8 @@ hardware entry requests generic-async contact. The optional `smartcard-async-t0-
 and `smartcard-async-t1-lab.json` fixtures use the actual later-board ASCI0
 pin path and a read-only synthetic application. They are intended for a
 compatible transport test, not recognition by historical payment firmware.
+Leave `smart_fixture` blank in either profile INI to preserve the registered
+firmware's contact default.
 Later-board profiles also accept independent internal module fixtures under
 `[cards]` as `sam_slot0`, `sam_slot1`, and `sam_slot2`, or through the respective
 `--sam-slot0`, `--sam-slot1` and `--sam-slot2` arguments. Leave them blank for
@@ -141,7 +144,7 @@ visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
 passed on the later Multi-pay board; funded chip-card applications and
 several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
-and [firmware results catalog](../docs/uat/firmware-acceptance-catalog.md).
+and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
 
 The validator's physical coin windows and the terminal's downloaded coin
 table must agree. Set `coin_validator` under `[hardware]` (or use

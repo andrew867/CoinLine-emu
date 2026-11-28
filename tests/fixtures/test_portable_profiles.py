@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+import configparser
 import hashlib
 import importlib.util
 import json
@@ -32,7 +33,8 @@ def test_independent_profile_config_and_sip_ports(tmp_path, monkeypatch):
 def test_ordered_virtual_card_catalogue(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     names = ("fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
-             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE, "third.json")
+             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE, "third.json",
+             launcher.SYNC_TRANSPORT_FIXTURE)
     for name in names:
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,9 +42,11 @@ def test_ordered_virtual_card_catalogue(tmp_path, monkeypatch):
     mag, smart = tmp_path / names[0], tmp_path / names[2]
     defaults = launcher.extra_card_environment({}, mag, smart)
     assert defaults == {"COINLINE_MAG_CARD_2": str(tmp_path / names[1]),
-                        "COINLINE_SMART_CARD_2": str(tmp_path / names[3])}
+                        "COINLINE_SMART_CARD_2": str(tmp_path / names[3]),
+                        "COINLINE_SMART_CARD_3": str(tmp_path / launcher.SYNC_TRANSPORT_FIXTURE)}
     alternate = launcher.extra_card_environment({}, mag, tmp_path / names[3])
-    assert alternate["COINLINE_SMART_CARD_2"] == str(smart)
+    assert alternate["COINLINE_SMART_CARD_2"] == str(tmp_path / launcher.SYNC_TRANSPORT_FIXTURE)
+    assert "COINLINE_SMART_CARD_3" not in alternate
     custom = launcher.extra_card_environment({"mag_fixture_3": "third.json", "smart_fixture_2": ""}, mag, smart)
     assert custom["COINLINE_MAG_CARD_3"] == str(tmp_path / "third.json")
     assert "COINLINE_SMART_CARD_2" not in custom
@@ -59,20 +63,40 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
     packer = importlib.util.module_from_spec(pack_spec)
     pack_spec.loader.exec_module(packer)
     staged = set()
-    monkeypatch.setattr(packer, "copy_file", lambda source, destination: staged.add(destination.relative_to(tmp_path).as_posix()))
+
+    def check_staged_file(source, destination):
+        name = destination.relative_to(tmp_path).as_posix()
+        if name.startswith("fixtures/"):
+            assert source.is_file(), name
+        staged.add(name)
+
+    monkeypatch.setattr(packer, "copy_file", check_staged_file)
     packer.stage_files(tmp_path, tmp_path, None, None, True)
     assert {"fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
             launcher.SYNC_CONTACT_FIXTURE, launcher.SYNC_TRANSPORT_FIXTURE,
             launcher.ASYNC_CONTACT_FIXTURE,
             "fixtures/cards/smartcard-sync-address-test.json", "fixtures/cards/smartcard-sync-gpm103-contact.json",
             "fixtures/cards/smartcard-sync-13byte-bench.json", "fixtures/cards/smartcard-sync-gpm103-lab.json",
+            "fixtures/cards/smartcard-sync-gpm103-lab-readback.json",
             *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
     assert {f"fixtures/cards/smartcard-async-lab-purse-{name}.json" for name in ("50", "500", "empty")} <= staged
     assert {"app/shadybucks.py", "fixtures/cards/shadybucks-lab-product.json"} <= staged
-    assert {"fixtures/tables/gpm103-lab/manifest.json",
-            "fixtures/tables/gpm103-lab/mt093.bin",
-            "fixtures/tables/gpm103-lab/mt134.bin",
-            "fixtures/tables/gpm103-lab/README.md"} <= staged
+    assert {f"fixtures/tables/gpm103-lab/{name}" for name in (
+        "README.md", "manifest.json", "maximizer-mt93-mt134-gpm103-seed.json",
+        "mt022.bin", "mt023.bin", "mt093.bin", "mt134.bin", "mt135.bin",
+    )} <= staged
+
+
+def test_bundled_table_file_integrity():
+    root = PORTABLE.parents[2] / "fixtures/tables/gpm103-lab"
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    assert {entry["file"] for entry in manifest["entries"]} == {
+        "mt022.bin", "mt023.bin", "mt093.bin", "mt134.bin", "mt135.bin",
+    }
+    for entry in manifest["entries"]:
+        payload = (root / entry["file"]).read_bytes()
+        assert len(payload) == entry["record_length"]
+        assert hashlib.sha256(payload).hexdigest() == entry["sha256"]
 
 
 def test_13_byte_contact_fixture_geometry():
@@ -89,7 +113,7 @@ def test_13_byte_contact_fixture_geometry():
     assert fixture["sync_program_us"] == 10000
 
 
-def test_gpm103_lab_readback_fixture():
+def test_gpm103_lab_default_fixture():
     path = PORTABLE.parents[2] / "fixtures/cards/smartcard-sync-gpm103-lab.json"
     fixture = json.loads(path.read_text(encoding="utf-8"))
     assert fixture["type"] == "smartcard"
@@ -104,6 +128,54 @@ def test_gpm103_lab_readback_fixture():
     assert fixture["sync_program_us"] == 10000
 
 
+def test_gpm103_lab_readback_fixture():
+    path = PORTABLE.parents[2] / "fixtures/cards/smartcard-sync-gpm103-lab-readback.json"
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    assert fixture["type"] == "smartcard"
+    assert fixture["protocol"] == "sync"
+    assert fixture["atr_hex"] == "00"
+    assert fixture["memory_hex"] == "00286F00000001B978FFFFFFFF"
+    assert len(bytes.fromhex(fixture["memory_hex"])) == 13
+    assert not fixture.get("sync_program_enabled", False)
+
+
+def test_gpm103_lab_probe_preflight_selects_read_only_fixture(tmp_path, monkeypatch):
+    root = PORTABLE.parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "coinline_smartcard_readback_probe", root / "tools/acceptance/smartcard_memory_order_probe.py")
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+    cards = tmp_path / "fixtures/cards"
+    cards.mkdir(parents=True)
+    for name in ("smartcard-sync-gpm103-lab.json", "smartcard-sync-gpm103-lab-readback.json"):
+        (cards / name).write_bytes((root / "fixtures/cards" / name).read_bytes())
+    monkeypatch.setattr(probe, "ROOT", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["probe", "--gpm103-lab", "--mame", str(tmp_path / "unused.exe"),
+                                    "--output", str(tmp_path / "output")])
+    read_paths = []
+    read_text = Path.read_text
+
+    def track_fixture_read(path, *args, **kwargs):
+        if path.parent == cards:
+            read_paths.append(path)
+        return read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", track_fixture_read)
+
+    class PreflightPassed(Exception):
+        pass
+
+    def stop_before_native_run(*args, **kwargs):
+        raise PreflightPassed
+
+    monkeypatch.setattr(probe.shutil, "copytree", stop_before_native_run)
+    # The writable default would fail the read-only guard. Reaching staging
+    # proves that the CLI selected and validated the independent fixture.
+    with pytest.raises(PreflightPassed):
+        probe.main()
+    assert read_paths == [cards / "smartcard-sync-gpm103-lab-readback.json"]
+
+
 def test_bundled_lab_snapshots_in_untouched_card_wallet(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     names = ("fixtures/cards/magcard-valid.json", launcher.SYNC_CONTACT_FIXTURE,
@@ -116,9 +188,38 @@ def test_bundled_lab_snapshots_in_untouched_card_wallet(tmp_path, monkeypatch):
     mag, smart = tmp_path / names[0], tmp_path / names[1]
     defaults = launcher.extra_card_environment({}, mag, smart)
     assert [defaults[f"COINLINE_SMART_CARD_{i}"] for i in range(2, 7)] == [str(tmp_path / x) for x in names[2:]]
+    alternate = launcher.extra_card_environment({}, mag, tmp_path / launcher.ASYNC_CONTACT_FIXTURE)
+    assert [alternate[f"COINLINE_SMART_CARD_{i}"] for i in range(2, 6)] == [
+        str(tmp_path / x) for x in (launcher.SYNC_TRANSPORT_FIXTURE, *launcher.LAB_PURSE_CONTACT_FIXTURES)]
+    assert "COINLINE_SMART_CARD_6" not in alternate
     explicit = launcher.extra_card_environment({"smart_fixture_2": launcher.ASYNC_CONTACT_FIXTURE}, mag, smart)
     assert set(explicit) == {"COINLINE_SMART_CARD_2"}
     assert launcher.extra_card_environment({"smart_fixture_2": ""}, mag, smart) == {}
+
+
+@pytest.mark.parametrize("primary", [launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE])
+def test_bundled_secondary_contact_slots_are_read_only(monkeypatch, primary):
+    root = PORTABLE.parents[2]
+    monkeypatch.setattr(launcher, "ROOT", root)
+    cards = launcher.extra_card_environment({}, root / "fixtures/cards/magcard-valid.json", root / primary)
+    paths = [Path(value) for key, value in cards.items() if key.startswith("COINLINE_SMART_CARD_")]
+    assert paths
+    assert len(paths) == len(set(paths))
+    for path in paths:
+        fixture = json.loads(path.read_text(encoding="utf-8"))
+        assert not fixture.get("sync_program_enabled", False), path.name
+
+
+@pytest.mark.parametrize("example", ["coinline.example.ini", "coinline-graphical.example.ini"])
+def test_example_config_preserves_firmware_contact_defaults(tmp_path, monkeypatch, example):
+    monkeypatch.setattr(launcher, "ROOT", tmp_path)
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(PORTABLE / example, encoding="utf-8")
+    args = SimpleNamespace(smart_card=None)
+    for entry, expected in (({}, launcher.SYNC_CONTACT_FIXTURE),
+                            ({"contact_test": "generic-async-t0"}, launcher.ASYNC_CONTACT_FIXTURE)):
+        env = {"COINLINE_SMART_CARD": str(tmp_path / launcher.contact_fixture_default(entry))}
+        assert launcher.customer_fixture_path(args, config["cards"], env) == tmp_path / expected
 
 
 def test_coin_validator_profile_preserves_independent_board_fields(tmp_path):

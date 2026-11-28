@@ -167,7 +167,9 @@ def customer_fixture_path(args, cards, hardware_env):
 
 def extra_card_environment(cards, mag_card, smart_card):
     """Build ordered, profile-local catalogues without reading payment data."""
-    second_smart = (SYNC_CONTACT_FIXTURE if smart_card.resolve() == (ROOT / ASYNC_CONTACT_FIXTURE).resolve()
+    # The alternate contact slot must be read-only, including when the
+    # firmware-qualified primary contact is asynchronous.
+    second_smart = (SYNC_TRANSPORT_FIXTURE if smart_card.resolve() == (ROOT / ASYNC_CONTACT_FIXTURE).resolve()
                     else ASYNC_CONTACT_FIXTURE)
     result = {}
     for setting, variable, primary, fallback in (

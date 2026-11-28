@@ -103,9 +103,9 @@ and service startup are managed separately from this emulator.
 Some later firmware has a separate smart-card test and two calibration coins
 followed by an escrow test. Use [ to insert the synthetic contact card and ]
 to remove it, or click the contact action button. The synchronous contact test
-passed on the later reference terminal;
-the default card is nonfunded and does not qualify chip payment. Other
-firmware may still report a failure. Follow the firmware's continuation prompt.
+passed on the later reference terminal with the previously qualified generic
+contact fixture. That evidence does not qualify the changed synchronous default.
+Other firmware may still report a failure. Follow the firmware's continuation prompt.
 Allow the refund and collection tests to finish before pressing * again.
 
 The optional smartcard-async-t0-lab.json and smartcard-async-t1-lab.json fixtures
@@ -160,7 +160,7 @@ through mag_fixture_8 and smart_fixture_2 through smart_fixture_8 under [cards]
 for additional synthetic fixtures. Use consecutive slots and leave the reader
 empty to select another card. The generic coin-slot click remains available.
 
-Default smart-card slots 3, 4 and 5 contain generic synchronous read-only
+The automatic contact catalogue includes three generic synchronous read-only
 LAB snapshots of 0.50, 5.00 and zero units. They are supplied for contact
 memory transport testing, not historical payment authorization. Matching
 async snapshots are included for explicit later-board transport tests.

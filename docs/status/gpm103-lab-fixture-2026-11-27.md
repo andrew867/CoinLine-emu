@@ -1,10 +1,12 @@
 # GPM103 lab fixture readback
 
-The frozen 13-byte synchronous lab image is available as
-`fixtures/cards/smartcard-sync-gpm103-lab.json`. It is now also the packaged
-default customer contact (with counter-region programming enabled) and remains
-separate from both existing contact benches. The `--gpm103-lab` probe passed exact
-13-byte contact readback on the earlier and later board mappings.
+At the time of the tests below, the frozen 13-byte synchronous lab image was
+read-only and stored at `fixtures/cards/smartcard-sync-gpm103-lab.json`.
+The `--gpm103-lab` probe passed exact 13-byte contact readback on the earlier
+and later board mappings. The original fixture is now preserved separately
+at `fixtures/cards/smartcard-sync-gpm103-lab-readback.json`. This historical
+evidence applies only to the read-only image, not to the subsequent writable
+default configuration.
 
 The unchanged `--gpm103-contact` and `--13-byte-bench` cases passed on both
 board mappings, including their existing restart persistence checks. All 17

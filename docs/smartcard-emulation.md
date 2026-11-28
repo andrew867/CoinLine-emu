@@ -118,22 +118,26 @@ These checks do not qualify an application or payment path.
 
 ### GPM103 lab image (default customer contact)
 
-`fixtures/cards/smartcard-sync-gpm103-lab.json` is the **packaged default**
-customer sync fixture for OEM and graphical launchers. It is the frozen
-13-byte lab application image (`memory_hex`
-`00286F00000001B978FFFFFFFF`) with one-way programming enabled on the
-counter region (bits 64–104). The GPM103-family 16-byte contact bench and
-the independent 13-byte geometry bench remain available for transport
-regressions and are not replaced.
+`fixtures/cards/smartcard-sync-gpm103-lab.json` is the packaged synchronous
+customer default. Leave `smart_fixture` blank in either example INI to
+preserve firmware-specific selection; registered asynchronous contact
+profiles retain their qualified read-only async fixture. Automatic secondary
+contact slots remain read-only, and the generic synchronous transport
+fixture is the alternate for an asynchronous primary contact.
 
-Matching download tables live in `fixtures/tables/gpm103-lab/` (MT93+MT134
-for later/graphical, or MT22+MT93 for earlier). The emulator does not inject
-those bins into terminal EEPROM; assign and INSTALL them through CoinLine.
+The independent `fixtures/cards/smartcard-sync-gpm103-lab-readback.json`
+retains the frozen read-only 13-byte image. The GPM103-family 16-byte
+contact bench and independent 13-byte geometry bench remain available for
+transport regressions and are not replaced.
 
 Run `tools/acceptance/smartcard_memory_order_probe.py --gpm103-lab` with
-`--mame` pointing to the native executable for exact readback on both board
-mappings. A successful contact readback is not OEM application acceptance;
-that still requires the matching tables on the phone.
+`--mame` pointing to the native executable. This selects only the independent
+read-only fixture and verifies its exact bytes on both board mappings.
+It does not qualify the writable default or any application path.
+
+The existing table files under `fixtures/tables/gpm103-lab/` are staged as
+files only; package checks verify their presence and manifest integrity.
+OEM table acceptance and commercial interoperability remain unqualified.
 
 The asynchronous socket uses generated card clock, supply latch and reset
 selection. Direct and inverse ATR convention, T=0 procedure bytes, T=1
@@ -197,8 +201,8 @@ Per board profile. Default behavior is polled.
 
 ## Fixtures
 
-- `fixtures/cards/smartcard-sync-test.json` is the default synthetic contact
-  test fixture. Its nonuniform first byte exercises every contact data bit;
+- `fixtures/cards/smartcard-sync-test.json` is the generic read-only contact
+  transport fixture. Its nonuniform first byte exercises every contact data bit;
   it is not a funded payment card or a valid issuer credential.
 - `fixtures/cards/smartcard-sync-address-test.json` is a four-byte read-only
   address and bit-order fixture, used on both native motherboard maps.

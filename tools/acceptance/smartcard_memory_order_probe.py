@@ -14,6 +14,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 GPM103_LAB_READBACK_HEX = "00286F00000001B978FFFFFFFF"
+GPM103_LAB_READBACK_FIXTURE = "smartcard-sync-gpm103-lab-readback.json"
 
 PROBE = r'''
 local machine = manager.machine
@@ -173,7 +174,7 @@ def main():
     parser.add_argument("--gpm103-contact", action="store_true",
                         help="qualify the bounded, non-payment EEPROM contact fixture and persistent writes")
     parser.add_argument("--gpm103-lab", action="store_true",
-                        help="check exact readback of the frozen 13-byte lab fixture (programming may be enabled)")
+                        help="check exact readback of the independent, read-only 13-byte lab fixture")
     parser.add_argument("--13-byte-bench", dest="short_contact_bench", action="store_true",
                         help="qualify the independent 13-byte non-payment contact fixture and persistent writes")
     parser.add_argument("--shadybucks-contact", action="store_true",
@@ -186,7 +187,7 @@ def main():
     root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     fixture = ROOT / "fixtures/cards" / (
         "smartcard-sync-gpm103-contact.json" if args.gpm103_contact else
-        "smartcard-sync-gpm103-lab.json" if args.gpm103_lab else
+        GPM103_LAB_READBACK_FIXTURE if args.gpm103_lab else
         "smartcard-sync-13byte-bench.json" if args.short_contact_bench else
         f"smartcard-sync-lab-purse-{args.lab_profile}.json" if args.lab_profile else "smartcard-sync-address-test.json")
     if args.shadybucks_contact:
@@ -201,16 +202,9 @@ def main():
     fixture_data = json.loads(fixture.read_text(encoding="utf-8"))
     expected = fixture_data["memory_hex"]
     if args.gpm103_lab:
-        # Default lab contact may enable counter-region programming; this probe
-        # still only asserts exact virgin readback via COINLINE_SYNC_READBACK_ONLY.
-        if (fixture_data.get("protocol") != "sync" or
+        if (fixture_data.get("protocol") != "sync" or fixture_data.get("sync_program_enabled") or
                 bytes.fromhex(expected) != bytes.fromhex(GPM103_LAB_READBACK_HEX)):
-            raise ValueError("Lab fixture does not match the frozen contact image")
-        if fixture_data.get("sync_program_enabled"):
-            if (fixture_data.get("sync_program_first_bit") != 64 or
-                    fixture_data.get("sync_program_end_bit") != 104 or
-                    fixture_data.get("sync_program_us") != 10000):
-                raise ValueError("Lab fixture programming window must be bits 64..104 @ 10000 us")
+            raise ValueError("Lab fixture does not match the frozen read-only contact image")
         expected = GPM103_LAB_READBACK_HEX
     for board in ("earlier", "later"):
         out = root / board
