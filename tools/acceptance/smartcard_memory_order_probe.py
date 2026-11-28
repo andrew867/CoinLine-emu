@@ -13,6 +13,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+GPM103_LAB_READBACK_HEX = "00286F00000001B978FFFFFFFF"
 
 PROBE = r'''
 local machine = manager.machine
@@ -21,6 +22,7 @@ local card = assert(machine.ioport.ports[":CARDUI"]:field(2))
 local earlier = os.getenv("COINLINE_MOTHERBOARD") == "earlier"
 local programming = os.getenv("COINLINE_SYNC_PROGRAM_BENCH") == "1"
 local warm = os.getenv("COINLINE_SYNC_PROGRAM_WARM") == "1"
+local readback_only = os.getenv("COINLINE_SYNC_READBACK_ONLY") == "1"
 local expected = {}
 for byte in (os.getenv("COINLINE_SYNC_EXPECTED_HEX") or "963CA700"):gmatch("%x%x") do
     expected[#expected + 1] = assert(tonumber(byte, 16))
@@ -81,6 +83,10 @@ emu.register_frame_done(function()
         power(); seek_zero()
         if warm then expected[#expected] = expected[#expected] & 0x7f end
         read_memory()
+        if readback_only then
+            print("SMARTCARD_LAB_READBACK passed")
+            machine:exit(); return
+        end
         assert(read_bits(8) == 0xff, "out-of-range contact did not release")
         seek_zero()
         for i = 1, 8 do advance() end
@@ -166,17 +172,21 @@ def main():
                         help="read an entire packaged nonredeemable synchronous LAB snapshot")
     parser.add_argument("--gpm103-contact", action="store_true",
                         help="qualify the bounded, non-payment EEPROM contact fixture and persistent writes")
+    parser.add_argument("--gpm103-lab", action="store_true",
+                        help="check exact readback of the frozen 13-byte lab fixture only")
     parser.add_argument("--13-byte-bench", dest="short_contact_bench", action="store_true",
                         help="qualify the independent 13-byte non-payment contact fixture and persistent writes")
     parser.add_argument("--shadybucks-contact", action="store_true",
                         help="generate a new independent SBX1 read-only snapshot and qualify contact reads")
     args = parser.parse_args()
-    if sum((bool(args.lab_profile), args.gpm103_contact, args.shadybucks_contact, args.short_contact_bench)) > 1:
+    if sum((bool(args.lab_profile), args.gpm103_contact, args.gpm103_lab,
+            args.shadybucks_contact, args.short_contact_bench)) > 1:
         parser.error("choose one fixture")
     programming = args.gpm103_contact or args.short_contact_bench
     root = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     fixture = ROOT / "fixtures/cards" / (
         "smartcard-sync-gpm103-contact.json" if args.gpm103_contact else
+        "smartcard-sync-gpm103-lab.json" if args.gpm103_lab else
         "smartcard-sync-13byte-bench.json" if args.short_contact_bench else
         f"smartcard-sync-lab-purse-{args.lab_profile}.json" if args.lab_profile else "smartcard-sync-address-test.json")
     if args.shadybucks_contact:
@@ -188,7 +198,13 @@ def main():
         fixture = root / "independent-sbx1.json"
         fixture.write_text(json.dumps(issuer.export_contact(card), indent=2) + "\n", encoding="utf-8")
         initial_state = issuer.balance(card)
-    expected = json.loads(fixture.read_text(encoding="utf-8"))["memory_hex"]
+    fixture_data = json.loads(fixture.read_text(encoding="utf-8"))
+    expected = fixture_data["memory_hex"]
+    if args.gpm103_lab:
+        if (fixture_data.get("protocol") != "sync" or fixture_data.get("sync_program_enabled") or
+                bytes.fromhex(expected) != bytes.fromhex(GPM103_LAB_READBACK_HEX)):
+            raise ValueError("Lab fixture does not match the frozen read-only contact image")
+        expected = GPM103_LAB_READBACK_HEX
     for board in ("earlier", "later"):
         out = root / board
         out.mkdir(parents=True)
@@ -211,6 +227,8 @@ def main():
                    COINLINE_SMART_CARD=str(fixture), COINLINE_SYNC_EXPECTED_HEX=expected)
         if programming:
             env.update(COINLINE_SYNC_PROGRAM_BENCH="1", COINLINE_SMART_CARD_TRACE="1")
+        if args.gpm103_lab:
+            env["COINLINE_SYNC_READBACK_ONLY"] = "1"
         command = [str(args.mame.resolve()), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
                    "-video", "none", "-sound", "none", "-rompath", str(args.rompath.resolve()),
                    "-nvram_directory", str(out / "nvram"), "-cfg_directory", str(out / "cfg"),
@@ -218,7 +236,8 @@ def main():
         result = subprocess.run(command, cwd=out, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
         log = result.stdout.decode(errors="replace")
         (out / "mame.log").write_text(log, encoding="utf-8")
-        marker = "SMARTCARD_SYNC_BENCH passed" if programming else "SMARTCARD_MEMORY_ORDER passed"
+        marker = ("SMARTCARD_LAB_READBACK passed" if args.gpm103_lab else
+                  "SMARTCARD_SYNC_BENCH passed" if programming else "SMARTCARD_MEMORY_ORDER passed")
         if result.returncode or "LUA ERROR" in log or marker not in log:
             raise RuntimeError(f"Native {board} memory-order test failed: {out}")
         print(f"Native {board} memory-order test passed: {out}", flush=True)

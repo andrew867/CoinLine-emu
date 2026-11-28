@@ -1,0 +1,8 @@
+{
+  "type": "smartcard",
+  "protocol": "sync",
+  "fixture_kind": "gpm103-lab-personalized",
+  "atr_hex": "00",
+  "memory_hex": "00286F00000001B978FFFFFFFF",
+  "notes": "Frozen 13-byte lab image for synchronous contact readback only."
+}
