@@ -25,6 +25,9 @@ def main():
     parser.add_argument("--coin-validator", choices=tuple(COIN_VALIDATOR_PROFILES), default="board-default",
                         help="select a physical validator calibration independently of downloaded tables")
     parser.add_argument("--settings", type=Path, help="local lab settings, kept out of reports")
+    parser.add_argument("--ncc-port", type=int, help="override the private settings NCC loopback port")
+    parser.add_argument("--code-server-number", help="override the private settings code-server dial alias")
+    parser.add_argument("--code-server-port", type=int, help="override the private settings code-server loopback port")
     parser.add_argument("--actions", type=Path, help="initial local physical-input command file, copied into the isolated run")
     parser.add_argument("--battery", type=Path, help="previous run's complete nvram directory")
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
@@ -42,6 +45,7 @@ def main():
     parser.add_argument("--card-trace", action="store_true", help="capture the contact-card pins")
     parser.add_argument("--coin-trace", action="store_true", help="capture the later-board validator UART register activity")
     parser.add_argument("--modem-trace", action="store_true", help="capture modem traffic without enabling default boot traces")
+    parser.add_argument("--flash-trace", action="store_true", help="capture guest-issued NOR erase and program operations")
     parser.add_argument("--data-jack", choices=("downloaded", "desktop", "universal"), help="select an optional later-board data-jack monitor/relay profile")
     parser.add_argument("--data-jack-trace", action="store_true", help="trace raw data-jack monitor and relay transitions")
     parser.add_argument("--io-trace", action="store_true", help="capture compact native I/O trace for a bounded diagnostic run")
@@ -120,6 +124,12 @@ def main():
     if args.adsi_offline_pcm and not str(settings.get("free_call", "")).isdigit():
         parser.error("--adsi-offline-pcm requires a numeric local free_call in the lab settings")
     settings = normalize_manager_settings(settings)
+    if args.ncc_port is not None:
+        settings["ncc_port"] = args.ncc_port
+    if args.code_server_number is not None:
+        settings["code_server_number"] = args.code_server_number
+    if args.code_server_port is not None:
+        settings["code_server_port"] = args.code_server_port
     validate_data_routes(settings)
     out = args.output.resolve() / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     out.mkdir(parents=True)
@@ -169,6 +179,8 @@ def main():
         env.update(COINLINE_MODEM_TRACE="1", COINLINE_BOOT_TRACE=str(out / "boot.jsonl"))
     if args.modem_trace:
         env["COINLINE_MODEM_TRACE"] = "1"
+    if args.flash_trace:
+        env["COINLINE_FLASH_TRACE"] = str(out / "flash-operations.jsonl")
     if args.voiceware_trace:
         env["COINLINE_VOICEWARE_TRACE"] = str(out / "voiceware.jsonl")
     for key in ("line", "serial", "pin"):
