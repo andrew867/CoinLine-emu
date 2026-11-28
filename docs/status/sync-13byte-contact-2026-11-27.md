@@ -24,3 +24,19 @@ The test image is arbitrary and contains no application-specific data.
 Issuer-table interoperability, application checks, unit encoding, debit,
 exhaustion, and family-specific erase/carry semantics are not qualified by
 these transport runs.
+
+## Component regression follow-up
+
+The synchronous model now keeps the compatibility character FIFO idle and
+rejects asynchronous negotiation for a synchronous fixture, even when its
+unused ATR placeholder resembles a valid serial answer. An explicit
+synchronous fallback remains available. Separate component cases confirm
+that loss of supply and contact deselection cancel a pending programming
+pulse without modifying arbitrary test memory, including when the minimum
+programming interval has already elapsed.
+
+Fresh MSYS2/MINGW64 component build: all three selected CTest cases passed
+(`test_smartcard_protocol_negotiation`, `test_smartcard_async_transport`,
+`test_terminal_full_stack_vectors`). Evidence:
+`build/sync-contact-component-20261127-v2/Testing/Temporary/LastTest.log`.
+This is component evidence, not a new native emulator or application run.

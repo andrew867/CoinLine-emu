@@ -827,7 +827,8 @@ std::uint8_t millennium_smartcard_model::status_lines() const
 
 std::uint8_t millennium_smartcard_model::read_fifo(std::uint64_t cycle)
 {
-	if (!m_card_present)
+	// Synchronous fixtures have no character FIFO or serial ATR.
+	if (!m_card_present || m_fixture.protocol == "sync")
 		return 0xff;
 	if (cycle < m_block_until_cycle)
 		return 0xff;
@@ -873,8 +874,8 @@ bool millennium_smartcard_model::negotiate_protocol(bool allow_sync_probe)
 		return true;
 	}
 	if (m_fixture.protocol == "sync") {
-		m_selected_protocol = negotiated_protocol::sync_fallback;
-		return true;
+		m_selected_protocol = allow_sync_probe ? negotiated_protocol::sync_fallback : negotiated_protocol::none;
+		return allow_sync_probe;
 	}
 	auto const invalid = [&]() {
 		m_selected_protocol = allow_sync_probe ? negotiated_protocol::sync_fallback : negotiated_protocol::none;
