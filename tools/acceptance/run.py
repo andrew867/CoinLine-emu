@@ -238,6 +238,8 @@ def run_phase(args, settings, attempt, name, base_env):
                    COINLINE_TP_CSIO_RAW_TRACE=str(run / "acceptance-trace-csio-wire.jsonl"),
                    COINLINE_TP_CSIO_QUALIFIED_TRACE=str(run / "acceptance-trace-csio.jsonl"),
                    COINLINE_TP_8048_CP_PROTOCOL_TRACE=str(run / "acceptance-trace-telephony.jsonl"))
+    if args.flash_trace:
+        env["COINLINE_FLASH_TRACE"] = str(run / "flash-operations.jsonl")
     if args.voice_trace or ((args.test_call or args.test_mag_call) and name == "warm"):
         env["COINLINE_VOICEWARE_TRACE"] = str(run / "acceptance-trace-voiceware.jsonl")
     if args.card_trace:
@@ -554,6 +556,7 @@ def main():
     parser.add_argument("--voice-trace", action="store_true", help="capture Voiceware commands and playback events")
     parser.add_argument("--card-trace", action="store_true", help="capture synchronous contact card pins")
     parser.add_argument("--telephony-trace", action="store_true", help="capture telephony controller messages and qualified CSIO")
+    parser.add_argument("--flash-trace", action="store_true", help="capture guest-issued NOR erase and program operations")
     parser.add_argument("--inventory-only", action="store_true", help="verify hashes and report candidate plans without launching MAME")
     parser.add_argument("--boot-only", action="store_true", help="stop at the first stable startup prompt, without entering INSTALL")
     parser.add_argument("--test-call", action="store_true", help="after restart, dial the configured destination on the local CO")

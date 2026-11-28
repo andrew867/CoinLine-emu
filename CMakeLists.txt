@@ -82,6 +82,10 @@ coinline_add_test(test_z180_prt z180 tests/devices/test_z180_prt.cpp)
 coinline_add_test(test_z180_int z180 tests/devices/test_z180_int.cpp)
 coinline_add_test(test_z180_dma z180 tests/devices/test_z180_dma.cpp)
 coinline_add_test(test_flash_model boot tests/devices/test_flash_model.cpp)
+coinline_add_test(test_firmware_download_staging firmware_download
+	tests/devices/test_firmware_download_staging.cpp)
+coinline_add_test(test_firmware_download_apply firmware_download
+	tests/devices/test_firmware_download_apply.cpp)
 coinline_add_test(test_battery_writer boot tests/devices/test_battery_writer.cpp)
 coinline_add_test(test_z180_refresh z180 tests/devices/test_z180_refresh.cpp)
 coinline_add_test(test_z180_wait_states z180 tests/devices/test_z180_wait_states.cpp)
@@ -222,5 +226,5 @@ foreach(test_name IN ITEMS test_host_bridge_loopback test_host_bridge_sideband_n
 	set_tests_properties(${test_name} PROPERTIES TIMEOUT 35)
 endforeach()
 
-message(STATUS "coinline-emu: configured C++ tests (labels: boot, unknown_port, z180, telephony, vfd, vfd-parity, evidence_bundle, tool). "
+message(STATUS "coinline-emu: configured C++ tests (labels: boot, firmware_download, unknown_port, z180, telephony, vfd, vfd-parity, evidence_bundle, tool). "
 	"MAME driver is built separately via EXTERNAL_MAME_ROOT.")

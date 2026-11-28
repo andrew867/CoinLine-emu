@@ -6,7 +6,11 @@ import pytest
 
 ACCEPTANCE = Path(__file__).resolve().parents[2] / "tools/acceptance"
 sys.path.insert(0, str(ACCEPTANCE))
-from firmware_upgrade_evidence import BLOCK_BYTES, IMAGE_BYTES, digest, persisted, summarize
+from firmware_upgrade_evidence import (BLOCK_BYTES, IMAGE_BYTES, boot_qualification, digest,
+                                       flash_trace_qualification, persisted,
+                                       production_job_qualification, receiver_qualification,
+                                       summarize, version_display_qualification)
+from firmware_download_plan import firmware_applied_target
 from run import normalize_manager_settings, validate_data_routes
 
 
@@ -37,6 +41,7 @@ def test_upgrade_block_comparison_and_seed_binding(tmp_path):
     assert report["expected"]["matches_requested_blocks"]
     assert report["expected"]["changed_outside_requested_blocks"] == [128]
     assert not report["service_and_restart_qualified"]
+    assert not report["qualified"]
     assert all(chip["before_sha256"] != chip["after_sha256"] for chip in report["chips"])
     mismatch = summarize(seed, before, after, seed, [1, 128])
     assert mismatch["expected"]["mismatched_blocks"] == [1, 128]
@@ -44,6 +49,60 @@ def test_upgrade_block_comparison_and_seed_binding(tmp_path):
         summarize(seed, before, after, expected_blocks=[1])
     with pytest.raises(ValueError, match="Block indices"):
         summarize(seed, before, after, seed, [256])
+
+
+def test_complete_qualification_requires_raw_flash_restart_service_and_version(tmp_path):
+    seed = bytes(IMAGE_BYTES)
+    target = bytearray(seed)
+    target[BLOCK_BYTES + 1] = 3
+    target = bytes(target)
+    active = firmware_applied_target(seed, target, [1])
+    trace = tmp_path / "flash.jsonl"
+    trace.write_text("\n".join((
+        '{"event":"erase_begin","block_4k":1}',
+        '{"event":"erase_complete","block_4k":1}',
+        '{"event":"program_begin","block_4k":1,"program_error":false}',
+        '{"event":"program_complete","block_4k":1}',
+        '{"event":"summary","program_begin":1,"program_complete":1,"erase_begin":1,"erase_complete":1}',
+    )) + "\n", encoding="utf-8")
+    flash = flash_trace_qualification(trace, [1])
+    assert flash["qualified"]
+    production = {"source": "coinline-production", "qualified": True}
+    version = {"expected_version": "target 2.0", "qualified": True}
+    report = summarize(seed, seed, active, target, [1], flash_trace=flash,
+                       post_restart=active, boot_ready=True, receiver_ready=True,
+                       production_job=production, version_display=version)
+    assert report["service_and_restart_qualified"]
+    assert report["qualified"]
+    missing_version = summarize(seed, seed, active, target, [1], flash_trace=flash,
+                                post_restart=active, boot_ready=True, receiver_ready=True,
+                                production_job=production)
+    assert not missing_version["qualified"]
+
+
+def test_raw_post_restart_observation_parsers(tmp_path):
+    boot = tmp_path / "boot.jsonl"
+    boot.write_text('{"milestone":"protocol_ready","telephony_ready":true,'
+                    '"ready_sequence_completed":true}\n', encoding="utf-8")
+    events = tmp_path / "events.tsv"
+    events.write_text("1\tinput\thook off\n2\tinput\thook on\n", encoding="utf-8")
+    keypad = tmp_path / "keypad.jsonl"
+    keypad.write_text('{"event":"tp_key_event_reported_to_cp","reason":"line_connection"}\n',
+                      encoding="utf-8")
+    production = tmp_path / "production.json"
+    production.write_text('{"source":"coinline-production","phase":"code-server-transfer-complete",'
+                          '"success":true,"firmware_id":"target","artifactSha256":"abc",'
+                          '"requestedBlocks":[1],"deliveredBlocks":[1],"xmodemPackets":5}\n',
+                          encoding="utf-8")
+    snapshots = tmp_path / "vfd.jsonl"
+    snapshots.write_text('{"text":["target 2.0          ","                    "]}\n',
+                         encoding="utf-8")
+    assert boot_qualification(boot)
+    assert receiver_qualification(events, keypad)
+    assert production_job_qualification(production, "target", "abc", [1])["qualified"]
+    assert not production_job_qualification(production, "target", "def", [1])["qualified"]
+    assert version_display_qualification(snapshots, "target 2.0")["qualified"]
+    assert not version_display_qualification(snapshots, "target 2.1")["qualified"]
 
 
 @pytest.mark.parametrize("settings", [

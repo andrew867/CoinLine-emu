@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #if defined(_WIN32)
 #include <winsock2.h>
@@ -124,6 +125,30 @@ void write_register(millennium_modem_model &modem, std::uint8_t address, std::ui
 	modem.ssi_pio_a_write(base | 0x08U | clock, true);
 }
 
+bool send_all(socket_type socket, std::vector<char> const &data)
+{
+	for (std::size_t offset = 0; offset < data.size();) {
+		int const count = send(socket, data.data() + offset, static_cast<int>(data.size() - offset), 0);
+		if (count <= 0)
+			return false;
+		offset += count;
+	}
+	return true;
+}
+
+bool receive_all(socket_type socket, std::vector<char> &data)
+{
+	for (std::size_t offset = 0; offset < data.size();) {
+		if (!ready(socket))
+			return false;
+		int const count = recv(socket, data.data() + offset, static_cast<int>(data.size() - offset), 0);
+		if (count <= 0)
+			return false;
+		offset += count;
+	}
+	return true;
+}
+
 } // namespace
 
 int main()
@@ -165,16 +190,25 @@ int main()
 	if (read_detect_register(modem) != 0x04U || modem.dcd())
 		return fail("Code-server answer-tone phase was not visible on the SSI bus");
 	modem.poll_ncc_link(8.34);
+	if (read_detect_register(modem) != 0x04U || modem.dcd())
+		return fail("Answer detector did not retain its bounded hold interval");
+	modem.poll_ncc_link(8.365);
 	if (read_detect_register(modem) != 0x00U || modem.dcd())
-		return fail("Code-server answer turn-off gap must be observable");
+		return fail("Code-server answer turn-off gap must remain observable");
 	modem.poll_ncc_link(8.39);
 	if (read_detect_register(modem) != 0x08U || modem.dcd())
 		return fail("DPSK carrier acquisition is independent of mark qualification");
 	modem.poll_ncc_link(8.41);
-	if (read_detect_register(modem) != 0x38U || modem.dcd())
-		return fail("Code-server unscrambled mark detector must be distinct from receive data");
+	if (read_detect_register(modem) != 0x3cU || modem.dcd())
+		return fail("Answer and mark detectors did not overlap during filter decay");
+	modem.poll_ncc_link(8.52);
+	if (read_detect_register(modem) != 0x3cU || modem.dcd())
+		return fail("Answer and mark detector overlap ended before carrier qualification");
+	modem.poll_ncc_link(8.55);
+	if (read_detect_register(modem) != 0x3cU || modem.dcd())
+		return fail("Detector transition completed before the guest began training");
 	modem.poll_ncc_link(15.0);
-	if (modem.dcd() || read_detect_register(modem) != 0x38U)
+	if (modem.dcd() || read_detect_register(modem) != 0x3cU)
 		return fail("A TCP connection and elapsed time alone cannot complete training");
 	modem.note_tx(0x55U);
 	if (ready(code_call.value, 20))
@@ -207,9 +241,16 @@ int main()
 	if (!modem.dcd() || read_detect_register(modem) != 0x08U)
 		return fail("Code-server call did not provide carrier");
 
-	std::array<char, 4> const bytes{0x01, 0x00, char(0x80), char(0xff)};
-	if (send(code_call.value, bytes.data(), static_cast<int>(bytes.size()), 0) != int(bytes.size()))
-		return fail("Could not send test data to the modem");
+	// Exercise a complete application block plus its header. This crosses
+	// many host socket reads and proves the transparent bridge does not stop
+	// at a small control exchange after carrier qualification.
+	std::vector<char> bytes(10 + 4096);
+	for (std::size_t index = 0; index < bytes.size(); ++index)
+		bytes[index] = static_cast<char>((index * 37U + 11U) & 0xffU);
+	bytes[0] = 0x01;
+	bytes[1] = char(0x80);
+	if (!send_all(code_call.value, bytes))
+		return fail("Could not send a complete code block to the modem");
 	for (char expected : bytes) {
 		std::uint8_t received = 0;
 		bool obtained = false;
@@ -224,16 +265,9 @@ int main()
 		modem.note_tx(received);
 	}
 	modem.poll_ncc_link(16.2);
-	std::array<char, 4> returned{};
-	for (std::size_t offset = 0; offset < returned.size();) {
-		if (!ready(code_call.value))
-			return fail("No code-server transmit data");
-		int const count = recv(code_call.value, returned.data() + offset,
-			static_cast<int>(returned.size() - offset), 0);
-		if (count <= 0)
-			return fail("Code-server transmit stream ended early");
-		offset += count;
-	}
+	std::vector<char> returned(bytes.size());
+	if (!receive_all(code_call.value, returned))
+		return fail("Code-server transmit stream ended early");
 	if (returned != bytes)
 		return fail("Code-server transmit stream was altered");
 	modem.note_modem_relay(false, 17.0);
@@ -250,15 +284,17 @@ int main()
 	write_register(modem, 1, 0x80);
 	write_register(modem, 4, 0x00);
 	modem.poll_ncc_link(8.41);
-	modem.poll_ncc_link(8.69);
+	modem.poll_ncc_link(8.52);
+	modem.poll_ncc_link(8.55);
+	modem.poll_ncc_link(8.83);
 	if (read_detect_register(modem) != 0x28U || modem.dcd())
 		return fail("V.22 fallback did not qualify the guest's scrambled marks");
-	modem.poll_ncc_link(9.4);
+	modem.poll_ncc_link(9.58);
 	if (modem.dcd()) return fail("V.22 fallback completed before its remote training interval");
-	modem.poll_ncc_link(9.46);
+	modem.poll_ncc_link(9.6);
 	if (!modem.dcd() || read_detect_register(modem) != 0x08U)
 		return fail("V.22 fallback did not complete");
-	modem.note_modem_relay(false, 9.5);
+	modem.note_modem_relay(false, 9.6);
 
 	set_config("COINLINE_NCC_LAB_HELLO", "0");
 	dial(modem, "2130706433");

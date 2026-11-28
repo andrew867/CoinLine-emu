@@ -99,6 +99,7 @@ private:
 
 	std::string m_dialed{};
 	double m_last_digit_sec = -1.0;
+	bool m_dial_trace_complete = false;
 	bool m_ncc_up = false;
 	// A completed TCP handshake consumes this dial attempt, even if the
 	// peer subsequently hangs up. Initial connect failures remain retryable.
@@ -146,6 +147,7 @@ private:
 		carrier_mark,
 		answer_gap,
 		training_carrier,
+		answer_mark_overlap,
 		unscrambled_mark,
 		s1_pattern,
 		scrambled_mark,

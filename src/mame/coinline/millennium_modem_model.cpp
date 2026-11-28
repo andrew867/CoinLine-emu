@@ -162,6 +162,7 @@ void millennium_modem_model::reset()
 	m_in_clean_connect_replay = false;
 	m_dialed.clear();
 	m_last_digit_sec = -1.0;
+	m_dial_trace_complete = false;
 	m_ncc_up = false;
 	m_ncc_connected_this_dial = false;
 	m_ncc_retry_after = 0.0;
@@ -469,6 +470,9 @@ void millennium_modem_model::refresh_detect_register()
 	case cp_phase::training_carrier:
 		dr = 0x08;
 		break;
+	case cp_phase::answer_mark_overlap:
+		dr = 0x3c;
+		break;
 	case cp_phase::unscrambled_mark:
 		dr = 0x38;
 		break;
@@ -516,6 +520,7 @@ void millennium_modem_model::trace_call_progress(char const *event, double sampl
 	case cp_phase::carrier_mark: phase = "carrier_mark"; break;
 	case cp_phase::answer_gap: phase = "answer_gap"; break;
 	case cp_phase::training_carrier: phase = "training_carrier"; break;
+	case cp_phase::answer_mark_overlap: phase = "answer_mark_overlap"; break;
 	case cp_phase::unscrambled_mark: phase = "unscrambled_mark"; break;
 	case cp_phase::s1_pattern: phase = "s1_pattern"; break;
 	case cp_phase::scrambled_mark: phase = "scrambled_mark"; break;
@@ -551,20 +556,35 @@ void millennium_modem_model::poll_code_training(double now_sec)
 	// V.25 (11/88) §4.4; V.22bis (11/88) §6.3.1; 73K324L pp. 10-11, 20.
 	double const elapsed = now_sec - m_ncc_connected_at;
 	if (elapsed < 2.0) { set_call_phase(cp_phase::ringback, now_sec); return; }
-	// Nominal 3.3 s answer, 75 ms turn-off gap, 25 ms detector hold,
-	// 12 ms DPSK carrier / 25 ms unscrambled-mark detector acquisition.
-	if (elapsed < 5.325) { set_call_phase(cp_phase::answer_tone, now_sec); return; }
+	// Nominal 3.3 s answer, 75 ms turn-off gap, 35 ms detector hold,
+	// then DPSK carrier and mark acquisition. The receive filters expose
+	// answer and mark together until the originating modem begins training.
+	// This is a detector-level model, so retain answer detection for its
+	// specified hold interval after the physical answer tone ends. The bounded
+	// detector overlap below lets the originating modem qualify the following
+	// mark without observing a false no-signal interval between independently
+	// debounced inputs.
+	if (elapsed < 5.360) { set_call_phase(cp_phase::answer_tone, now_sec); return; }
 	if (elapsed < 5.387) { set_call_phase(cp_phase::answer_gap, now_sec); return; }
 	if (elapsed < 5.400) { set_call_phase(cp_phase::training_carrier, now_sec); return; }
 	if (m_cp == cp_phase::ringback || m_cp == cp_phase::answer_tone || m_cp == cp_phase::answer_gap ||
 		m_cp == cp_phase::training_carrier || m_cp == cp_phase::post_dial)
-		set_call_phase(cp_phase::unscrambled_mark, now_sec);
+		set_call_phase(cp_phase::answer_mark_overlap, now_sec);
 
 	bool const originate_tx = (m_ssi_cr0 & 0x03U) == 0x03U && !(m_ssi_tr & 0x10U);
 	bool const dpsk = (m_ssi_cr0 & 0xe0U) == 0;
 	bool const qam = (m_ssi_cr0 & 0xe0U) == 0x40U;
 	bool const local_s1 = originate_tx && dpsk && (m_ssi_cr1 & 0xc0U) == 0x40U && (m_ssi_cr2 & 0x10U);
 	bool const local_scrambled_mark = originate_tx && (m_ssi_cr1 & 0xd0U) == 0x80U;
+	if (m_cp == cp_phase::answer_mark_overlap) {
+		// Do not insert a false detector-off interval while the guest qualifies
+		// the received carrier. The detector transition completes when the guest
+		// selects the next training signal through the modem control registers.
+		if (!local_s1 && !local_scrambled_mark)
+			return;
+		set_call_phase(cp_phase::unscrambled_mark, now_sec);
+	}
+
 	if (m_cp == cp_phase::unscrambled_mark) {
 		if (local_s1) {
 			if (m_guest_s1_since < 0.0) m_guest_s1_since = now_sec;
@@ -642,6 +662,7 @@ void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 	m_r1 = r1_active;
 	m_dialed.clear();
 	m_last_digit_sec = -1.0;
+	m_dial_trace_complete = false;
 	m_ncc_connected_this_dial = false;
 	m_ncc_retry_after = 0.0;
 	m_dcd = false;
@@ -756,6 +777,7 @@ void millennium_modem_model::note_outpulse_digit(char digit, double now_sec)
 	if (!m_r1 || !((digit >= '0' && digit <= '9') || digit == '#' || digit == '*'))
 		return;
 	m_last_digit_sec = now_sec;
+	m_dial_trace_complete = false;
 	m_cp = cp_phase::post_dial;
 	refresh_detect_register();
 	if (m_state == millennium_modem_state::idle)
@@ -911,6 +933,12 @@ void millennium_modem_model::poll_ncc_link(double now_sec)
 	if (m_call_trace)
 		m_call_trace_poll_sec = now_sec;
 	poll_call_progress(now_sec);
+	if (m_r1 && !m_dial_trace_complete && m_last_digit_sec >= 0.0
+		&& (now_sec - m_last_digit_sec) >= 1.2) {
+		m_dial_trace_complete = true;
+		std::fprintf(stderr, "modem dial complete digits=%s count=%zu\n",
+			m_dialed.c_str(), m_dialed.size());
+	}
 	if (m_r1 && !m_ncc_up && !m_ncc_connected_this_dial && now_sec >= m_ncc_retry_after
 		&& m_last_digit_sec >= 0.0 && (now_sec - m_last_digit_sec) >= 1.2
 		&& m_dialed.size() == 10)

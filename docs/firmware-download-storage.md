@@ -23,8 +23,9 @@ The code-server alias must be a distinct ten-digit string, and the server
 must listen on the configured loopback TCP port. The ordinary NCC number
 still selects the NCC port. The same firmware-controlled modem, carrier,
 and ASCI1 path transports raw code-server bytes without adding an NCC frame.
-The alias is disabled by default. The format and timing of the actual
-download protocol still need qualification with a compatible code server.
+The alias is disabled by default. Native qualification with the stock
+download application completed the separate call, modem training and
+documented block-transfer protocol with a compatible loopback code server.
 
 The batch acceptance runner and interactive later-board `graphic_session.py`
 accept the same optional `code_server_number` and `code_server_port` in
@@ -37,7 +38,8 @@ retains checksum tables and progress information, backs up unaffected data
 from an erase sector to SRAM, erases the selected NOR sector, and programs
 and verifies the received blocks and unaffected data. The retained information
 is intended to support interrupted-transfer recovery. The full upgrade
-sequence, wire transfer and recovery behavior still require live acceptance.
+sequence, wire transfer and reason-2 retained retry are qualified below for
+the registered two-line lab target.
 
 ## Later control-board flash
 
@@ -78,20 +80,52 @@ flash, with no change to its active flash digest during ordinary provisioning.
 
 ## Acceptance gates
 
-1. Cold boot through the flash bootstrap and complete normal INSTALL.
-2. Record the initial flash, SRAM/EEPROM and firmware version evidence.
-3. Deliver MT94 through the NCC on an isolated local terminal.
-4. Capture the terminal's independent code-server call and download protocol.
-5. Transfer an approved compatible image using its documented download format.
-6. Observe firmware-issued flash commands, checksum verification and a firmware-initiated reboot.
-7. Confirm the active flash hashes, reported firmware version and service behavior across another power cycle.
-8. Repeat interrupted-transfer cases and check the resident recovery application and retained state.
+1. **Passed.** Cold boot through the flash bootstrap completed normal INSTALL.
+2. **Passed.** Cold and warm baseline flash, battery and version evidence was recorded.
+3. **Open.** A fixture delivered MT94 and received MT14; production CoinLine scheduling and delivery is not yet qualified.
+4. **Open.** The terminal dialed a distinct loopback fixture and completed the modem handshake; the production hosted listener is not yet qualified.
+5. **Open.** Only a generated marker target was transferred. A distinct registered firmware target has not completed the production path.
+6. **Open.** Persistent bytes changed in the fixture run, but guest-issued NOR operation evidence was not captured for a registered target.
+7. **Open.** The fixture run retained the baseline reported version, and its evidence recorded service and restart as unqualified.
+8. **Open.** The packet-2 retry observation used the fixture server and must be repeated through production CoinLine.
 
-The host integration is still required for the end-to-end tests. The
-historical extended staging fixture lies outside the processor's 20-bit
+Detailed evidence is in
+[MTR 2.x firmware download qualification](status/firmware-download-qualification-2026-11-28.md).
+The historical extended staging fixture lies outside the processor's 20-bit
 physical address space. It is retained for existing synthetic storage tests.
 
-### Native schedule pickup
+### Retracted fixture-only observation
+
+The isolated two-line standard universal profile started from active flash
+SHA-256 `b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34`
+and program tag `1.3`. CoinLine assigned block 128 by MT94 on the ordinary
+NCC connection, and the terminal acknowledged that record with MT14. At the
+scheduled time it dialed the distinct code-server alias and completed the
+guest-controlled answer, mark, S1 and QAM states before carrier.
+
+The code server delivered four 1 KiB packets and one padded 128-byte packet,
+followed by EOT. The terminal ACKed all five packets and EOT, displayed its
+checksum and block-write progress, updated block 128 plus checksum-metadata
+block 191, and restarted the main application. The active flash SHA-256 was
+`38c8b8d802920a5e43fa52f3739bd0d9d85127e7b30b74915ee685ee1e77b142`,
+an exact match for a computed expected active image. A separate warm boot
+reported `DLA 1 active ver 7` and `X1.3`, preserved that digest, delivered the
+physical receiver-lift event to the control processor, and returned on-hook.
+
+This did not establish a real firmware update. The target was generated from
+the baseline by adding a marker to one erased block, the reported version did
+not change, and the host processes were fixture tools rather than production
+CoinLine services. The preserved report recorded service and restart as
+unqualified. The acceptance gates above therefore remain open.
+
+For the interruption case, the server disconnected after transmitting packet
+2. The terminal ACKed packet 1, emitted CAN on connection loss, left active
+flash byte-identical to the baseline, and retained a redial callback. After a
+power cycle it retried automatically without another MT94. The request reason
+changed from 1 to 2, block 128 was retained, the transfer and apply completed,
+and the resulting active image again matched the registered target exactly.
+
+### Earlier native schedule pickup observation
 
 An independently installed graphical MTR 2.12-based reference was restarted
 from its own firmware-written battery and persistent flash. Normal Craft
@@ -110,16 +144,17 @@ time, the terminal seized its modem relay, outpulsed the distinct configured
 code-server alias, and the native modem opened the separate TCP connection.
 The observation endpoint accepted that connection and received and sent zero
 bytes. The native trace records relay release before an explicit SSI carrier
-assertion; a subsequent separate NCC contact did reach carrier. The current
-modem's shared five-second call-progress carrier interval is longer than
-the observed code-server TCP connection lifetime. This does not establish
-the expected physical modem timing or application handshake, which need
-separate observation rather than an assumed successful connection.
+assertion; a subsequent separate NCC contact did reach carrier. That earlier
+build used a shared five-second call-progress interval longer than the
+observed code-server TCP connection lifetime. This observation established
+the schedule and route only. The later two-line qualification above supersedes
+its carrier and application-handshake gap.
 
 The session was ended normally after the first observation. The persisted
-flash file remained byte-identical to the pre-schedule reference. Native
-schedule pickup and separate dialing/routing are qualified; carrier,
-application handshake, image delivery and actual flash programming are not.
+flash file remained byte-identical to the pre-schedule reference. At that
+checkpoint, schedule pickup and separate dialing/routing were qualified,
+while carrier, application handshake, image delivery and actual flash
+programming were not yet exercised.
 
 The observation schedule was safely disabled afterward. A subsequent normal
 warm contact acknowledged a second MT19 callback, returned its own MT9 and
@@ -127,7 +162,7 @@ acknowledged the manager's disabled MT94. The observation endpoint was
 closed, and the terminal returned to ordinary operation. Evidence:
 `build/firmware-acceptance/nla1x08-code-disabled-callback/20261126T052319.695480Z/`.
 
-### Full graphical reference carrier observation
+### Earlier graphical carrier observation
 
 The independently cold/warm-qualified full graphical image (SHA-256
 prefix `996a8ac5e81d`) accepted a separate scheduled code-only callback.
@@ -157,10 +192,10 @@ defines the distinct training sequence beginning at 1200 bit/s for a
 2400 bit/s connection. The native terminal's retained detector settings
 specify a 50 ms nominal answer release and 100 ms nominal carrier
 qualification. The observed all-zero interval is consistent with a gap
-between these independent qualifications; actual detector sample counts
-and a standards-compatible remote training sequence still require further
-verification. Neither a permanently asserted answer tone nor a forced
-data-carrier status is a valid substitute for that verification.
+between these independent qualifications. This observation motivated the
+separate detector states and guest-controlled training now covered by the
+two-line native qualification. Neither a permanently asserted answer tone
+nor a forced data-carrier status was used for the passing transfer.
 
 Evidence:
 `build/firmware-acceptance/nla1x09-code-phase-observation/20261126T082451.792563Z/`.
@@ -174,13 +209,13 @@ detector acquisition/hold intervals are selected within the manufacturer's
 specified bounds; the ordinary NCC peer's existing timing remains
 unchanged. Carrier completion requires the guest's actual modem-register
 programming, not solely TCP connection or elapsed time. This is a
-logical pin-level abstraction, not an analogue waveform modem or a claim
-of completed native firmware transfer.
+logical pin-level abstraction, not an analogue waveform modem. The two-line
+native run above completed the stock application transfer through this model.
 
 The component regression verifies the initial no-signal gap, separate
 detect bits, no data transfer before training, genuine SSI-programmed S1
-and QAM transition, and 1200 bit/s fallback. Actual resident-loader
-interoperation with this model remains a separate live test.
+and QAM transition, 1200 bit/s fallback, and a complete 4 KiB binary bridge.
+The native run verifies resident-loader interoperation separately.
 
 ## Tests
 
@@ -197,7 +232,11 @@ ringback, answer-tone gap, raw carrier, separate mark, S1 and training
 states through normal SSI pins, and checks both V.22bis and V.22 fallback.
 The opt-in native modem trace records corresponding call-progress
 transitions, relay/TCP events, changed SSI detect reads and register writes
-without generating a successful protocol response.
+without synthesizing a protocol response. The native application trace records
+the successful response bytes separately.
+`test_firmware_download_staging` and `test_firmware_download_apply` exercise
+the deterministic staging and apply models and are registered under the
+`firmware_download` CTest label.
 The native synthetic flash-bus probe starts with non-erased bytes in one
 sector of each chip, erases those sectors, polls the device ready state and
 programs the target bytes with normal Z180 instructions executing from SRAM.
@@ -217,8 +256,8 @@ in `build/firmware-acceptance/flash-bus-probe/20261125T010329.378553Z/`.
 The expanded native erase-and-program probe passed both phases in
 `build/firmware-acceptance/flash-bus-probe/20261125T010939.750945Z/`.
 This establishes native CPU-bus erase, programming and restart persistence for
-the synthetic image. Actual code-server delivery and OEM application
-upgrade validation remain separate acceptance gates.
+the synthetic probe. The stock application and code-server acceptance remained
+separate at that checkpoint and are now covered by the two-line run above.
 
 ## Read-only pre/post upgrade evidence
 
@@ -247,8 +286,8 @@ The latest native synthetic dual-flash probe passed cold and warm phases,
 and the evidence tool independently identified changed blocks 1 and 130
 in `build/firmware-acceptance/flash-bus-probe/20261125T223420.771891Z/`.
 The separate code-server modem route, NOR model and bank mapping tests
-also passed. This is preparation for a genuine NCC-issued MT94 job and
-compatible code-server session, not an end-to-end remote upgrade result.
+also passed. Those probes were preparation for the later NCC-issued MT94 and
+compatible code-server result; they are not used as substitutes for it.
 
 The optional `flash_probe.py --interrupt-before-complete` bench closes
 the synthetic emulator while the actual erase bus returns a busy-toggle
@@ -260,15 +299,15 @@ All three phases passed in
 This tests the existing deterministic completed-operation persistence
 model and an orderly emulator shutdown during a busy operation. A real
 power failure can produce partial physical corruption, which this model
-does not claim to reproduce. The original firmware's recovery logic after
-an interrupted code-server transfer has not yet been exercised.
+does not claim to reproduce. The stock application's separate recovery logic
+is now exercised by the packet-2 disconnect and retained retry above.
 
 The interrupted, cold and warm native probes all passed on the subsequent
 coin/cashbox build as well, with no saved seed changes during the interrupted
 phase. Evidence: `build/firmware-acceptance/flash-bus-probe/20261126T024018.964188Z/`.
-Live qualification still requires an isolated NCC assignment and code-server
-listener, an approved compatible target image, and observation of the
-firmware-initiated transfer, resulting flash state and actual reboot.
+The later two-line qualification supplied the isolated NCC assignment,
+code-server listener, registered compatible target and native apply evidence
+that these earlier probes did not provide.
 
 The next full graphical retry remains held at normal schedule cancellation.
 A native Craft refresh completed all 18 assigned records and the terminal
@@ -278,5 +317,5 @@ disabled MT94 because its ordinary install-dialogue guard was still active.
 The manager-side focused regression now passes; deployment into the isolated
 test environment is pending. The terminal is offline, with its retained
 state preserved. No replacement schedule, modem-table change or image
-transfer has occurred. The component-level V.22bis training result does not
-establish native carrier or download success.
+transfer has occurred on that graphical reference. Its status is independent
+of the completed two-line standard universal qualification.
