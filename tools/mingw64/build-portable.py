@@ -161,6 +161,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=Non
         "fixtures/cards/smartcard-sync-address-test.json": ROOT / "fixtures/cards/smartcard-sync-address-test.json",
         "fixtures/cards/smartcard-sync-gpm103-contact.json": ROOT / "fixtures/cards/smartcard-sync-gpm103-contact.json",
         "fixtures/cards/smartcard-sync-13byte-bench.json": ROOT / "fixtures/cards/smartcard-sync-13byte-bench.json",
+        "fixtures/cards/smartcard-sync-gpm103-lab.json": ROOT / "fixtures/cards/smartcard-sync-gpm103-lab.json",
         "fixtures/cards/shadybucks-lab-product.json": ROOT / "fixtures/cards/shadybucks-lab-product.json",
         "fixtures/cards/smartcard-async-t0-lab.json": ROOT / "fixtures/cards/smartcard-async-t0-lab.json",
         "fixtures/cards/smartcard-async-contact-atr-lab.json": ROOT / "fixtures/cards/smartcard-async-contact-atr-lab.json",

@@ -64,7 +64,7 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
     assert {"fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE,
             "fixtures/cards/smartcard-sync-address-test.json", "fixtures/cards/smartcard-sync-gpm103-contact.json",
-            "fixtures/cards/smartcard-sync-13byte-bench.json",
+            "fixtures/cards/smartcard-sync-13byte-bench.json", "fixtures/cards/smartcard-sync-gpm103-lab.json",
             *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
     assert {f"fixtures/cards/smartcard-async-lab-purse-{name}.json" for name in ("50", "500", "empty")} <= staged
     assert {"app/shadybucks.py", "fixtures/cards/shadybucks-lab-product.json"} <= staged
@@ -82,6 +82,18 @@ def test_13_byte_contact_fixture_geometry():
     assert fixture["sync_program_first_bit"] == 96
     assert fixture["sync_program_end_bit"] == 98
     assert fixture["sync_program_us"] == 10000
+
+
+def test_gpm103_lab_readback_fixture():
+    path = PORTABLE.parents[2] / "fixtures/cards/smartcard-sync-gpm103-lab.json"
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    assert fixture["type"] == "smartcard"
+    assert fixture["protocol"] == "sync"
+    assert fixture["fixture_kind"] == "gpm103-lab-personalized"
+    assert fixture["atr_hex"] == "00"
+    assert fixture["memory_hex"] == "00286F00000001B978FFFFFFFF"
+    assert len(bytes.fromhex(fixture["memory_hex"])) == 13
+    assert not fixture.get("sync_program_enabled", False)
 
 
 def test_bundled_lab_snapshots_in_untouched_card_wallet(tmp_path, monkeypatch):
