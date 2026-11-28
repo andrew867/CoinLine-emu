@@ -8,6 +8,47 @@
 int main()
 {
 	{
+		// A synchronous fixture must never emit an asynchronous answer,
+		// even if its unused placeholder resembles a valid serial ATR.
+		millennium_smartcard_model card;
+		std::string error;
+		if (!card.parse_fixture_json(R"({"protocol":"sync","atr_hex":"3B00","memory_hex":"96A7"})", error)) return 50;
+		card.insert_card_at(0, 1000000);
+		card.notify_reset(1);
+		if (card.read_fifo(10000) != 0xff || card.status_lines() != 1) return 51;
+		card.write_command(0xb0, 10001);
+		card.write_command(0, 10002);
+		if (card.read_fifo(10003) != 0xff || card.status_lines() != 1) return 52;
+		card.update_async_contact_pins(true, true, true, false, 10004);
+		card.update_async_contact_pins(true, true, true, true, 10005);
+		if (card.async_routed() || card.async_active() || card.async_read_byte(20000)) return 53;
+		if (card.negotiate_protocol(false) || card.selected_protocol() != millennium_smartcard_model::negotiated_protocol::none) return 54;
+		if (!card.negotiate_protocol(true) || card.selected_protocol() != millennium_smartcard_model::negotiated_protocol::sync_fallback) return 55;
+	}
+	{
+		// Supply loss and contact deselection cancel an open, otherwise
+		// sufficiently long programming pulse on arbitrary bench memory.
+		for (bool deselect : {false, true}) {
+			millennium_smartcard_model card;
+			std::string error;
+			if (!card.parse_fixture_json(R"({"protocol":"sync","atr_hex":"00","memory_hex":"FFFF","sync_program_enabled":true,"sync_program_first_bit":1,"sync_program_end_bit":2,"sync_program_us":10})", error)) return 56;
+			card.insert_card_at(0, 1000000);
+			std::uint64_t time = 1;
+			auto port = [&](std::uint8_t d, std::uint8_t e, std::uint8_t f = 0) { card.update_later_pins(d, e, f, time++); };
+			auto pins = [&](bool reset, bool clock) { port(4 | (clock ? 8 : 0), 8 | (reset ? 4 : 0)); };
+			auto power = [&] { port(4, 8); port(4, 8, 2); port(4, 8); };
+			auto seek = [&] { pins(true, false); pins(true, true); pins(true, false); pins(false, false); pins(false, true); pins(false, false); };
+			power(); seek();
+			if (!card.sync_powered() || card.sync_bit_address() != 1 || !card.sync_data_high()) return 57;
+			pins(true, false); pins(false, false); pins(false, true);
+			time += 20;
+			port(12, deselect ? 9 : 0);
+			if (card.sync_powered() || !card.sync_data_high() || card.memory()[0] != 0xff) return 58;
+			power(); seek();
+			if (!card.sync_powered() || card.sync_bit_address() != 1 || !card.sync_data_high() || card.memory()[0] != 0xff) return 59;
+		}
+	}
+	{
 		// An asymmetric, non-payment fixture distinguishes MSB-first readout
 		// from reversed or shifted bits, including address crossings.
 		for (bool earlier : {false, true}) {

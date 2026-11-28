@@ -32,6 +32,9 @@ The card exposes its first serial bit after a reset pulse containing a clock
 edge, then advances one bit on each rising clock with reset inactive. The
 data is read MSB first. Removal clears its power and reset state. No card
 data is returned through a fabricated byte FIFO on the native bus.
+Synchronous fixtures also leave the compatibility character FIFO idle and
+cannot negotiate an asynchronous protocol. Their ATR placeholder does not
+represent a transmitted character or a successful asynchronous activation.
 
 The address within the physical contact stream is `8 * byte_offset + bit`,
 where physical bit zero has byte weight `0x80`. The separate read-only
@@ -86,6 +89,8 @@ Optional synthetic memory fixtures may enable bounded one-way bit
 programming. Programming requires an explicit permitted address interval
 and minimum clock-hold duration; an interrupted or out-of-range operation
 does not change the card. Repeated writes cannot restore a cleared bit.
+Loss of supply or contact selection also cancels an open programming pulse,
+even when its elapsed duration would otherwise permit a write.
 Reinsertion of the same fixture retains its memory state. The configured
 writable test fixture also persists across emulator restart in a separate
 card NVRAM device file, keyed to its fixture digest. The default contact
