@@ -147,6 +147,7 @@ private:
 		carrier_mark,
 		answer_gap,
 		training_carrier,
+		answer_mark_overlap,
 		unscrambled_mark,
 		s1_pattern,
 		scrambled_mark,

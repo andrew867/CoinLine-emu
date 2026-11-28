@@ -190,16 +190,25 @@ int main()
 	if (read_detect_register(modem) != 0x04U || modem.dcd())
 		return fail("Code-server answer-tone phase was not visible on the SSI bus");
 	modem.poll_ncc_link(8.34);
+	if (read_detect_register(modem) != 0x04U || modem.dcd())
+		return fail("Answer detector did not retain its bounded hold interval");
+	modem.poll_ncc_link(8.365);
 	if (read_detect_register(modem) != 0x00U || modem.dcd())
-		return fail("Code-server answer turn-off gap must be observable");
+		return fail("Code-server answer turn-off gap must remain observable");
 	modem.poll_ncc_link(8.39);
 	if (read_detect_register(modem) != 0x08U || modem.dcd())
 		return fail("DPSK carrier acquisition is independent of mark qualification");
 	modem.poll_ncc_link(8.41);
-	if (read_detect_register(modem) != 0x38U || modem.dcd())
-		return fail("Code-server unscrambled mark detector must be distinct from receive data");
+	if (read_detect_register(modem) != 0x3cU || modem.dcd())
+		return fail("Answer and mark detectors did not overlap during filter decay");
+	modem.poll_ncc_link(8.52);
+	if (read_detect_register(modem) != 0x3cU || modem.dcd())
+		return fail("Answer and mark detector overlap ended before carrier qualification");
+	modem.poll_ncc_link(8.55);
+	if (read_detect_register(modem) != 0x3cU || modem.dcd())
+		return fail("Detector transition completed before the guest began training");
 	modem.poll_ncc_link(15.0);
-	if (modem.dcd() || read_detect_register(modem) != 0x38U)
+	if (modem.dcd() || read_detect_register(modem) != 0x3cU)
 		return fail("A TCP connection and elapsed time alone cannot complete training");
 	modem.note_tx(0x55U);
 	if (ready(code_call.value, 20))
@@ -275,15 +284,17 @@ int main()
 	write_register(modem, 1, 0x80);
 	write_register(modem, 4, 0x00);
 	modem.poll_ncc_link(8.41);
-	modem.poll_ncc_link(8.69);
+	modem.poll_ncc_link(8.52);
+	modem.poll_ncc_link(8.55);
+	modem.poll_ncc_link(8.83);
 	if (read_detect_register(modem) != 0x28U || modem.dcd())
 		return fail("V.22 fallback did not qualify the guest's scrambled marks");
-	modem.poll_ncc_link(9.4);
+	modem.poll_ncc_link(9.58);
 	if (modem.dcd()) return fail("V.22 fallback completed before its remote training interval");
-	modem.poll_ncc_link(9.46);
+	modem.poll_ncc_link(9.6);
 	if (!modem.dcd() || read_detect_register(modem) != 0x08U)
 		return fail("V.22 fallback did not complete");
-	modem.note_modem_relay(false, 9.5);
+	modem.note_modem_relay(false, 9.6);
 
 	set_config("COINLINE_NCC_LAB_HELLO", "0");
 	dial(modem, "2130706433");
