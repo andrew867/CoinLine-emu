@@ -9,9 +9,11 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import socket
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 from hardware import COIN_VALIDATOR_PROFILES, PRESETS, coin_profile_board, select_hardware
 
@@ -35,6 +37,26 @@ LAB_PURSE_CONTACT_FIXTURES = (
     "fixtures/cards/smartcard-sync-lab-purse-500.json",
     "fixtures/cards/smartcard-sync-lab-purse-empty.json",
 )
+CARD_PANEL_LABELS = {
+    "magcard-valid.json": "Mag Test",
+    "magcard-invalid-lrc.json": "Mag Bad LRC",
+    "smartcard-sync-gpm103-lab.json": "GPM103 Lab",
+    "smartcard-sync-gpm103-lab-readback.json": "Lab Readback",
+    "smartcard-sync-gpm103-contact.json": "Contact Bench",
+    "smartcard-sync-test.json": "Sync Transport",
+    "smartcard-sync-address-test.json": "Address Bench",
+    "smartcard-sync-13byte-bench.json": "13-byte Bench",
+    "smartcard-async-contact-atr-lab.json": "Async ATR",
+    "smartcard-async-t0-lab.json": "Async T=0",
+    "smartcard-async-t1-lab.json": "Async T=1",
+    "smartcard-sync-lab-purse-50.json": "LAB 0.50",
+    "smartcard-sync-lab-purse-500.json": "LAB 5.00",
+    "smartcard-sync-lab-purse-empty.json": "LAB Empty",
+    "smartcard-async-lab-purse-50.json": "Async LAB 0.50",
+    "smartcard-async-lab-purse-500.json": "Async LAB 5.00",
+    "smartcard-async-lab-purse-empty.json": "Async LAB Empty",
+}
+CARD_ARTWORK_OVERRIDE = "coinline-catalogue"
 ADSI_SHARED_CONFIG = "adsi-routes.ini"
 ADSI_CONFIG_SECTIONS = ("adsi", "adsi.routes")
 ADSI_CONFIG_KEYS = {"enabled", "host", "port", "dial_digits", "target"}
@@ -212,6 +234,47 @@ def extra_card_environment(cards, mag_card, smart_card):
             selected.add(path)
             result[f"{variable}_{slot}"] = str(path)
     return result
+
+
+def card_panel_catalogue(primary, extra_cards, variable, kind):
+    """Match the native slot order; label fixture names, not card contents."""
+    fixtures = [Path(primary)]
+    fixtures.extend(Path(extra_cards[f"{variable}_{slot}"]) for slot in range(2, 9)
+                    if f"{variable}_{slot}" in extra_cards)
+    catalogue = []
+    for slot, path in enumerate(fixtures, 1):
+        packaged = path.resolve() == (ROOT / "fixtures/cards" / path.name).resolve()
+        label = CARD_PANEL_LABELS.get(path.name) if packaged else None
+        catalogue.append({"slot": slot, "fixture": path.name,
+                          "label": f"{slot}: {label or f'Custom {kind}'}"})
+    return catalogue
+
+
+def stage_card_panel_artwork(run_dir, mag_card, smart_card, extra_cards):
+    """Create a per-run layout with the actual ordered catalogue for both views."""
+    catalogue = {
+        "magnetic": card_panel_catalogue(mag_card, extra_cards, "COINLINE_MAG_CARD", "Mag"),
+        "contact": card_panel_catalogue(smart_card, extra_cards, "COINLINE_SMART_CARD", "SC"),
+    }
+    original = ROOT / "artwork/cl_millennium"
+    target = run_dir / "artwork" / CARD_ARTWORK_OVERRIDE
+    target.mkdir(parents=True)
+    layout = ET.parse(original / "default.lay")
+    for element_name, group in (("card_mag_selection", "magnetic"),
+                                ("card_smart_selection", "contact")):
+        element = layout.getroot().find(f"element[@name='{element_name}']")
+        if element is None:
+            raise ValueError(f"Package artwork is missing {element_name}")
+        states = {int(text.attrib["state"]): text for text in element.findall("text") if "state" in text.attrib}
+        if set(states) != set(range(8)):
+            raise ValueError(f"Package artwork has an unexpected slot layout for {element_name}")
+        for index, text in states.items():
+            label = catalogue[group][index]["label"] if index < len(catalogue[group]) else "Unused slot"
+            text.set("string", label)
+    layout.write(target / "default.lay", encoding="utf-8", xml_declaration=True)
+    shutil.copyfile(original / "millennium-terminal-front.png", target / "millennium-terminal-front.png")
+    (run_dir / "card-catalogue.json").write_text(json.dumps(catalogue, indent=2) + "\n", encoding="utf-8")
+    return ";".join((str(target.parent), str(ROOT / "artwork")))
 
 
 def module_fixture_environment(args, cards, motherboard):
@@ -442,6 +505,9 @@ def run(args, config, hardware):
     run_dir = state / "logs" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     for path in (run_dir, state / "nvram", state / "cfg"):
         path.mkdir(parents=True, exist_ok=True)
+    artpath = str(ROOT / "artwork")
+    if not args.headless:
+        artpath = stage_card_panel_artwork(run_dir, mag_card, smart_card, extra_cards)
     board = coin_profile_board(hardware_env["COINLINE_BOARD"], calibration,
                                run_dir / "coin-validator-board.json")
 
@@ -480,12 +546,13 @@ def run(args, config, hardware):
         env["COINLINE_LOCAL_VOICE_ROUTE"] = json.dumps(local_voice)
 
     cmd = [str(ROOT / EXECUTABLE), "cl_millennium", "-noreadconfig", "-skip_gameinfo", "-nodebug", "-nolog",
-           "-rompath", str(rompath), "-artpath", str(ROOT / "artwork"),
+           "-rompath", str(rompath), "-artpath", artpath,
            "-nvram_directory", str(state / "nvram"), "-cfg_directory", str(state / "cfg"),
            "-snapshot_directory", str(run_dir), "-video", "none" if args.headless else args.video]
     if args.headless:
         cmd += ["-sound", "none"]
     else:
+        cmd += ["-override_artwork", CARD_ARTWORK_OVERRIDE]
         if graphical:
             cmd += ["-view", "Graphical"]
         # Software artwork rendering must be allowed to shed display work

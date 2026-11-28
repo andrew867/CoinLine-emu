@@ -160,6 +160,11 @@ through mag_fixture_8 and smart_fixture_2 through smart_fixture_8 under [cards]
 for additional synthetic fixtures. Use consecutive slots and leave the reader
 empty to select another card. The generic coin-slot click remains available.
 
+Wallet labels include the actual one-based configured slot and fixture name.
+Custom fixtures use a neutral custom-card label. The current run's
+card-catalogue.json in the log directory lists the corresponding filenames.
+The same label rules apply to the OEM and graphical profiles.
+
 The automatic contact catalogue includes three generic synchronous read-only
 LAB snapshots of 0.50, 5.00 and zero units. They are supplied for contact
 memory transport testing, not historical payment authorization. Matching

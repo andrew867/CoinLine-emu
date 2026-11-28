@@ -61,6 +61,9 @@ under [cards], using sam_slot0, sam_slot1 and sam_slot2. The included generic
 module fixture does not provide payment authorization. The independent local
 LAB ledger utility is app/lab_purse.py; run python3 app/lab_purse.py --help.
 
+Wallet labels follow the actual configured slot and fixture identity in both
+views. The current run's card-catalogue.json lists its fixture filenames.
+
 For a programmable synchronous EEPROM contact bench, set smart_fixture to
 fixtures/cards/smartcard-sync-gpm103-contact.json in [cards]. This replaces
 the primary fixture only and retains the test pattern across restarts.

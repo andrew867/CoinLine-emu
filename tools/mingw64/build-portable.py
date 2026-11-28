@@ -205,6 +205,7 @@ def stage_files(bundle, mame, rom_input, graphical_rom, windows, adsi_config=Non
         "docs/status/graphical-ad-hook-resume-2026-11-27.md": ROOT / "docs/status/graphical-ad-hook-resume-2026-11-27.md",
         "docs/status/adsi-direct-lan-routing-2026-11-27.md": ROOT / "docs/status/adsi-direct-lan-routing-2026-11-27.md",
         "docs/status/cross-platform-host-media-2026-11-27.md": ROOT / "docs/status/cross-platform-host-media-2026-11-27.md",
+        "docs/status/fixture-catalogue-ui-2026-11-27.md": ROOT / "docs/status/fixture-catalogue-ui-2026-11-27.md",
         "docs/Running.md": ROOT / "RUNNING.md",
         "licenses/CoinLine.txt": ROOT / "LICENSE",
         "licenses/MAME.txt": mame / "COPYING",

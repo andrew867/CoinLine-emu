@@ -77,6 +77,14 @@ press `[` to insert the selected contact card and `]` to remove it (or click
 the contact action button). The reader artwork follows the actual sensor
 states. Selection is locked while either card occupies the reader.
 
+The portable launcher labels each card using the actual configured fixture
+and its one-based wallet slot, rather than assigning a fixed name to a slot.
+For example, the first contact slot can display `1: GPM103 Lab` or
+`1: Async ATR` depending on the selected profile. Custom fixtures use a
+neutral custom-card label. Each visible launch writes its ordered fixture
+names and labels to `card-catalogue.json` in that run's local log directory.
+The labels describe fixture identity only, not terminal application acceptance.
+
 The packaged default synchronous customer contact is
 `fixtures/cards/smartcard-sync-gpm103-lab.json` (lab application image with
 programmable counters). Pair it with the MT93/MT134 (or MT22/MT93) binaries
