@@ -5750,7 +5750,7 @@ void millennium_state::load_card_ui_fixtures()
 		}
 	};
 	load(m_mag_ui_fixtures, "COINLINE_MAG_CARD", "fixtures/cards/magcard-valid.json");
-	load(m_smart_ui_fixtures, "COINLINE_SMART_CARD", "fixtures/cards/smartcard-sync-test.json");
+	load(m_smart_ui_fixtures, "COINLINE_SMART_CARD", "fixtures/cards/smartcard-sync-gpm103-lab.json");
 	machine().output().set_value("panel_mag_selected", 0);
 	machine().output().set_value("panel_smart_selected", 0);
 }

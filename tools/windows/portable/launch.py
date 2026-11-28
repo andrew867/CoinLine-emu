@@ -24,7 +24,10 @@ PROFILES = {
     "graphical": ("coinline-graphical.ini", "firmware/graphical/flash.bin", "11line", 5088, 15000, 19999),
 }
 SIP_CREDENTIAL_FIELDS = {"registrar": "HOST", "username": "USER", "password": "PASSWORD"}
-SYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-sync-test.json"
+# Default customer contact is the frozen GPM103 lab image (pair with
+# fixtures/tables/gpm103-lab for MT93/MT134). Transport benches remain packaged.
+SYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-sync-gpm103-lab.json"
+SYNC_TRANSPORT_FIXTURE = "fixtures/cards/smartcard-sync-test.json"
 ASYNC_CONTACT_FIXTURE = "fixtures/cards/smartcard-async-contact-atr-lab.json"
 MAG_NEGATIVE_FIXTURE = "fixtures/cards/magcard-invalid-lrc.json"
 LAB_PURSE_CONTACT_FIXTURES = (
@@ -136,8 +139,8 @@ def performance_settings(args, config):
 def check_files(program, rompath, display):
     files = [EXECUTABLE, "firmware/tp_pcd3349a_behavioural.rom",
              f"fixtures/board/board-profile-{display}-vfd.json", "fixtures/firmware/firmware-hashes.json",
-             "fixtures/cards/magcard-valid.json", "fixtures/cards/smartcard-sync-test.json", "app/central_office.py",
-             "app/sip_media.py"]
+             "fixtures/cards/magcard-valid.json", SYNC_CONTACT_FIXTURE, SYNC_TRANSPORT_FIXTURE,
+             "app/central_office.py", "app/sip_media.py"]
     paths = [*(ROOT / name for name in files), *program,
              *(rompath / "cl_millennium" / name for name in ("voice_u16.bin", "voice_u26.bin"))]
     missing = [str(path) for path in paths if not path.is_file()]
@@ -177,7 +180,8 @@ def extra_card_environment(cards, mag_card, smart_card):
         # their existing catalogue semantics and are never overwritten.
         if setting == "smart_fixture" and not any(f"{setting}_{slot}" in cards for slot in range(2, 9)):
             slot = 2
-            for value in (fallback, *LAB_PURSE_CONTACT_FIXTURES):
+            # Keep the generic sync transport image available next to the lab default.
+            for value in (fallback, SYNC_TRANSPORT_FIXTURE, *LAB_PURSE_CONTACT_FIXTURES):
                 path = (ROOT / value).resolve()
                 if path.is_file() and path not in selected:
                     selected.add(path)

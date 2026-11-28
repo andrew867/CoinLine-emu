@@ -77,35 +77,30 @@ press `[` to insert the selected contact card and `]` to remove it (or click
 the contact action button). The reader artwork follows the actual sensor
 states. Selection is locked while either card occupies the reader.
 
+The packaged default customer contact is
+`fixtures/cards/smartcard-sync-gpm103-lab.json` (lab application image with
+programmable counters). Pair it with the MT93/MT134 (or MT22/MT93) binaries
+under `fixtures/tables/gpm103-lab/` downloaded through CoinLine; the emulator
+does not inject those tables by itself.
+
 Additional fixture paths can be configured as `mag_fixture_2` through
 `mag_fixture_8` and `smart_fixture_2` through `smart_fixture_8`, in consecutive
 slots. The default second magnetic card is a deliberately invalid checksum
-test, not another funded account. The default second contact card switches
-between the generic synchronous and asynchronous contact fixtures. The default
-contact wallet also provides read-only synchronous LAB snapshots in slots 3,
-4 and 5 (0.50, 5.00 and zero LAB units). These are invented transport fixtures,
-not historical GPM103 payment cards; a terminal's historical application may
-reject them. Optional asynchronous versions and the neutral memory-address test
-are included as configurable fixture paths. Any explicitly configured extra
-contact slot takes precedence over the automatic LAB catalogue. Set the second
-slot to an empty value to disable that catalogue. Additional contact
-slots are read-only; any explicitly writable bench fixture must occupy the
-primary slot, whose existing persistent memory is preserved across selection.
-These controls do not change terminal tables or payment authorization.
+test, not another funded account. An untouched contact wallet also includes
+the async ATR lab fixture, the generic sync transport image, and read-only
+LAB snapshots. Optional asynchronous versions and the neutral memory-address
+test remain configurable. Set slot 2 empty to disable the automatic catalogue.
+Additional contact slots are read-only; writable benches must occupy the
+primary slot. These controls do not change terminal tables by themselves.
 
 For a standalone GPM103-family synchronous EEPROM contact bench, select
 `fixtures/cards/smartcard-sync-gpm103-contact.json` as the primary
-`smart_fixture` in the profile's `[cards]` section. The fixture contains
-16 bytes of arbitrary test data and two explicitly writable bench bits;
-the nominal programming wait is 10 ms. The fixture geometry is deliberately
-bounded, not a statement about the exact capacity of an original chip.
-Use it to test reset, MSB-first reads, programming timing and persistence.
-The writable image is kept in the terminal's local card-state storage.
+`smart_fixture`. The fixture contains 16 bytes of arbitrary test data and two
+explicitly writable bench bits; the nominal programming wait is 10 ms.
 
-The default chip-card fixture exercises the physical contacts;
-the registered full graphical image `996a8ac5e81d` defaults to the qualified
-`smartcard-async-contact-atr-lab.json` fixture instead of the synchronous
-default. Neither is a funded payment card. The optional `smartcard-async-t0-lab.json`
+The registered full graphical image `996a8ac5e81d` still defaults to the
+qualified `smartcard-async-contact-atr-lab.json` fixture when that image's
+hardware entry requests generic-async contact. The optional `smartcard-async-t0-lab.json`
 and `smartcard-async-t1-lab.json` fixtures use the actual later-board ASCI0
 pin path and a read-only synthetic application. They are intended for a
 compatible transport test, not recognition by historical payment firmware.
@@ -146,7 +141,7 @@ visual-prompt records, MT85 and MT86. Synchronous chip contact testing has
 passed on the later Multi-pay board; funded chip-card applications and
 several other firmware families still have open gates.
 See the [batch acceptance guide](tools/acceptance/README.md)
-and [firmware results catalog](docs/uat/firmware-acceptance-catalog.md).
+and [firmware results catalog](../docs/uat/firmware-acceptance-catalog.md).
 
 The validator's physical coin windows and the terminal's downloaded coin
 table must agree. Set `coin_validator` under `[hardware]` (or use

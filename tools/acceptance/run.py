@@ -538,7 +538,7 @@ def main():
     parser.add_argument("--reference", type=Path, default=ROOT / "build/package-inputs/local")
     parser.add_argument("--profile", type=Path, default=ROOT / "fixtures/board/board-profile-2line-vfd.json")
     parser.add_argument("--mag-card", type=Path, default=ROOT / "fixtures/cards/magcard-valid.json")
-    parser.add_argument("--smart-card", type=Path, default=ROOT / "fixtures/cards/smartcard-sync-test.json")
+    parser.add_argument("--smart-card", type=Path, default=ROOT / "fixtures/cards/smartcard-sync-gpm103-lab.json")
     parser.add_argument("--python", type=Path, default=Path(sys.executable), help="Python for the local CO sidecar")
     parser.add_argument("--only", action="append", help="firmware ID to run, repeatable")
     parser.add_argument("--skip", action="append", default=[], help="skip an ID covered by a separate batch")

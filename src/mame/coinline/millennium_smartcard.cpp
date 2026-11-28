@@ -29,7 +29,7 @@ void millennium_smartcard_device::device_start()
 	std::string err;
 	char const *p = osd_getenv("COINLINE_SMART_CARD");
 	std::string const rel =
-		(p && *p) ? std::string(p) : std::string("fixtures/cards/smartcard-sync-test.json");
+		(p && *p) ? std::string(p) : std::string("fixtures/cards/smartcard-sync-gpm103-lab.json");
 	std::vector<std::uint8_t> raw;
 	std::string path = rel;
 	if (!millennium_read_file(path, raw, err)) {

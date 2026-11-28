@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "purpose": "GPM103 lab table pack for CoinLine draft import / Maximizer paste. Pair with fixtures/cards/smartcard-sync-gpm103-lab.json",
+  "seed_json": "maximizer-mt93-mt134-gpm103-seed.json",
+  "identity": {
+    "pan_low": "911100",
+    "pan_high": "911199",
+    "manufacturer_code_hex": "28",
+    "customer_code_hex": "6F",
+    "des_key_slot": 2,
+    "lab_key_hex": "A1B2C3D4E5F60718",
+    "notes": "Lab-only entered MT93 key (pre-XOR). Replace before any non-lab deployment."
+  },
+  "entries": [
+    {
+      "message_type": 22,
+      "profile": "earlier",
+      "record_length": 661,
+      "file": "mt022.bin",
+      "sha256": "6aa742841f55d8337ad8bf065492e0973135f9149e8c3f04659f31fc77ddcde4",
+      "install_eligible": true
+    },
+    {
+      "message_type": 23,
+      "profile": "earlier",
+      "record_length": 678,
+      "file": "mt023.bin",
+      "sha256": "46381592a7fefeff6ebec1a85b858590545b0ce525f731b93386b9593bee14dc",
+      "install_eligible": false
+    },
+    {
+      "message_type": 93,
+      "profile": "later-layout-default",
+      "record_length": 225,
+      "file": "mt093.bin",
+      "sha256": "a65c3ae9bc4c91bb9d7f4779eace9a9ca4116d4185c71cae2ff4b16343ed0140",
+      "install_eligible": true
+    },
+    {
+      "message_type": 134,
+      "profile": "later",
+      "record_length": 1153,
+      "file": "mt134.bin",
+      "sha256": "1f03fbc3e34db8712b5c1443eac83c44ceb3d515111ab70db683838b7562bbba",
+      "install_eligible": true
+    },
+    {
+      "message_type": 135,
+      "profile": "later",
+      "record_length": 1109,
+      "file": "mt135.bin",
+      "sha256": "6465988982c55b6c39729728a21ec45e13b977d417c8cd4f2d32f84ef7e78127",
+      "install_eligible": false
+    }
+  ]
+}
