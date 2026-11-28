@@ -5,6 +5,9 @@ The portable launcher default sync contact is
 `00286F00000001B978FFFFFFFF`, counter programming bits 64–104). Example INI
 files set `smart_fixture` to that path. Matching MT binaries are packaged under
 `fixtures/tables/gpm103-lab/` for CoinLine draft import / Maximizer paste.
+The `--gpm103-lab` probe still asserts virgin readback only
+(`COINLINE_SYNC_READBACK_ONLY`); it accepts the writable programming window
+as long as the frozen hex and bit range match.
 
 Transport benches (`smartcard-sync-gpm103-contact.json`,
 `smartcard-sync-13byte-bench.json`, `smartcard-sync-test.json`) remain packaged
