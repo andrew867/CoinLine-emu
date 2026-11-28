@@ -64,9 +64,24 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
     assert {"fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
             launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE,
             "fixtures/cards/smartcard-sync-address-test.json", "fixtures/cards/smartcard-sync-gpm103-contact.json",
+            "fixtures/cards/smartcard-sync-13byte-bench.json",
             *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
     assert {f"fixtures/cards/smartcard-async-lab-purse-{name}.json" for name in ("50", "500", "empty")} <= staged
     assert {"app/shadybucks.py", "fixtures/cards/shadybucks-lab-product.json"} <= staged
+
+
+def test_13_byte_contact_fixture_geometry():
+    path = PORTABLE.parents[2] / "fixtures/cards/smartcard-sync-13byte-bench.json"
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    memory = bytes.fromhex(fixture["memory_hex"])
+    assert fixture["protocol"] == "sync"
+    assert fixture["fixture_kind"] == "non-payment-13-byte-contact-bench"
+    assert memory == bytes.fromhex("96 3C A7 00 42 45 4E 43 48 AA 55 81 F0")
+    assert len(memory) == 13
+    assert fixture["sync_program_enabled"] is True
+    assert fixture["sync_program_first_bit"] == 96
+    assert fixture["sync_program_end_bit"] == 98
+    assert fixture["sync_program_us"] == 10000
 
 
 def test_bundled_lab_snapshots_in_untouched_card_wallet(tmp_path, monkeypatch):

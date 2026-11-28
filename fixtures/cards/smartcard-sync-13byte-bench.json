@@ -1,0 +1,11 @@
+{
+  "type": "smartcard",
+  "protocol": "sync",
+  "fixture_kind": "non-payment-13-byte-contact-bench",
+  "atr_hex": "00",
+  "memory_hex": "963CA70042454E4348AA5581F0",
+  "sync_program_enabled": true,
+  "sync_program_first_bit": 96,
+  "sync_program_end_bit": 98,
+  "sync_program_us": 10000
+}
