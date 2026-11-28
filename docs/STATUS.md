@@ -1,6 +1,6 @@
 # Project status
 
-**Acceptance snapshot: 27 November 2026.** This page separates machine behavior from component tests, host integration and physical equipment. A record acknowledgment is not proof of an application feature; a successful synthetic transport test is not a live payment or call.
+**Acceptance snapshot: 28 November 2026.** This page separates machine behavior from component tests, host integration and physical equipment. A record acknowledgment is not proof of an application feature; a successful synthetic transport test is not a live payment or call.
 
 ## Terminal families and installation
 
@@ -59,9 +59,9 @@ Only synthetic instruments are used for payment qualification. A bank reservatio
 
 ## Firmware storage and recovery
 
-The later-board model includes two persistent NOR flash chips, common SRAM and resident bootstrap address mapping. A synthetic CPU program erases/programs each flash device and verifies neighboring sectors and persistence after a separate restart. Installed eligible firmware has picked up a scheduled MT94 job and dialed the independent code-server route; a complete actual remote image transfer, validation, reboot and interrupted-transfer recovery remain open.
+The later-board model includes two persistent NOR flash chips, common SRAM and resident bootstrap address mapping. The stock MTR 2.x download application on the isolated two-line universal profile has now received MT94 through ordinary NCC, dialed the distinct code-server route, completed the documented block transfer, programmed and verified persistent flash, restarted, and retained the expected active image across another power cycle. A forced packet-2 disconnect left flash unchanged; the retained reason-2 retry completed without a second MT94 assignment.
 
-[Remote firmware download and storage](firmware-download-storage.md) records the model and qualification boundaries. [Peripheral handoff evidence](status/peripheral-handoff-implementation-2026-11-25.md) covers other board signals, enclosure warning and data-jack relay probes; external data-modem sessions remain unqualified.
+[Firmware download qualification](status/firmware-download-qualification-2026-11-28.md) records the end-to-end evidence. [Remote firmware download and storage](firmware-download-storage.md) records the model and qualification boundaries. [Peripheral handoff evidence](status/peripheral-handoff-implementation-2026-11-25.md) covers other board signals, enclosure warning and data-jack relay probes; unrelated external data-modem sessions remain unqualified.
 
 ## Builds and verification
 
