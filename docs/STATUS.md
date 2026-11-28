@@ -59,9 +59,9 @@ Only synthetic instruments are used for payment qualification. A bank reservatio
 
 ## Firmware storage and recovery
 
-The later-board model includes two persistent NOR flash chips, common SRAM and resident bootstrap address mapping. The stock MTR 2.x download application on the isolated two-line universal profile has now received MT94 through ordinary NCC, dialed the distinct code-server route, completed the documented block transfer, programmed and verified persistent flash, restarted, and retained the expected active image across another power cycle. A forced packet-2 disconnect left flash unchanged; the retained reason-2 retry completed without a second MT94 assignment.
+The later-board model includes two persistent NOR flash chips, common SRAM and resident bootstrap address mapping. A native stock-firmware run accepted fixture-delivered MT94, dialed a distinct loopback fixture, transferred a generated marker block and exercised retained retry state. That result is not production end-to-end qualification. The production CoinLine hosted DLA listener, a distinct registered target, guest-issued NOR operation evidence, target-version reporting and production-path interruption recovery remain open.
 
-[Firmware download qualification](status/firmware-download-qualification-2026-11-28.md) records the end-to-end evidence. [Remote firmware download and storage](firmware-download-storage.md) records the model and qualification boundaries. [Peripheral handoff evidence](status/peripheral-handoff-implementation-2026-11-25.md) covers other board signals, enclosure warning and data-jack relay probes; unrelated external data-modem sessions remain unqualified.
+[Firmware download qualification correction](status/firmware-download-qualification-2026-11-28.md) records the retracted fixture result and open gates. [Remote firmware download and storage](firmware-download-storage.md) records the model and qualification boundaries. [Peripheral handoff evidence](status/peripheral-handoff-implementation-2026-11-25.md) covers other board signals, enclosure warning and data-jack relay probes; unrelated external data-modem sessions remain unqualified.
 
 ## Builds and verification
 

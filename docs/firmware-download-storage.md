@@ -82,19 +82,19 @@ flash, with no change to its active flash digest during ordinary provisioning.
 
 1. **Passed.** Cold boot through the flash bootstrap completed normal INSTALL.
 2. **Passed.** Cold and warm baseline flash, battery and version evidence was recorded.
-3. **Passed.** CoinLine delivered MT94 over ordinary NCC and received MT14.
-4. **Passed.** The terminal dialed the distinct code-server route and completed the application handshake.
-5. **Passed.** The code server transferred the registered synthetic target in documented 4 KiB blocks.
-6. **Passed.** Native display, NOR persistence and checksum metadata show program, verify and software restart.
-7. **Passed.** The active image and reported version matched the target across another power cycle; receiver lift reached the main application.
-8. **Passed.** A packet-2 disconnect left flash unchanged, and the retained reason-2 retry completed without another MT94.
+3. **Open.** A fixture delivered MT94 and received MT14; production CoinLine scheduling and delivery is not yet qualified.
+4. **Open.** The terminal dialed a distinct loopback fixture and completed the modem handshake; the production hosted listener is not yet qualified.
+5. **Open.** Only a generated marker target was transferred. A distinct registered firmware target has not completed the production path.
+6. **Open.** Persistent bytes changed in the fixture run, but guest-issued NOR operation evidence was not captured for a registered target.
+7. **Open.** The fixture run retained the baseline reported version, and its evidence recorded service and restart as unqualified.
+8. **Open.** The packet-2 retry observation used the fixture server and must be repeated through production CoinLine.
 
 Detailed evidence is in
 [MTR 2.x firmware download qualification](status/firmware-download-qualification-2026-11-28.md).
 The historical extended staging fixture lies outside the processor's 20-bit
 physical address space. It is retained for existing synthetic storage tests.
 
-### Two-line end-to-end qualification
+### Retracted fixture-only observation
 
 The isolated two-line standard universal profile started from active flash
 SHA-256 `b09f9c64817f52522cdb4a01f43cdfe5422eb65cd087defeec2906e597d60e34`
@@ -108,9 +108,15 @@ followed by EOT. The terminal ACKed all five packets and EOT, displayed its
 checksum and block-write progress, updated block 128 plus checksum-metadata
 block 191, and restarted the main application. The active flash SHA-256 was
 `38c8b8d802920a5e43fa52f3739bd0d9d85127e7b30b74915ee685ee1e77b142`,
-an exact match for the registered expected active image. A separate warm boot
+an exact match for a computed expected active image. A separate warm boot
 reported `DLA 1 active ver 7` and `X1.3`, preserved that digest, delivered the
 physical receiver-lift event to the control processor, and returned on-hook.
+
+This did not establish a real firmware update. The target was generated from
+the baseline by adding a marker to one erased block, the reported version did
+not change, and the host processes were fixture tools rather than production
+CoinLine services. The preserved report recorded service and restart as
+unqualified. The acceptance gates above therefore remain open.
 
 For the interruption case, the server disconnected after transmitting packet
 2. The terminal ACKed packet 1, emitted CAN on connection loss, left active
