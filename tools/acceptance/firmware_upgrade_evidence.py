@@ -7,6 +7,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from firmware_download_plan import firmware_applied_target
+
 BLOCK_BYTES = 4096
 CHIP_BYTES = 524288
 IMAGE_BYTES = CHIP_BYTES * 2
@@ -101,27 +103,50 @@ def receiver_qualification(events_path, keypad_path):
     return on > off and reported
 
 
-def reported_version_qualification(path, expected_firmware_id, expected_version):
+def production_job_qualification(path, expected_firmware_id, target_sha256, requested_blocks):
     evidence = json.loads(path.read_text(encoding="utf-8"))
+    requested = sorted(set(requested_blocks))
     return {
         "source": evidence.get("source"),
         "firmware_id": evidence.get("firmware_id"),
-        "version": evidence.get("version"),
+        "artifact_sha256": evidence.get("artifactSha256"),
+        "requested_blocks": evidence.get("requestedBlocks"),
+        "delivered_blocks": evidence.get("deliveredBlocks"),
+        "xmodem_packets": evidence.get("xmodemPackets"),
         "qualified": (evidence.get("source") == "coinline-production"
+                      and evidence.get("phase") == "code-server-transfer-complete"
+                      and evidence.get("success") is True
                       and evidence.get("firmware_id") == expected_firmware_id
-                      and evidence.get("version") == expected_version),
+                      and evidence.get("artifactSha256") == target_sha256
+                      and sorted(evidence.get("requestedBlocks", [])) == requested
+                      and sorted(evidence.get("deliveredBlocks", [])) == requested
+                      and type(evidence.get("xmodemPackets")) is int
+                      and evidence.get("xmodemPackets") > 0),
+    }
+
+
+def version_display_qualification(path, expected_version):
+    records = json_lines(path)
+    matching = [record for record in records
+                if any(expected_version in row for row in record.get("text", [])
+                       if isinstance(row, str))]
+    return {
+        "expected_version": expected_version,
+        "matching_snapshots": len(matching),
+        "qualified": bool(matching),
     }
 
 
 def summarize(seed, before, after, expected=None, expected_blocks=None, *,
               flash_trace=None, post_restart=None, boot_ready=False,
-              receiver_ready=False, reported_version=None):
+              receiver_ready=False, production_job=None, version_display=None):
     for data in (seed, before, after, expected):
         if data is not None and len(data) != IMAGE_BYTES:
             raise ValueError("Every compared image must be exactly 1 MiB.")
     if expected_blocks is not None and expected is None:
         raise ValueError("Expected block indices require an independently supplied target image.")
     requested = None
+    expected_active = None
     if expected is not None:
         indices = range(BLOCK_COUNT) if expected_blocks is None else expected_blocks
         if any(type(index) is not int or not 0 <= index < BLOCK_COUNT for index in indices):
@@ -129,6 +154,8 @@ def summarize(seed, before, after, expected=None, expected_blocks=None, *,
         requested = sorted(set(indices))
         if not requested:
             raise ValueError("Select at least one expected block.")
+        expected_active = (expected if expected_blocks is None
+                           else firmware_applied_target(before, expected, requested))
     changed = [index for index in range(BLOCK_COUNT) if block(before, index) != block(after, index)]
     result = {
         "block_bytes": BLOCK_BYTES,
@@ -155,25 +182,29 @@ def summarize(seed, before, after, expected=None, expected_blocks=None, *,
             "matches_requested_blocks": not mismatches,
             "changed_outside_requested_blocks": sorted(set(changed) - set(requested)),
             "full_image_matches": expected == after,
+            "expected_active_sha256": digest(expected_active),
+            "active_image_matches_retention_policy": expected_active == after,
         }
     flash_qualified = bool(flash_trace and flash_trace.get("qualified") is True)
-    post_restart_matches = bool(expected is not None and post_restart == expected)
-    version_qualified = bool(reported_version and reported_version.get("qualified") is True)
+    post_restart_matches = bool(expected_active is not None and post_restart == expected_active)
+    production_qualified = bool(production_job and production_job.get("qualified") is True)
+    version_qualified = bool(version_display and version_display.get("qualified") is True)
     result["qualification"] = {
-        "full_image_matches_registered_target": bool(result["expected"]
-                                                       and result["expected"]["full_image_matches"]),
+        "active_image_matches_registered_retention_policy": bool(
+            result["expected"] and result["expected"]["active_image_matches_retention_policy"]),
         "guest_flash_operations": flash_trace,
-        "post_restart_flash_matches_registered_target": post_restart_matches,
+        "production_job": production_job,
+        "post_restart_flash_matches_active_image": post_restart_matches,
         "post_restart_boot_ready": bool(boot_ready),
         "post_restart_receiver_cycle": bool(receiver_ready),
-        "reported_target": reported_version,
+        "post_restart_version_display": version_display,
     }
     result["service_and_restart_qualified"] = (
         post_restart_matches and boot_ready and receiver_ready and version_qualified
     )
     result["qualified"] = (
-        result["qualification"]["full_image_matches_registered_target"]
-        and flash_qualified and result["service_and_restart_qualified"]
+        result["qualification"]["active_image_matches_registered_retention_policy"]
+        and flash_qualified and production_qualified and result["service_and_restart_qualified"]
     )
     return result
 
@@ -185,6 +216,8 @@ def main():
     parser.add_argument("--after", type=Path, required=True, help="saved program_flash from the completed lab run")
     parser.add_argument("--expected-image", type=Path, help="independently approved mapped target image")
     parser.add_argument("--expected-block", type=int, action="append", help="expected zero-based 4 KiB block; repeat as needed")
+    parser.add_argument("--download-plan", type=Path,
+                        help="registered source-to-target block plan from firmware_download_plan.py")
     parser.add_argument("--flash-trace", type=Path, help="guest-issued NOR operation JSONL from the transfer run")
     parser.add_argument("--post-restart-flash", type=Path,
                         help="saved program_flash after a separate post-update restart")
@@ -192,8 +225,10 @@ def main():
     parser.add_argument("--post-restart-events", type=Path, help="action events from the post-update restart")
     parser.add_argument("--post-restart-keypad-trace", type=Path,
                         help="firmware-visible keypad JSONL from the post-update restart")
-    parser.add_argument("--reported-version-evidence", type=Path,
-                        help="production CoinLine version observation JSON")
+    parser.add_argument("--production-job-evidence", type=Path,
+                        help="production CoinLine completed-job JSON")
+    parser.add_argument("--post-restart-vfd-snapshots", type=Path,
+                        help="native VFD JSONL containing the target version banner")
     parser.add_argument("--expected-firmware-id", help="registered target identifier")
     parser.add_argument("--expected-version", help="version expected from the registered target")
     parser.add_argument("--output", type=Path, required=True, help="new JSON evidence report")
@@ -202,18 +237,33 @@ def main():
     initial = persisted(args.before, digest(seed)) if args.before else seed
     final = persisted(args.after, digest(seed))
     expected = image(args.expected_image) if args.expected_image else None
+    plan = json.loads(args.download_plan.read_text(encoding="utf-8")) if args.download_plan else None
+    requested_blocks = plan.get("requested_blocks") if plan else args.expected_block
+    if plan:
+        if expected is None:
+            parser.error("--download-plan requires --expected-image")
+        if plan.get("kind") != "registered-image-delta":
+            parser.error("--download-plan is not a registered image delta")
+        if plan.get("source_sha256") != digest(initial) or plan.get("target_sha256") != digest(expected):
+            parser.error("--download-plan source or target digest does not match the supplied images")
     flash = flash_trace_qualification(args.flash_trace, [index for index in range(BLOCK_COUNT)
                                       if block(initial, index) != block(final, index)]) if args.flash_trace else None
     restarted = persisted(args.post_restart_flash, digest(seed)) if args.post_restart_flash else None
     boot_ready = boot_qualification(args.post_restart_boot_trace) if args.post_restart_boot_trace else False
     receiver_ready = receiver_qualification(args.post_restart_events, args.post_restart_keypad_trace) \
         if args.post_restart_events and args.post_restart_keypad_trace else False
-    version = reported_version_qualification(args.reported_version_evidence,
-                                              args.expected_firmware_id, args.expected_version) \
-        if (args.reported_version_evidence and args.expected_firmware_id and args.expected_version) else None
-    report = summarize(seed, initial, final, expected, args.expected_block,
+    production = production_job_qualification(args.production_job_evidence,
+                                               args.expected_firmware_id, digest(expected), requested_blocks) \
+        if (args.production_job_evidence and args.expected_firmware_id and expected is not None
+            and requested_blocks) else None
+    version = version_display_qualification(args.post_restart_vfd_snapshots, args.expected_version) \
+        if args.post_restart_vfd_snapshots and args.expected_version else None
+    report = summarize(seed, initial, final, expected, requested_blocks,
                        flash_trace=flash, post_restart=restarted, boot_ready=boot_ready,
-                       receiver_ready=receiver_ready, reported_version=version)
+                       receiver_ready=receiver_ready, production_job=production,
+                       version_display=version)
+    if plan and report["expected"] and plan.get("expected_active_sha256") != report["expected"]["expected_active_sha256"]:
+        parser.error("--download-plan expected active digest does not match the evidence calculation")
     # Do not overwrite earlier evidence or any input file.
     with args.output.open("x", encoding="utf-8") as output:
         json.dump(report, output, indent=2)

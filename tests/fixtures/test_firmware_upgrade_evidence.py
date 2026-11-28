@@ -8,8 +8,9 @@ ACCEPTANCE = Path(__file__).resolve().parents[2] / "tools/acceptance"
 sys.path.insert(0, str(ACCEPTANCE))
 from firmware_upgrade_evidence import (BLOCK_BYTES, IMAGE_BYTES, boot_qualification, digest,
                                        flash_trace_qualification, persisted,
-                                       receiver_qualification,
-                                       reported_version_qualification, summarize)
+                                       production_job_qualification, receiver_qualification,
+                                       summarize, version_display_qualification)
+from firmware_download_plan import firmware_applied_target
 from run import normalize_manager_settings, validate_data_routes
 
 
@@ -55,6 +56,7 @@ def test_complete_qualification_requires_raw_flash_restart_service_and_version(t
     target = bytearray(seed)
     target[BLOCK_BYTES + 1] = 3
     target = bytes(target)
+    active = firmware_applied_target(seed, target, [1])
     trace = tmp_path / "flash.jsonl"
     trace.write_text("\n".join((
         '{"event":"erase_begin","block_4k":1}',
@@ -65,15 +67,16 @@ def test_complete_qualification_requires_raw_flash_restart_service_and_version(t
     )) + "\n", encoding="utf-8")
     flash = flash_trace_qualification(trace, [1])
     assert flash["qualified"]
-    reported = {"source": "coinline-production", "firmware_id": "target", "version": "2.0",
-                "qualified": True}
-    report = summarize(seed, seed, target, target, flash_trace=flash,
-                       post_restart=target, boot_ready=True, receiver_ready=True,
-                       reported_version=reported)
+    production = {"source": "coinline-production", "qualified": True}
+    version = {"expected_version": "target 2.0", "qualified": True}
+    report = summarize(seed, seed, active, target, [1], flash_trace=flash,
+                       post_restart=active, boot_ready=True, receiver_ready=True,
+                       production_job=production, version_display=version)
     assert report["service_and_restart_qualified"]
     assert report["qualified"]
-    missing_version = summarize(seed, seed, target, target, flash_trace=flash,
-                                post_restart=target, boot_ready=True, receiver_ready=True)
+    missing_version = summarize(seed, seed, active, target, [1], flash_trace=flash,
+                                post_restart=active, boot_ready=True, receiver_ready=True,
+                                production_job=production)
     assert not missing_version["qualified"]
 
 
@@ -86,13 +89,20 @@ def test_raw_post_restart_observation_parsers(tmp_path):
     keypad = tmp_path / "keypad.jsonl"
     keypad.write_text('{"event":"tp_key_event_reported_to_cp","reason":"line_connection"}\n',
                       encoding="utf-8")
-    version = tmp_path / "version.json"
-    version.write_text('{"source":"coinline-production","firmware_id":"target","version":"2.0"}\n',
-                       encoding="utf-8")
+    production = tmp_path / "production.json"
+    production.write_text('{"source":"coinline-production","phase":"code-server-transfer-complete",'
+                          '"success":true,"firmware_id":"target","artifactSha256":"abc",'
+                          '"requestedBlocks":[1],"deliveredBlocks":[1],"xmodemPackets":5}\n',
+                          encoding="utf-8")
+    snapshots = tmp_path / "vfd.jsonl"
+    snapshots.write_text('{"text":["target 2.0          ","                    "]}\n',
+                         encoding="utf-8")
     assert boot_qualification(boot)
     assert receiver_qualification(events, keypad)
-    assert reported_version_qualification(version, "target", "2.0")["qualified"]
-    assert not reported_version_qualification(version, "target", "2.1")["qualified"]
+    assert production_job_qualification(production, "target", "abc", [1])["qualified"]
+    assert not production_job_qualification(production, "target", "def", [1])["qualified"]
+    assert version_display_qualification(snapshots, "target 2.0")["qualified"]
+    assert not version_display_qualification(snapshots, "target 2.1")["qualified"]
 
 
 @pytest.mark.parametrize("settings", [
