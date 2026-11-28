@@ -13,7 +13,7 @@ import socket
 import subprocess
 import sys
 
-from hardware import PRESETS, select_hardware
+from hardware import COIN_VALIDATOR_PROFILES, PRESETS, coin_profile_board, select_hardware
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -377,6 +377,10 @@ def prepare_hardware(args, config):
 def run(args, config, hardware):
     state, rompath, hardware_env, description = hardware
     graphical = hardware_env["COINLINE_BOARD"].endswith("board-profile-11line-vfd.json")
+    calibration = (getattr(args, "coin_validator", None)
+                   or config["hardware"].get("coin_validator", "board-default")).strip()
+    if calibration not in COIN_VALIDATOR_PROFILES:
+        raise ValueError("Set coin_validator to board-default, three-slot or regional-nine under [hardware].")
     resolution, maximize = window_settings(args, config)
     buffer_ms, max_skip, priority = performance_settings(args, config)
     port = config["line"].getint("ncc_port", 4000)
@@ -415,12 +419,15 @@ def run(args, config, hardware):
     run_dir = state / "logs" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     for path in (run_dir, state / "nvram", state / "cfg"):
         path.mkdir(parents=True, exist_ok=True)
+    board = coin_profile_board(hardware_env["COINLINE_BOARD"], calibration,
+                               run_dir / "coin-validator-board.json")
 
     # Keep inherited workspace overrides from selecting a different board or battery image.
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("COINLINE_")}
     env.update({
         "COINLINE_EMU_ROOT": str(ROOT),
         **hardware_env,
+        "COINLINE_BOARD": str(board),
         "COINLINE_TP_BACKEND": "pcd3349a",
         "COINLINE_TP8048_ROM": str(ROOT / "firmware/tp_pcd3349a_behavioural.rom"),
         "COINLINE_MAG_CARD": str(mag_card),
@@ -505,6 +512,8 @@ def main():
     parser.add_argument("profile", choices=tuple(PROFILES))
     parser.add_argument("--hardware", choices=("auto", *PRESETS), help="select hardware by program tag or override it")
     parser.add_argument("--display", choices=("auto", "2line", "11line"), help="select the display board or use the verified registry")
+    parser.add_argument("--coin-validator", choices=tuple(COIN_VALIDATOR_PROFILES),
+                        help="select the physical coin validator's calibrated slot layout")
     parser.add_argument("--firmware", type=Path, help="single program image or first half of split flash")
     parser.add_argument("--flash1", type=Path, help="second half of split flash")
     parser.add_argument("--rompath", type=Path, help="directory containing cl_millennium/ Voiceware images")

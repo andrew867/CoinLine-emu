@@ -64,6 +64,28 @@ reads all 39 bytes across chained T=1 blocks, rejects an update command,
 and verifies that the separate ledger remains unchanged. This is a contact
 transport qualification only, not terminal payment acceptance.
 
+### Stored-value demonstration and native acceptance
+
+The Millennium craft interface manual (P0883893, Issue 00.01, printed pages
+4-10 through 4-12) describes the user-visible stored-value behavior. The
+terminal displays remaining value when it accepts the card, prompts for a
+number if one has not been dialed, and displays the initial and subsequent
+rates for a metered call. A flat-rate call has no countdown. On hangup or
+Next Call the terminal briefly shows the remaining value and prompts for
+card removal when appropriate. Empty cards and interrupted calls are also
+part of native qualification.
+
+For an independent ledger demonstration, seed three distinct nonredeemable
+fixtures: 50, 500 and zero minor LAB units. The 50-unit fixture can represent
+two simulated quarter-priced local calls. Reserve and complete each
+25-unit simulated spend once; verify 50, 25 and zero remaining units, and
+reject a third spend. Export new immutable read-only contact snapshots to
+observe current lab balances without changing the ledger. The generic
+contact transport and these accounting outcomes do not establish native
+GPM103 payment application compatibility. A native balance-display test
+must use an authorized reference card and its legitimate test profile, and
+observe the actual terminal display, call result and reconciled records.
+
 The [machine-readable vectors](../fixtures/cards/lab-purse-vectors.json)
 cover balance, reservation, completion, event idempotency, cancellation,
 reload limit, uncertain restart, inactive/empty fixtures, invalid input,

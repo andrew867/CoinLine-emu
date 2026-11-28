@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 from run import ROOT, central_office, normalize_manager_settings, port, validate_data_routes
-from hardware import PRESETS, program_tag, select_hardware
+from hardware import COIN_VALIDATOR_PROFILES, PRESETS, coin_profile_board, program_tag, select_hardware
 
 
 def main():
@@ -22,6 +22,8 @@ def main():
     parser.add_argument("--firmware", type=Path, required=True)
     parser.add_argument("--hardware", choices=("auto", *PRESETS), default="auto")
     parser.add_argument("--display", choices=("11line", "2line"), default="11line")
+    parser.add_argument("--coin-validator", choices=tuple(COIN_VALIDATOR_PROFILES), default="board-default",
+                        help="select a physical validator calibration independently of downloaded tables")
     parser.add_argument("--settings", type=Path, help="local lab settings, kept out of reports")
     parser.add_argument("--actions", type=Path, help="initial local physical-input command file, copied into the isolated run")
     parser.add_argument("--battery", type=Path, help="previous run's complete nvram directory")
@@ -131,7 +133,7 @@ def main():
     (out / "fixtures/firmware/firmware-hashes.json").write_text(json.dumps({"entries": [entry]}))
     (out / "input.json").write_text(json.dumps({"sha256": digest, "size": len(image),
         "firmware_id": firmware_id, "program_tag_version": tag_version,
-        "display": args.display, "hardware": preset,
+        "display": args.display, "hardware": preset, "coin_validator": args.coin_validator,
         "mag_card_sha256": hashlib.sha256(args.mag_card.read_bytes()).hexdigest(),
         "smart_card_sha256": hashlib.sha256(args.smart_card.read_bytes()).hexdigest()}, indent=2))
     if args.battery:
@@ -146,9 +148,11 @@ def main():
     else:
         commands.touch()
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("COINLINE_")}
+    board = coin_profile_board(ROOT / f"fixtures/board/board-profile-{args.display}-vfd.json",
+                               args.coin_validator, out / "coin-validator-board.json")
     env.update(COINLINE_EMU_ROOT=str(out), COINLINE_MOTHERBOARD="later",
                COINLINE_HARDWARE_PRESET=preset, COINLINE_CARD_DMA_CHANNEL=str(PRESETS[preset].card_dma_channel),
-               COINLINE_BOARD=str(ROOT / f"fixtures/board/board-profile-{args.display}-vfd.json"),
+               COINLINE_BOARD=str(board),
                COINLINE_FIRMWARE=str(seed), COINLINE_TP_BACKEND="pcd3349a",
                COINLINE_TP8048_ROM=str(args.controller.resolve()),
                COINLINE_MAG_CARD=str(args.mag_card.resolve()),
