@@ -162,6 +162,7 @@ void millennium_modem_model::reset()
 	m_in_clean_connect_replay = false;
 	m_dialed.clear();
 	m_last_digit_sec = -1.0;
+	m_dial_trace_complete = false;
 	m_ncc_up = false;
 	m_ncc_connected_this_dial = false;
 	m_ncc_retry_after = 0.0;
@@ -642,6 +643,7 @@ void millennium_modem_model::note_modem_relay(bool r1_active, double now_sec)
 	m_r1 = r1_active;
 	m_dialed.clear();
 	m_last_digit_sec = -1.0;
+	m_dial_trace_complete = false;
 	m_ncc_connected_this_dial = false;
 	m_ncc_retry_after = 0.0;
 	m_dcd = false;
@@ -756,6 +758,7 @@ void millennium_modem_model::note_outpulse_digit(char digit, double now_sec)
 	if (!m_r1 || !((digit >= '0' && digit <= '9') || digit == '#' || digit == '*'))
 		return;
 	m_last_digit_sec = now_sec;
+	m_dial_trace_complete = false;
 	m_cp = cp_phase::post_dial;
 	refresh_detect_register();
 	if (m_state == millennium_modem_state::idle)
@@ -911,6 +914,12 @@ void millennium_modem_model::poll_ncc_link(double now_sec)
 	if (m_call_trace)
 		m_call_trace_poll_sec = now_sec;
 	poll_call_progress(now_sec);
+	if (m_r1 && !m_dial_trace_complete && m_last_digit_sec >= 0.0
+		&& (now_sec - m_last_digit_sec) >= 1.2) {
+		m_dial_trace_complete = true;
+		std::fprintf(stderr, "modem dial complete digits=%s count=%zu\n",
+			m_dialed.c_str(), m_dialed.size());
+	}
 	if (m_r1 && !m_ncc_up && !m_ncc_connected_this_dial && now_sec >= m_ncc_retry_after
 		&& m_last_digit_sec >= 0.0 && (now_sec - m_last_digit_sec) >= 1.2
 		&& m_dialed.size() == 10)
