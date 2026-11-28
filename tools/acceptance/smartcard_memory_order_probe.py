@@ -173,7 +173,7 @@ def main():
     parser.add_argument("--gpm103-contact", action="store_true",
                         help="qualify the bounded, non-payment EEPROM contact fixture and persistent writes")
     parser.add_argument("--gpm103-lab", action="store_true",
-                        help="check exact readback of the frozen 13-byte lab fixture only")
+                        help="check exact readback of the frozen 13-byte lab fixture (programming may be enabled)")
     parser.add_argument("--13-byte-bench", dest="short_contact_bench", action="store_true",
                         help="qualify the independent 13-byte non-payment contact fixture and persistent writes")
     parser.add_argument("--shadybucks-contact", action="store_true",
@@ -201,9 +201,16 @@ def main():
     fixture_data = json.loads(fixture.read_text(encoding="utf-8"))
     expected = fixture_data["memory_hex"]
     if args.gpm103_lab:
-        if (fixture_data.get("protocol") != "sync" or fixture_data.get("sync_program_enabled") or
+        # Default lab contact may enable counter-region programming; this probe
+        # still only asserts exact virgin readback via COINLINE_SYNC_READBACK_ONLY.
+        if (fixture_data.get("protocol") != "sync" or
                 bytes.fromhex(expected) != bytes.fromhex(GPM103_LAB_READBACK_HEX)):
-            raise ValueError("Lab fixture does not match the frozen read-only contact image")
+            raise ValueError("Lab fixture does not match the frozen contact image")
+        if fixture_data.get("sync_program_enabled"):
+            if (fixture_data.get("sync_program_first_bit") != 64 or
+                    fixture_data.get("sync_program_end_bit") != 104 or
+                    fixture_data.get("sync_program_us") != 10000):
+                raise ValueError("Lab fixture programming window must be bits 64..104 @ 10000 us")
         expected = GPM103_LAB_READBACK_HEX
     for board in ("earlier", "later"):
         out = root / board
