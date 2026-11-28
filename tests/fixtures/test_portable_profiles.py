@@ -62,12 +62,17 @@ def test_portable_staging_includes_wallet_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(packer, "copy_file", lambda source, destination: staged.add(destination.relative_to(tmp_path).as_posix()))
     packer.stage_files(tmp_path, tmp_path, None, None, True)
     assert {"fixtures/cards/magcard-valid.json", launcher.MAG_NEGATIVE_FIXTURE,
-            launcher.SYNC_CONTACT_FIXTURE, launcher.ASYNC_CONTACT_FIXTURE,
+            launcher.SYNC_CONTACT_FIXTURE, launcher.SYNC_TRANSPORT_FIXTURE,
+            launcher.ASYNC_CONTACT_FIXTURE,
             "fixtures/cards/smartcard-sync-address-test.json", "fixtures/cards/smartcard-sync-gpm103-contact.json",
             "fixtures/cards/smartcard-sync-13byte-bench.json", "fixtures/cards/smartcard-sync-gpm103-lab.json",
             *launcher.LAB_PURSE_CONTACT_FIXTURES} <= staged
     assert {f"fixtures/cards/smartcard-async-lab-purse-{name}.json" for name in ("50", "500", "empty")} <= staged
     assert {"app/shadybucks.py", "fixtures/cards/shadybucks-lab-product.json"} <= staged
+    assert {"fixtures/tables/gpm103-lab/manifest.json",
+            "fixtures/tables/gpm103-lab/mt093.bin",
+            "fixtures/tables/gpm103-lab/mt134.bin",
+            "fixtures/tables/gpm103-lab/README.md"} <= staged
 
 
 def test_13_byte_contact_fixture_geometry():
@@ -93,20 +98,24 @@ def test_gpm103_lab_readback_fixture():
     assert fixture["atr_hex"] == "00"
     assert fixture["memory_hex"] == "00286F00000001B978FFFFFFFF"
     assert len(bytes.fromhex(fixture["memory_hex"])) == 13
-    assert not fixture.get("sync_program_enabled", False)
+    assert fixture["sync_program_enabled"] is True
+    assert fixture["sync_program_first_bit"] == 64
+    assert fixture["sync_program_end_bit"] == 104
+    assert fixture["sync_program_us"] == 10000
 
 
 def test_bundled_lab_snapshots_in_untouched_card_wallet(tmp_path, monkeypatch):
     monkeypatch.setattr(launcher, "ROOT", tmp_path)
     names = ("fixtures/cards/magcard-valid.json", launcher.SYNC_CONTACT_FIXTURE,
-             launcher.ASYNC_CONTACT_FIXTURE, *launcher.LAB_PURSE_CONTACT_FIXTURES)
+             launcher.ASYNC_CONTACT_FIXTURE, launcher.SYNC_TRANSPORT_FIXTURE,
+             *launcher.LAB_PURSE_CONTACT_FIXTURES)
     for name in names:
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{}", encoding="utf-8")
     mag, smart = tmp_path / names[0], tmp_path / names[1]
     defaults = launcher.extra_card_environment({}, mag, smart)
-    assert [defaults[f"COINLINE_SMART_CARD_{i}"] for i in range(2, 6)] == [str(tmp_path / x) for x in names[2:]]
+    assert [defaults[f"COINLINE_SMART_CARD_{i}"] for i in range(2, 7)] == [str(tmp_path / x) for x in names[2:]]
     explicit = launcher.extra_card_environment({"smart_fixture_2": launcher.ASYNC_CONTACT_FIXTURE}, mag, smart)
     assert set(explicit) == {"COINLINE_SMART_CARD_2"}
     assert launcher.extra_card_environment({"smart_fixture_2": ""}, mag, smart) == {}

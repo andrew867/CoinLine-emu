@@ -116,17 +116,24 @@ out-of-range reads, bounded programming, removal during programming and
 persistence on reinsertion and restart, independently of the 16-byte bench.
 These checks do not qualify an application or payment path.
 
-### GPM103 lab image readback
+### GPM103 lab image (default customer contact)
 
-`fixtures/cards/smartcard-sync-gpm103-lab.json` is a separate, read-only
-13-byte frozen lab image. It is included in the portable package and does
-not replace the GPM103-family contact bench or the independent 13-byte bench.
+`fixtures/cards/smartcard-sync-gpm103-lab.json` is the **packaged default**
+customer sync fixture for OEM and graphical launchers. It is the frozen
+13-byte lab application image (`memory_hex`
+`00286F00000001B978FFFFFFFF`) with one-way programming enabled on the
+counter region (bits 64–104). The GPM103-family 16-byte contact bench and
+the independent 13-byte geometry bench remain available for transport
+regressions and are not replaced.
+
+Matching download tables live in `fixtures/tables/gpm103-lab/` (MT93+MT134
+for later/graphical, or MT22+MT93 for earlier). The emulator does not inject
+those bins into terminal EEPROM; assign and INSTALL them through CoinLine.
+
 Run `tools/acceptance/smartcard_memory_order_probe.py --gpm103-lab` with
-`--mame` pointing to the native executable. The probe compares the complete
-13-byte synchronous contact readback with the fixed fixture bytes on both
-board mappings. It performs no programming or application-path checks.
-This qualifies lab fixture readback only; OEM table acceptance and any
-application-path or commercial interoperability remain unqualified.
+`--mame` pointing to the native executable for exact readback on both board
+mappings. A successful contact readback is not OEM application acceptance;
+that still requires the matching tables on the phone.
 
 The asynchronous socket uses generated card clock, supply latch and reset
 selection. Direct and inverse ATR convention, T=0 procedure bytes, T=1

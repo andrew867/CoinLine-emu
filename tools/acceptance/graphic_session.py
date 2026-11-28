@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--rompath", type=Path, default=ROOT / "build/package-inputs/local/roms")
     parser.add_argument("--controller", type=Path, default=ROOT / "firmware/tp_pcd3349a_behavioural.rom")
     parser.add_argument("--mag-card", type=Path, default=ROOT / "fixtures/cards/magcard-valid.json")
-    parser.add_argument("--smart-card", type=Path, default=ROOT / "fixtures/cards/smartcard-sync-test.json")
+    parser.add_argument("--smart-card", type=Path, default=ROOT / "fixtures/cards/smartcard-sync-gpm103-lab.json")
     parser.add_argument("--output", type=Path, default=ROOT / "build/firmware-acceptance/graphic-firmware")
     parser.add_argument("--seconds", type=int, default=1800)
     parser.add_argument("--open", action="store_true", help="start with the cabinet unlocked and open")
